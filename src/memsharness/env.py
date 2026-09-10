@@ -47,6 +47,7 @@ INTERESTING_MODULE_DOCS = (
 )
 
 REPORT_RELATIVE = Path("reports") / "env_report.json"
+CAPABILITY_RELATIVE = Path("reports") / "capability_matrix.json"
 
 
 def _run(cmd: list[str], timeout: int = 30) -> tuple[int, str, str]:
@@ -176,22 +177,59 @@ def load_report(path: Path | None = None) -> dict | None:
 
 
 def capability_matrix(report: dict | None = None) -> dict:
-    """生成模块能力表骨架。
+    """生成模块能力表：合并「文档存在」（实测）与「求解已验证」（来自真实冒烟）。
 
-    ``documented`` 来自文档目录（实测）；``solve_verified`` 必须由真实求解冒烟确认，
-    在未确认前一律为 ``None``，不得写成 ``True``（AGENTS.md 红线 1/3）。
+    ``documented`` 来自文档目录（实测）；``solve_verified`` 只有真实求解冒烟才能回填，
+    未回填前一律为 ``None``，不得写成 ``True``（AGENTS.md 红线 1/3）。
     """
     report = report or load_report() or collect_env()
+    recorded = load_capability_matrix() or {}
+    recorded_modules = recorded.get("modules", {})
+
+    modules: dict[str, dict] = {}
+    for name, present in report["comsol"]["documented_modules"].items():
+        entry = recorded_modules.get(name, {})
+        modules[name] = {
+            "documented": present,
+            "solve_verified": entry.get("solve_verified"),
+            "evidence": entry.get("evidence"),
+        }
+    # 允许记录文件中出现文档目录之外的模块（例如靠 license 冒烟确认的产品）
+    for name, entry in recorded_modules.items():
+        modules.setdefault(name, {"documented": None, **entry})
+
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "comsol_version": report["comsol"]["version"],
         "mphserver_listening": report["mphserver"]["listening"],
-        "note": "documented=文档存在(实测)；solve_verified=真实求解确认，需 P0 逐模块冒烟后回填",
-        "modules": {
-            name: {"documented": present, "solve_verified": None}
-            for name, present in report["comsol"]["documented_modules"].items()
-        },
+        "note": (
+            "documented=文档存在(实测)；solve_verified=真实求解确认，"
+            "需逐模块冒烟后由 scripts 回填，未回填为 null"
+        ),
+        "matrix_source": str(capability_path()) if recorded else None,
+        "modules": modules,
     }
+
+
+def capability_path() -> Path:
+    """模块能力表文件的规范位置。"""
+    return work_root() / CAPABILITY_RELATIVE
+
+
+def load_capability_matrix(path: Path | None = None) -> dict | None:
+    """读取已记录的求解能力表；不存在时返回 None。"""
+    target = path or capability_path()
+    if not target.exists():
+        return None
+    return json.loads(target.read_text(encoding="utf-8"))
+
+
+def save_capability_matrix(matrix: dict, path: Path | None = None) -> Path:
+    """把求解能力表落盘（供 MCP 的 module_capability 读取）。"""
+    target = path or capability_path()
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(matrix, ensure_ascii=False, indent=2), encoding="utf-8")
+    return target
 
 
 def render_summary(report: dict) -> str:

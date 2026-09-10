@@ -511,7 +511,7 @@ calibrated_to_experiment → (人工评审 + L5 证据) → approved_for_use
 | COMSOL 环境冒烟 | ✅ | `scripts\smoke_comsol.py` → COMSOL **6.4.0.293**、6/6 可执行文件、授权文件齐备、MATLAB R2025b + LiveLink 存在、**mphserver 在 127.0.0.1:2036 监听**、8 个相关模块文档齐备；报告落在 `work\reports\env_report.json` |
 | 元数据库与数据契约 | ✅ | `src\memsharness\store.py`：12 张表；`insert_sample` 拒绝非法 `source_type` 与空样本；查询强制行数上限 |
 | 模型层（不确定度 + 防泄漏切分） | ✅ | `src\memsharness\ml\surrogate.py` + `scripts\train_surrogate.py`：合成关系 y=2x+1 上 R²=0.9988；分组切分断言「同族几何不跨训练/测试集」；小样本与未校准区间被显式警告；新模型状态固定 `draft` |
-| MCP 接入 DSH | ✅ 链路已验证 / ⏳ GUI 待重启 | 补丁写入 `~\.dsh\profiles\web\cordis.patch.yml`；`--dump-config` 组装通过；**headless 端到端调用 `mcp__mems__ping` 成功**（`version=0.0.1`、`store_tables=12`） |
+| MCP 接入 DSH | ✅ 链路已验证 / ⏳ GUI 待重启 | 补丁写入 `~\.dsh\profiles\web\cordis.patch.yml`；`--dump-config` 组装通过；**headless 端到端验证 6 个工具中的 4 个**：`env_report` 返回 6.4.0.293 与 mphserver 监听=True、`module_capability` 的 `solve_verified` 全为 `null`（未验证就不冒充已验证）、`data_stats` 返回 12 张表、`records(table="sqlite_master")` 被白名单正确拒绝 |
 | 测试 | ✅ | `14 passed`（`tests\test_p0_foundation.py`、`tests\test_ml_pipeline.py`） |
 | 技能库（首批 3 个） | 🔄 | `comsol-modeling-sop` 已在会话技能目录中生效；`dataset-contract`、`report-and-evidence` 与 `docs\skills_enablement.md` 撰写中 |
 | COMSOL 参数扫描队列 + 真实数据入库 | 🔄 | 进行中：`src\memsharness\comsol\`（后端抽象 / 文件队列 / 单实例锁 / 失败分类 / Java API 模型）+ `scripts\run_sweep.py`，目标 ≥8 点真实求解入库 |

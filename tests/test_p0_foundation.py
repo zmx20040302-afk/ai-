@@ -52,6 +52,34 @@ def test_capability_matrix_never_claims_solve_verified() -> None:
     ), "未验证的模块被标成了已验证"
 
 
+def test_capability_matrix_reads_recorded_evidence(monkeypatch) -> None:
+    """真实求解冒烟写入的能力表必须被读取，且只影响被记录的模块。"""
+    import uuid
+
+    from memsharness.paths import work_root
+
+    root = work_root() / ".test-tmp" / uuid.uuid4().hex
+    root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("MEMS_WORK_ROOT", str(root))
+
+    env_mod.save_capability_matrix(
+        {
+            "modules": {
+                "MEMS_Module": {
+                    "solve_verified": True,
+                    "evidence": {"run_id": "run-smoke-1"},
+                }
+            }
+        }
+    )
+    matrix = env_mod.capability_matrix()
+    assert matrix["modules"]["MEMS_Module"]["solve_verified"] is True
+    assert matrix["modules"]["MEMS_Module"]["evidence"]["run_id"] == "run-smoke-1"
+    # 未记录的模块仍必须是 null，不能被"顺带"标成已验证
+    assert matrix["modules"]["RF_Module"]["solve_verified"] is None
+    assert matrix["matrix_source"] is not None
+
+
 # ---------------- 元数据库契约 ----------------
 
 @pytest.fixture()
@@ -129,6 +157,44 @@ def test_run_and_sample_round_trip(conn) -> None:
     rows = store.query(conn, "SELECT * FROM sample WHERE run_id = ?", ["r1"])
     assert rows[0]["source_type"] == "simulation"
     assert rows[0]["fidelity"] == "F2"
+
+
+def test_sample_requires_traceability_per_source(conn) -> None:
+    """红线 1 的可执行化：不同来源必须带各自的溯源 ID，缺一不可。"""
+    with pytest.raises(ValueError, match="run_id"):
+        store.insert_sample(
+            conn, sample_id="t1", source_type="simulation",
+            inputs={"x": 1.0}, outputs={"y": 1.0}, extractor="e@1",
+        )
+    with pytest.raises(ValueError, match="evidence_id"):
+        store.insert_sample(
+            conn, sample_id="t2", source_type="literature",
+            inputs={"x": 1.0}, outputs={"y": 1.0}, extractor="e@1",
+        )
+    with pytest.raises(ValueError, match="experiment_id"):
+        store.insert_sample(
+            conn, sample_id="t3", source_type="experiment",
+            inputs={"x": 1.0}, outputs={"y": 1.0}, extractor="e@1",
+        )
+    with pytest.raises(ValueError, match="feedback_id"):
+        store.insert_sample(
+            conn, sample_id="t4", source_type="human_feedback",
+            inputs={"x": 1.0}, outputs={"y": 1.0}, extractor="e@1",
+        )
+    # analytic 来自公式而非运行/实验，不要求运行类 ID，但 extractor 必填
+    store.insert_sample(
+        conn, sample_id="t5", source_type="analytic",
+        inputs={"x": 1.0}, outputs={"y": 2.0}, extractor="closed_form@0.1",
+    )
+
+
+def test_sample_requires_extractor(conn) -> None:
+    """抽取器版本缺失则无法追溯抽取逻辑，必须拒绝。"""
+    with pytest.raises(ValueError, match="extractor"):
+        store.insert_sample(
+            conn, sample_id="t6", source_type="analytic",
+            inputs={"x": 1.0}, outputs={"y": 2.0},
+        )
 
 
 # ---------------- MCP 工具 ----------------

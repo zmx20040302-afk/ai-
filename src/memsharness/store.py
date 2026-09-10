@@ -23,6 +23,16 @@ from .paths import db_path, ensure_work_tree
 # 允许的 sample 来源类型（红线 4：来源永不混同）
 SOURCE_TYPES = ("simulation", "analytic", "literature", "experiment", "human_feedback")
 
+# 溯源链强制要求（红线 1：没有证据就不出数字）
+# analytic 来自公式与抽取器版本，不需要运行/实验 ID，但 extractor 必填（见 insert_sample）。
+REQUIRED_TRACEABILITY: dict[str, str | None] = {
+    "simulation": "run_id",
+    "literature": "evidence_id",
+    "experiment": "experiment_id",
+    "human_feedback": "feedback_id",
+    "analytic": None,
+}
+
 # 模型状态机（第 4.4 / 6.3 节）：晋升必须经人工门禁
 MODEL_STATES = (
     "draft",
@@ -79,8 +89,11 @@ SCHEMA_SQL: tuple[str, ...] = (
     """
     CREATE TABLE IF NOT EXISTS sample (
         sample_id    VARCHAR PRIMARY KEY,
-        run_id       VARCHAR,
+        run_id       VARCHAR,            -- simulation 的来源
         design_id    VARCHAR,
+        evidence_id  VARCHAR,            -- literature 的来源（必须带原文摘录）
+        experiment_id VARCHAR,           -- experiment 的来源
+        feedback_id  VARCHAR,            -- human_feedback 的来源
         fidelity     VARCHAR,            -- F0|F1|F2|F3
         source_type  VARCHAR NOT NULL,   -- SOURCE_TYPES 之一
         inputs       VARCHAR NOT NULL,   -- JSON
@@ -197,6 +210,14 @@ SCHEMA_SQL: tuple[str, ...] = (
     """,
 )
 
+# 旧库补齐（幂等）：``CREATE TABLE IF NOT EXISTS`` 不会给已存在的表加列，
+# 因此新增的溯源列必须显式 ALTER，否则老库上 insert_sample 会失败。
+MIGRATIONS: tuple[str, ...] = (
+    "ALTER TABLE sample ADD COLUMN IF NOT EXISTS evidence_id VARCHAR",
+    "ALTER TABLE sample ADD COLUMN IF NOT EXISTS experiment_id VARCHAR",
+    "ALTER TABLE sample ADD COLUMN IF NOT EXISTS feedback_id VARCHAR",
+)
+
 
 def connect(path: Path | str | None = None, read_only: bool = False) -> duckdb.DuckDBPyConnection:
     """连接元数据库；默认路径为 ``work/store/mems.duckdb``。"""
@@ -207,8 +228,10 @@ def connect(path: Path | str | None = None, read_only: bool = False) -> duckdb.D
 
 
 def init_schema(conn: duckdb.DuckDBPyConnection) -> list[str]:
-    """建立全部表结构（幂等）。"""
+    """建立全部表结构（幂等），并补齐旧库缺失的列。"""
     for statement in SCHEMA_SQL:
+        conn.execute(statement)
+    for statement in MIGRATIONS:
         conn.execute(statement)
     return list_tables(conn)
 
@@ -250,15 +273,33 @@ def insert_run(conn: duckdb.DuckDBPyConnection, **fields: Any) -> str:
 
 
 def insert_sample(conn: duckdb.DuckDBPyConnection, **fields: Any) -> str:
-    """写入一条样本；``source_type`` 必须合法，缺失即拒绝（红线 4）。"""
+    """写入一条样本。
+
+    强制三条契约（与 ``.dsh/skills/dataset-contract`` 一致）：
+    1. ``source_type`` 必须是五种之一（红线 4：来源永不混同）；
+    2. 该来源类型对应的溯源 ID 必须存在（红线 1：没有证据就不出数字）；
+    3. ``inputs`` 与 ``outputs`` 必须同时非空，且 ``extractor`` 必须能追溯版本。
+    """
     source_type = fields.get("source_type")
     if source_type not in SOURCE_TYPES:
         raise ValueError(f"source_type 必须是 {SOURCE_TYPES} 之一，收到: {source_type!r}")
+
+    required = REQUIRED_TRACEABILITY.get(source_type)
+    if required and not fields.get(required):
+        raise ValueError(
+            f"source_type={source_type!r} 的样本必须携带 {required}"
+            f"（红线：没有证据就不出数字；缺失溯源链的数值不得入库）"
+        )
+
     if not fields.get("inputs") or not fields.get("outputs"):
         raise ValueError("样本必须同时携带 inputs 与 outputs（禁止空样本入库）")
+    if not fields.get("extractor"):
+        raise ValueError("样本必须记录 extractor（抽取器名称+版本），否则无法追溯抽取逻辑")
+
     columns = (
-        "sample_id", "run_id", "design_id", "fidelity", "source_type",
-        "inputs", "outputs", "uncertainty", "extractor", "quality", "created_at",
+        "sample_id", "run_id", "design_id", "evidence_id", "experiment_id", "feedback_id",
+        "fidelity", "source_type", "inputs", "outputs", "uncertainty", "extractor",
+        "quality", "created_at",
     )
     payload = {key: fields.get(key) for key in columns}
     for json_key in ("inputs", "outputs", "uncertainty", "quality"):
