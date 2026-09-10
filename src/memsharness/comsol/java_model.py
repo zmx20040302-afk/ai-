@@ -85,6 +85,8 @@ class TemplateSpec:
     render: Callable[[dict[str, float]], str]
     analytic: Callable[[dict[str, float]], dict[str, float]]
     geometry_family: str
+    # 解析解对照的相对容差（L0 判据；二维默认 3%，见 WORKING_PLAN 6.1）
+    analytic_rtol: float = 0.03
     boundary_numbers: dict[str, int] = field(default_factory=dict)
 
     def param(self, name: str) -> ParamSpec:
@@ -239,10 +241,6 @@ public class @@CLASS@@ {
     return sb.toString();
   }
 
-  private static String fnum(double x) {
-    return num(x);
-  }
-
   public static void main(String[] args) {
     run();
     System.out.println("@@DONE_MARKER@@");
@@ -348,6 +346,7 @@ HEAT_SLAB_2D = TemplateSpec(
     render=render_heat_slab_2d,
     analytic=analytic_heat_slab_2d,
     geometry_family="GF-heat-slab-2d",
+    analytic_rtol=0.03,
     boundary_numbers={"temperature": 4, "heat_flux": 2},
 )
 

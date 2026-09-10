@@ -4,9 +4,11 @@
 
 ## 1. 项目定位
 
-把「人给一句需求」变成「平台自动跑 COMSOL → 生成/扩充数据 → 训练带不确定度的代理模型 → 用实验、文献、人反馈持续增强 → 输出可追溯结论」的闭环平台。
+把「人给一句需求」变成「平台自动跑 COMSOL → 生成/扩充数据 → 训练 AI 求解器与代理模型 → 用实验、文献、人反馈持续增强 → **最终在不调用 COMSOL 的前提下完成求解** → 输出可追溯、带误差界的结论」的闭环平台。
 
-完整设计见 `WORKING_PLAN.md`。当前阶段与验收标准以该文档第 7 节（P0–P7）为准。
+**终局形态（v0.2）**：COMSOL 的定位是**教师 + 验证器 + 兜底裁判**（生成高保真真值、做独立留出集验证、AI 超范围时回退），**日常求解由 AI 求解器完成**。
+
+完整设计见 `WORKING_PLAN.md`。当前阶段与验收标准以该文档第 7 节（P0–P7）为准；免求解器的指标与门禁见第 6.1.1 / 6.4 节。
 
 ## 2. 不可协商的红线
 
@@ -16,12 +18,15 @@
 4. **来源永不混同。** 仿真值、解析值、文献值、实验值、人反馈值在存储中带独立 `source_type` 与权重，任何统计、训练、报告都必须显式声明混用了哪些来源。
 5. **人保留放行权。** 模型状态从 `draft` 升到 `approved_for_use` 必须经人工门禁；智能体不得自行晋升模型状态，也不得把「待验证」描述为「已验证」。
 6. **历史 append-only。** 数据与结论的修正通过新增记录实现，不覆盖既有记录。
+7. **AI 求解器可以替代求解，但必须有界。** 免 COMSOL 出解必须同时具备三样东西：**场级误差界**、**S 级验证状态**（见 `WORKING_PLAN.md` 6.1.1 / 6.4）、**适用范围命中判定**。超出已声明范围 → **拒答并回退 COMSOL**，禁止无界外推；物理一致性检查（守恒/边界条件/对称性/极限一致性）不通过的解一律作废——**哪怕它与数据吻合**。AI 解不得伪装成 COMSOL 解，也不得声称「已验证等价于 COMSOL」。
+8. **AI 求解值是独立来源。** `source_type = 'ai_solver'`，与 `simulation` 严格区分，必须携带误差界与验证等级；不得与 COMSOL 结果混为同一来源做统计或训练。
 
 ## 3. 环境事实（P0 实测，勿凭印象改写）
 
 | 项 | 值 |
 |---|---|
 | 仓库根 | `D:\桌面\memsharness`（中文路径，可用） |
+| **ASCII 交汇点（重要）** | `C:\Users\18161\memsharness_work\repo` → junction 指向仓库根。**凡是要启动 JVM 或把路径交给 Java/COMSOL 的工具（MPh/JPype、任何 Java 客户端），必须经这个交汇点启动解释器**，否则中文路径会让 JPype 报 `java.lang.UnsatisfiedLinkError: D:\: Can't find dependent libraries`（实测）。例：`C:\Users\18161\memsharness_work\repo\work\.venv\Scripts\python.exe` |
 | 运行区 | 仓库内 `work\`（数据/模型/产物；已 gitignore） |
 | Python 环境 | `work\.venv\Scripts\python.exe`（用 `uv` 创建；**不要用 `python -m venv`**，中文路径下 `ensurepip` 会失败） |
 | COMSOL | `D:\COMSOL64\Multiphysics`（6.4） |
@@ -30,7 +35,7 @@
 | MATLAB | `D:\MATLAB2025\bin\matlab.exe`（R2025b）；LiveLink 路径 `D:\COMSOL64\Multiphysics\mli` |
 | DSH Web GUI | `http://127.0.0.1:3080`；profile 补丁层 `C:\Users\18161\.dsh\profiles\web\cordis.patch.yml` |
 | 既有原型（只读参考） | `D:\桌面\codex\comsol1`（执行队列、代理模型、案例知识库、1D 基准库） |
-| ASCII 逃生舱 | `C:\Users\18161\memsharness_work`（仅当某工具确实无法处理中文路径时使用，写入需人工授权） |
+| ASCII 逃生舱 | `C:\Users\18161\memsharness_work`：已建 `repo` junction 指向仓库根，作为所有 JVM/Java 相关工具的 ASCII 入口；另有 `D:\memsharness_work` 尝试失败记录（`D:\` 根目录受 ACL 拒绝） |
 
 ## 4. 执行约定
 

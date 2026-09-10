@@ -678,7 +678,7 @@ class JobQueue:
         analytic = template.analytic(params)
         comparison: dict[str, Any] = {}
         sim = outcome.result or {}
-        rtol = getattr(template, "analytic_rtol", 0.03)
+        rtol = template.analytic_rtol
         for name in template.outputs:
             sim_value = sim.get(name)
             ref_value = analytic.get(name)
@@ -752,28 +752,27 @@ class JobQueue:
         )
         logger(f"[{run_id}] 结束 status={final} exit_code={outcome.exit_code} wall={outcome.wall_seconds:.1f}s")
 
+        # 收尾事实落盘成 db_record.json：这样即使 worker 进程没有数据库连接
+        # （DuckDB 单写者，DB 写入集中在调用方进程），后续 ingest 也能原样补写 run 行。
+        record = self._build_db_record(job, template, outcome, status)
+        _json_dump(run_dir / "db_record.json", record)
         if self.conn is not None:
-            self._finalize_records(job, template, outcome, result_payload, status)
+            self._apply_db_record(self.conn, record)
         return status
 
-    def _finalize_records(
+    def _build_db_record(
         self,
         job: dict[str, Any],
         template: java_model.TemplateSpec,
         outcome: ExecutionOutcome,
-        result_payload: dict[str, Any],
         status: dict[str, Any],
-    ) -> None:
-        """把 run 的收尾事实写回数据库，并为产物建 artifact 记录。
-
-        注意：这里**只更新同一个 run 行的生命周期字段**（状态/退出码/耗时/诊断/哈希/设置），
-        不改写任何历史样本；样本与产物一律新增记录（红线 6）。
-        """
-        conn = self.conn
+    ) -> dict[str, Any]:
+        """构造要写回 ``run`` 表生命周期字段的载荷（不改写任何历史样本）。"""
         run_id = job["run_id"]
         run_dir = self.run_dir(run_id)
         java_path = run_dir / f"{template.java_class}.java"
-        model_sha = sha256_file(java_path)
+        facts = (outcome.result or {}).get("batchlog_facts") or {}
+        probe = ((job.get("environment_snapshot") or {}).get("probe") or {})
         settings = {
             "template": template.name,
             "template_title": template.title,
@@ -786,63 +785,96 @@ class JobQueue:
             "mesh": {
                 "hmax_mesh_m": job["params"].get("hmax_mesh"),
                 "type": "FreeTri（自由三角形）",
-                "elements": (outcome.result or {}).get("batchlog_facts", {}).get("elements"),
+                "elements": facts.get("elements"),
             },
             "boundary_numbers": template.boundary_numbers,
             "boundary_selection_verified_in_gui": False,
             "boundary_selection_note": (
-                "无人值守批处理，未在图形窗口核对选择集；正确性由解析解交叉验证（见 result.json.comparison）。"
+                "无人值守批处理，未在图形窗口核对选择集；正确性由解析解交叉验证"
+                "（见 result.json.comparison 与样本 quality.l0_analytic_check）。"
             ),
             "solver": "COMSOL 默认 Stationary 求解器（模板未覆写容差/线性求解器）",
             "timeout_seconds": job["timeout_seconds"],
-            "model_sha256_note": "model_sha256 = 生成的 Java 模型源码哈希（编译输入）；out.mph 哈希见 artifact。",
+            "model_sha256_note": (
+                "model_sha256 = 生成的 Java 模型源码哈希（编译输入）；out.mph 哈希见 artifact 表。"
+            ),
+            "matlab_used": False,
             "provenance_gaps": [
                 gap
                 for gap in (
-                    "网格单元数读不到" if (outcome.result or {}).get("batchlog_facts", {}).get("elements") is None else None,
-                    "求解器容差/线性求解器未覆写，沿用 COMSOL 默认值（未从日志读取）",
+                    "网格单元数未能从日志读到" if facts.get("elements") is None else None,
+                    "求解器容差/线性求解器未覆写，沿用 COMSOL 默认值（未从日志读取具体数值）",
                 )
                 if gap
             ],
         }
-        software = dict(outcome.software)
+        software = {
+            # 先把提交时刻的环境快照写进去（保证 COMSOL 版本/端口一定有记录，
+            # 不依赖后端是否回报），再用后端求解时实测到的值覆盖（更权威）。
+            "backend": job.get("backend"),
+            "pathway": job.get("pathway"),
+            "comsol_home": probe.get("comsol_home"),
+            "comsol_version": probe.get("comsol_version"),
+            "comsol_version_source": probe.get("comsol_version_source"),
+            "mphserver_host": probe.get("mphserver_host"),
+            "mphserver_port": probe.get("mphserver_port"),
+            "mphserver_listening_at_submit": probe.get("mphserver_listening"),
+            "matlab_used": False,
+            "extractor": java_model.EXTRACTOR_VERSION,
+            "env_snapshot_captured_at": (job.get("environment_snapshot") or {}).get("captured_at"),
+            **dict(outcome.software),
+        }
         software["status_at_finalize"] = status.get("status")
+        started_at = status.get("started_at")
+        return {
+            "run_id": run_id,
+            "status": status.get("status"),
+            "exit_code": status.get("exit_code"),
+            "diagnostic": status.get("diagnostic"),
+            "wall_seconds": status.get("wall_seconds"),
+            "started_at": started_at,
+            "model_path": str(java_path),
+            "model_sha256": sha256_file(java_path),
+            "software": software,
+            "settings": settings,
+            "finished_at": utcnow().isoformat(timespec="seconds"),
+        }
+
+    @staticmethod
+    def _apply_db_record(conn: Any, record: dict[str, Any]) -> None:
+        started = record.get("started_at")
+        started_dt = None
+        if isinstance(started, str):
+            try:
+                started_dt = datetime.fromisoformat(started)
+            except ValueError:
+                started_dt = None
+        finished = record.get("finished_at")
+        finished_dt = None
+        if isinstance(finished, str):
+            try:
+                finished_dt = datetime.fromisoformat(finished)
+            except ValueError:
+                finished_dt = None
         conn.execute(
             "UPDATE run SET status=?, exit_code=?, diagnostic=?, wall_seconds=?, model_path=?, "
-            "model_sha256=?, software=?, settings=?, finished_at=? WHERE run_id=?",
+            "model_sha256=?, software=?, settings=?, started_at=?, finished_at=? WHERE run_id=?",
             [
-                status.get("status"),
-                status.get("exit_code"),
-                json.dumps(status.get("diagnostic"), ensure_ascii=False) if status.get("diagnostic") else None,
-                status.get("wall_seconds"),
-                str(java_path),
-                model_sha,
-                json.dumps(software, ensure_ascii=False),
-                json.dumps(settings, ensure_ascii=False),
-                utcnow(),
-                run_id,
+                record.get("status"),
+                record.get("exit_code"),
+                json.dumps(record.get("diagnostic"), ensure_ascii=False)
+                if record.get("diagnostic")
+                else None,
+                record.get("wall_seconds"),
+                record.get("model_path"),
+                record.get("model_sha256"),
+                json.dumps(record.get("software"), ensure_ascii=False),
+                json.dumps(record.get("settings"), ensure_ascii=False),
+                started_dt,
+                finished_dt,
+                record["run_id"],
             ],
         )
-        # 产物：run 目录里所有实际存在的文件（含日志），逐个建 artifact 记录
-        for path in sorted(run_dir.rglob("*")):
-            if not path.is_file():
-                continue
-            if path.suffix in (".tmp",):
-                continue
-            kind = _artifact_kind(path)
-            conn.execute(
-                "INSERT INTO artifact (artifact_id, run_id, kind, sha256, path, bytes, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
-                [
-                    f"art-{run_id}-{path.name}",
-                    run_id,
-                    kind,
-                    sha256_file(path),
-                    str(path),
-                    path.stat().st_size,
-                    utcnow(),
-                ],
-            )
 
     def drain(
         self,
@@ -960,6 +992,7 @@ def ingest_run(
     extra_quality: dict[str, Any] | None = None,
     include_analytic_sample: bool = True,
     include_failed_sample: bool = True,
+    write_samples: bool = True,
 ) -> dict[str, Any]:
     """把一个已结束的 run 写成 ``sample``（+ 可选 ``analytic`` 对照样本）。
 
@@ -978,6 +1011,16 @@ def ingest_run(
     params = dict(job.get("params") or {})
     units = dict(job.get("param_units") or {})
     state = str(status.get("status"))
+    # append-only：同一 run 已入库则不再重复插入（修正应新增记录，而不是重写）
+    prior = store_mod.query(conn, "SELECT sample_id FROM sample WHERE run_id = ?", [run_id], limit=50)
+    if prior:
+        return {
+            "run_id": run_id,
+            "status": state,
+            "sample_ids": [row["sample_id"] for row in prior],
+            "already_ingested": True,
+            "note": "该 run 已有样本入库；append-only，不重复插入（红线 6）。",
+        }
     comparison = dict(result.get("comparison") or {})
     sim_result = dict(result.get("result") or {})
     analytic = dict(result.get("analytic") or {})
@@ -1007,7 +1050,7 @@ def ingest_run(
     }
 
     inserted: list[str] = []
-    if state == "succeeded":
+    if write_samples and state == "succeeded":
         outputs = {
             "T_max_K": sim_result.get("T_max_K"),
             "T_min_K": sim_result.get("T_min_K"),
@@ -1085,7 +1128,7 @@ def ingest_run(
                 },
             )
             inserted.append(analytic_sample_id)
-    elif include_failed_sample:
+    elif write_samples and include_failed_sample and state in ("failed", "cancelled"):
         # 负样本：输出显式写 null，并注明缺失原因；不得用 0 顶替
         sample_id = f"smpl-{run_id}-failed"
         store_mod.insert_sample(
@@ -1107,9 +1150,12 @@ def ingest_run(
         )
         inserted.append(sample_id)
 
-    artifacts = 0
-    for row in store_mod.query(conn, "SELECT artifact_id FROM artifact WHERE run_id = ?", [run_id], limit=1000):
-        artifacts += 1
+    artifacts = _record_run_artifacts(conn, run_id, queue.run_dir(run_id))
+    # 收尾事实（软件版本/耗时/退出码/哈希/设置）由 worker 写进 db_record.json，这里补写 run 行；
+    # 若 worker 进程已经写过（同进程队列），UPDATE 是幂等的，不会产生重复记录。
+    record = _json_load(queue.run_dir(run_id) / "db_record.json")
+    if record:
+        JobQueue._apply_db_record(conn, record)
     return {
         "run_id": run_id,
         "status": state,
@@ -1117,7 +1163,39 @@ def ingest_run(
         "design_id": design_id,
         "artifact_rows": artifacts,
         "l0_passed": l0["passed"],
+        "wall_seconds": status.get("wall_seconds"),
+        "exit_code": status.get("exit_code"),
+        "diagnostic": (status.get("diagnostic") or {}).get("code"),
     }
+
+
+def _record_run_artifacts(conn: Any, run_id: str, run_dir: Path) -> int:
+    """为 run 目录下所有实际存在的文件建 artifact 记录（幂等：已记录则跳过）。"""
+    existing = int(
+        conn.execute("SELECT count(*) FROM artifact WHERE run_id = ?", [run_id]).fetchone()[0]
+    )
+    if existing:
+        return existing
+    count = 0
+    for path in sorted(run_dir.rglob("*")):
+        if not path.is_file() or path.suffix == ".tmp":
+            continue
+        rel = path.relative_to(run_dir).as_posix().replace("/", "__")
+        conn.execute(
+            "INSERT INTO artifact (artifact_id, run_id, kind, sha256, path, bytes, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                f"art-{run_id}-{rel}",
+                run_id,
+                _artifact_kind(path),
+                sha256_file(path),
+                str(path),
+                path.stat().st_size,
+                utcnow(),
+            ],
+        )
+        count += 1
+    return count
 
 
 # --------------------------------------------------------------------------------------
