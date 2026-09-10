@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "memsharness"
+version = "0.0.1"
+description = "MEMS 仿真–数据–AI 闭环自动化平台"
+requires-python = ">=3.12"
+dependencies = [
+  "numpy",
+  "scipy",
+  "pandas",
+  "scikit-learn",
+  "pint",
+  "duckdb",
+  "pyarrow",
+  "pyyaml",
+  "jsonschema",
+  "fastmcp",
+]
+
+[project.scripts]
+mems-env = "memsharness.env:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/memsharness"]
+
+[tool.pytest.ini_options]
+# 本机沙箱限制：系统临时目录与仓库根下的临时写入会被拒绝，
+# 因此测试不使用 pytest 的 tmp_path，改用 work/.test-tmp（见 tests 内的 fixture），
+# 并关闭会写仓库根的 cacheprovider。
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider"

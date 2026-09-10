@@ -1,0 +1,14 @@
+# 运行区（数据、模型、产物、虚拟环境）不进版本库
+work/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+
+# 本地临时
+*.tmp
+*.log
+~$*
