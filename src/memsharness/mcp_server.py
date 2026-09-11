@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+from contextlib import contextmanager
 from typing import Any
 
 from fastmcp import FastMCP
@@ -111,6 +112,126 @@ def run_trace(run_id: str) -> dict[str, Any]:
         samples = query(conn, "SELECT * FROM sample WHERE run_id = ?", [run_id], limit=200)
         artifacts = query(conn, "SELECT * FROM artifact WHERE run_id = ?", [run_id], limit=200)
     return {"run_id": run_id, "run": run, "samples": samples, "artifacts": artifacts}
+
+
+# ---------------------------------------------------------------------------------------
+# A2：COMSOL 求解队列（提交即返回；求解由单实例 worker 串行执行）
+# ---------------------------------------------------------------------------------------
+
+_WORKER_COMMAND = (
+    "python -m memsharness.comsol.queue --max-jobs N"
+    "（--once 只跑一个；--queue-root/--runs-root 可覆盖默认目录）"
+)
+
+
+@contextmanager
+def _open_queue(need_db: bool = False):
+    """打开队列；``need_db`` 为真时附带元数据库连接，用完立即关闭。
+
+    注意：DuckDB 同一文件只允许一个写进程，因此状态/日志类工具默认**不碰数据库**，
+    避免与 worker 的写入相互阻塞。
+    """
+    from .comsol.queue import JobQueue
+    from .store import connect as _connect
+
+    if not need_db:
+        yield JobQueue()
+        return
+    conn = _connect()
+    try:
+        yield JobQueue(conn=conn)
+    finally:
+        conn.close()
+
+
+@mcp.tool
+def sim_templates() -> dict[str, Any]:
+    """列出已注册的 COMSOL 模板及其参数（名称/单位/默认值/是否可扫描）。提交任务前先用它确定参数名。"""
+    from .comsol import java_model as jm
+
+    return {"templates": jm.list_templates()}
+
+
+@mcp.tool
+def sim_submit(
+    template: str,
+    params: dict[str, Any] | None = None,
+    backend: str = "local",
+    timeout_seconds: int = 3600,
+    notes: list[str] | None = None,
+) -> dict[str, Any]:
+    """把一个 COMSOL 求解任务**提交到队列并立即返回 run_id**（不阻塞、不在本工具内求解）。
+
+    求解耗时可远超 MCP 调用超时，因此执行必须交给单实例 worker（求解环节禁止并行）。
+    参数名与合法范围见 ``sim_templates``；任务状态用 ``sim_status`` 查询。
+    """
+    from .comsol.queue import JobSpec
+
+    try:
+        spec = JobSpec.from_dict(
+            {
+                "template": template,
+                "params": params or {},
+                "backend": backend,
+                "timeout_seconds": timeout_seconds,
+                "notes": notes or [],
+            }
+        )
+    except Exception as exc:
+        return {"error": f"任务规格非法：{type(exc).__name__}: {exc}"}
+
+    try:
+        with _open_queue(need_db=True) as queue:
+            run_id = queue.submit(spec)
+            status = queue.status(run_id)
+    except Exception as exc:
+        return {"error": f"提交失败：{type(exc).__name__}: {exc}"}
+
+    return {
+        "run_id": run_id,
+        "status": status,
+        "how_to_execute": _WORKER_COMMAND,
+        "note": "任务处于 queued；必须由 worker 串行执行，本工具不会启动求解",
+    }
+
+
+@mcp.tool
+def sim_status(run_id: str | None = None, limit: int = 20) -> dict[str, Any]:
+    """查询队列状态：给定 run_id 返回该任务状态；否则返回最近任务列表与 worker 是否在跑。"""
+    with _open_queue() as queue:
+        if run_id:
+            return {"run": queue.status(run_id)}
+        jobs = queue.list_jobs(limit=max(1, min(int(limit), 100)))
+        return {"count": len(jobs), "jobs": jobs, "worker_running": queue.worker_locked()}
+
+
+@mcp.tool
+def sim_logs(run_id: str, tail_lines: int = 40) -> dict[str, Any]:
+    """读取某个 run 的日志尾部（worker/编译/批处理日志），用于定位失败原因。"""
+    capped = max(1, min(int(tail_lines), 400))
+    with _open_queue() as queue:
+        run_dir = queue.run_dir(run_id)
+    if not run_dir.is_dir():
+        return {"error": f"run 目录不存在：{run_dir}"}
+
+    wanted = (
+        "worker.log", "compile.stdout.log", "compile.stderr.log",
+        "batch.stdout.log", "batch.stderr.log", "batchlog.txt",
+    )
+    tails: dict[str, str] = {}
+    for name in wanted:
+        path = run_dir / name
+        if path.is_file():
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+            tails[name] = "\n".join(lines[-capped:])
+    return {"run_id": run_id, "run_dir": str(run_dir), "logs": tails}
+
+
+@mcp.tool
+def sim_cancel(run_id: str, force_kill: bool = True) -> dict[str, Any]:
+    """取消一个排队中或正在运行的任务（运行中默认强制结束其进程）。"""
+    with _open_queue() as queue:
+        return queue.cancel(run_id, force_kill=force_kill)
 
 
 def _selftest() -> int:
