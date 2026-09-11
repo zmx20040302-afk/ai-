@@ -106,4 +106,6 @@ def test_plot_functions_create_files() -> None:
     for fig in (pareto, curves, field):
         assert Path(fig["figure"]).is_file() and Path(fig["figure"]).stat().st_size > 1000
     assert pareto["n_front"] == 1            # 单调排列时只有最右点不被支配
-    assert field["field_rel_l2"] < 0.01
+    # 合成扰动 0.1 对场范数（≈9.9）约 1%，故用 2% 阈值；同时断言它确实被算出来（非 0/NaN）
+    assert 0.0 < field["field_rel_l2"] < 0.02
+    assert field["n_points"] == 100
