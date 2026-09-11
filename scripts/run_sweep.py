@@ -570,4 +570,12 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    # --list-templates 不应要求 --template：先做一次短路处理（argparse 里 --template 是 required）
+    if "--list-templates" in sys.argv[1:]:
+        import json as _json
+
+        from memsharness.comsol import java_model as _jm
+
+        print(_json.dumps(_jm.list_templates(), ensure_ascii=False, indent=2))
+        raise SystemExit(0)
     raise SystemExit(main())

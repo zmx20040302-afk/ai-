@@ -1211,6 +1211,11 @@ def worker_main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-jobs", type=int, default=None, help="最多处理多少个任务后退出")
     parser.add_argument("--once", action="store_true", help="只处理一个任务")
     parser.add_argument(
+        "--drain",
+        action="store_true",
+        help="处理到队列为空（或达到 --max-jobs）后退出；--max-jobs 已隐含此语义，此开关用于显式表达与兼容调用方",
+    )
+    parser.add_argument(
         "--wait-lock",
         type=float,
         default=0.0,

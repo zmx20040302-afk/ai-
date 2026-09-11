@@ -131,7 +131,7 @@ import com.comsol.model.util.*;
  */
 public class @@CLASS@@ {
 
-  public static Model run() {
+  public static Model run() throws java.io.IOException {
     Model model = ModelUtil.create("Model");
     model.label("@@CLASS@@.mph");
 
@@ -165,11 +165,11 @@ public class @@CLASS@@ {
     model.component("comp1").physics().create("ht", "HeatTransfer", "geom1");
 
     model.component("comp1").physics("ht").create("temp1", "TemperatureBoundary", 1);
-    model.component("comp1").physics("ht").selection("temp1").set(new int[]{@@BND_T@@});
+    model.component("comp1").physics("ht").feature("temp1").selection().set(new int[]{@@BND_T@@});
     model.component("comp1").physics("ht").feature("temp1").set("T0", "T0");
 
     model.component("comp1").physics("ht").create("hf1", "HeatFluxBoundary", 1);
-    model.component("comp1").physics("ht").selection("hf1").set(new int[]{@@BND_Q@@});
+    model.component("comp1").physics("ht").feature("hf1").selection().set(new int[]{@@BND_Q@@});
     model.component("comp1").physics("ht").feature("hf1").set("q0", "q_in");
 
     // ---- mesh ----
@@ -189,7 +189,7 @@ public class @@CLASS@@ {
     double tMax = evalNum(model, "mxT", "MaxSurface", "T");
     double tMin = evalNum(model, "mnT", "MinSurface", "T");
     double tRef = evalParam(model, "T_max_ref");
-    double qOut = evalNum(model, "intQ", "IntSurface", "ht.ntflux");
+    double qOut = evalBoundaryInt(model, "intQ", "ht.ntflux", @@BND_T@@);
 
     model.save("out.mph");
 
@@ -198,10 +198,69 @@ public class @@CLASS@@ {
     return model;
   }
 
+  private static int[] allDomains(Model model) {
+    try {
+      int n = model.component("comp1").geom("geom1").getNDomains();
+      int[] ids = new int[n];
+      for (int i = 0; i < n; i++) ids[i] = i + 1;
+      return ids;
+    } catch (Exception e) {
+      return new int[]{1};
+    }
+  }
+
+  private static String firstDataset(Model model) {
+    try {
+      String[] tags = model.result().dataset().tags();
+      return tags.length > 0 ? tags[0] : null;
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
+  // Numerical nodes MUST be bound to a dataset explicitly. In a programmatically built
+  // model the default dataset is not always attached; an unbound node makes getReal()
+  // return NaN without throwing (observed: the solve succeeded but extraction was null).
   private static double evalNum(Model model, String tag, String type, String expr) {
     try {
       model.result().numerical().create(tag, type);
       model.result().numerical(tag).set("expr", expr);
+      // Max/Min/Av/Int over *Surface* need an explicit selection: without it the entity set
+      // is empty and getReal() returns NaN without throwing (observed for MaxSurface).
+      if (type.endsWith("Surface")) {
+        model.result().numerical(tag).selection().set(allDomains(model));
+      }
+      String ds = firstDataset(model);
+      if (ds != null) {
+        model.result().numerical(tag).set("data", ds);
+      } else {
+        System.out.println("MEMS_EVAL_NO_DATASET=" + tag);
+      }
+      double[][] v = model.result().numerical(tag).getReal();
+      if (v != null && v.length > 0 && v[0].length > 0) {
+        return v[0][0];
+      }
+      System.out.println("MEMS_EVAL_EMPTY=" + tag);
+    } catch (Exception e) {
+      System.out.println("MEMS_EVAL_ERROR=" + tag + ":" + e);
+    }
+    return Double.NaN;
+  }
+
+  // Boundary integral in 2D is IntLine (a boundary is a line), and the selection must be
+  // set on the numerical node. Using IntSurface over the domain integrates the divergence,
+  // which is identically zero in steady state without sources (observed: q_out = 0).
+  private static double evalBoundaryInt(Model model, String tag, String expr, int boundary) {
+    try {
+      model.result().numerical().create(tag, "IntLine");
+      model.result().numerical(tag).set("expr", expr);
+      model.result().numerical(tag).selection().set(new int[]{boundary});
+      String ds = firstDataset(model);
+      if (ds != null) {
+        model.result().numerical(tag).set("data", ds);
+      } else {
+        System.out.println("MEMS_EVAL_NO_DATASET=" + tag);
+      }
       double[][] v = model.result().numerical(tag).getReal();
       if (v != null && v.length > 0 && v[0].length > 0) {
         return v[0][0];
@@ -242,8 +301,18 @@ public class @@CLASS@@ {
   }
 
   public static void main(String[] args) {
-    run();
-    System.out.println("@@DONE_MARKER@@");
+    try {
+      run();
+      System.out.println("@@DONE_MARKER@@");
+    } catch (Exception err) {
+      // model.save() declares throws IOException: it must be caught here or compilation fails (observed).
+      // NOTE: keep this generated source ASCII-only. Non-ASCII text here breaks the
+      // writer with UnicodeEncodeError (observed). Custom markers must not use the
+      // placeholder token shape (double-at ... double-at), or the render-time check rejects it.
+      System.out.println("ERROR_MARKER::" + err.getClass().getName() + ": " + err.getMessage());
+      err.printStackTrace();
+      System.exit(1);
+    }
   }
 }
 '''
@@ -278,9 +347,23 @@ def render_heat_slab_2d(values: dict[str, float]) -> str:
     source = _JAVA_TEMPLATE
     for token, text in subs.items():
         source = source.replace(token, text)
-    if "@@" in source:
-        leftover = sorted(set(re.findall(r"@@[A-Z_]+@@", source)))
+    # 只在**确实存在未替换占位符**时报错。
+    # 不能写成 `if "@@" in source: raise`：Java 源码里合法的双 @ 文本（例如注释）会让它误报，
+    # 而且 re.findall 找不到任何占位符时会抛出 “未替换占位符：[]” 这种自相矛盾的错误（实测踩过）。
+    leftover = sorted(set(re.findall(r"@@[A-Z_]+@@", source)))
+    if leftover:
         raise ValueError(f"Java 模板存在未替换占位符：{leftover}")
+
+    # 生成源码必须全 ASCII：写文件时按 ASCII 编码，任何非 ASCII 字符都会以
+    # UnicodeEncodeError 的形式在很深的地方炸掉（实测踩过）。这里前置校验，
+    # 把隐式约定变成显式错误并直接指出位置。
+    for lineno, line in enumerate(source.splitlines(), start=1):
+        if not line.isascii():
+            bad = "".join(ch for ch in line if not ch.isascii())
+            raise ValueError(
+                f"Java 模板第 {lineno} 行含非 ASCII 字符 {bad!r}；"
+                f"生成源码必须全 ASCII（注释也不例外）。"
+            )
     return source
 
 
@@ -468,9 +551,12 @@ def parse_result_marker(text: str) -> tuple[dict[str, Any] | None, str | None]:
 
 
 _FACT_PATTERNS: tuple[tuple[str, str], ...] = (
-    ("elements", r"Number of elements\s*:?\s*(\d+)"),
-    ("dof", r"Degrees of freedom\s*:?\s*(\d+)"),
-    ("vertices", r"Number of vertices\s*:?\s*(\d+)"),
+    # 中英文都匹配：中文版 COMSOL 的 batchlog 用的是「单元数 / 求解的自由度数 / 顶点单元数」，
+    # 只认英文会全部读成 None（实测踩过：网格收敛因此拿不到单元数）。
+    # 锚定行首：否则「顶点单元数：4」「边界单元数：18」里的「单元数」会把 elements 抢成顶点数（实测踩过）。
+    ("elements", r"(?m)^\s*(?:Number of elements|单元数)\s*[:：]?\s*(\d+)"),
+    ("dof", r"(?:Degrees of freedom|求解的自由度数|自由度)\s*[:：]?\s*(\d+)"),
+    ("vertices", r"(?:Number of vertices|顶点单元数|顶点数)\s*[:：]?\s*(\d+)"),
 )
 
 
