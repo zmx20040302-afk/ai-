@@ -85,9 +85,19 @@ class TemplateSpec:
     render: Callable[[dict[str, float]], str]
     analytic: Callable[[dict[str, float]], dict[str, float]]
     geometry_family: str
-    # 解析解对照的相对容差（L0 判据；二维默认 3%，见 WORKING_PLAN 6.1）
-    analytic_rtol: float = 0.03
+    # 解析解对照的相对容差（L0 判据）
+    #
+    # ⚠️ 容差必须作用在**物理量本身**（温升 ΔT / 相对变化量），不能作用在绝对温度上：
+    # 3% × 300 K = 9 K，而整个温升只有 10 K —— 绝对温度口径下容差几乎等于放行一切
+    # （实测：把边界选错的二维模型 308.85 K 也能"通过" 310 K 的判据）。
+    # 因此 comparison_baseline 声明"每个输出要从哪个参数扣掉基线"，判据施加在扣掉后的量上。
+    analytic_rtol: float = 0.01
+    comparison_baseline: tuple[tuple[str, str], ...] = ()
     boundary_numbers: dict[str, int] = field(default_factory=dict)
+
+    def baseline_params(self) -> dict[str, str]:
+        """输出名 → 基线参数名（用于把绝对量换算成温升/增量再判定）。"""
+        return {output: param for output, param in self.comparison_baseline}
 
     def param(self, name: str) -> ParamSpec:
         for spec in self.params:
@@ -431,8 +441,10 @@ HEAT_SLAB_2D = TemplateSpec(
     render=render_heat_slab_2d,
     analytic=analytic_heat_slab_2d,
     geometry_family="GF-heat-slab-2d",
-    analytic_rtol=0.03,
-    boundary_numbers={"temperature": 4, "heat_flux": 2},
+    # 判据施加在温升 ΔT = T − T0 上；1% 对应 0.1 K（总温升 10 K 量级），是真正有约束力的口径
+    analytic_rtol=0.01,
+    comparison_baseline=(("T_max_K", "T0"), ("T_min_K", "T0")),
+    boundary_numbers={"temperature": 4, "heat_flux": 1},
 )
 
 TEMPLATES: dict[str, TemplateSpec] = {HEAT_SLAB_2D.name: HEAT_SLAB_2D}

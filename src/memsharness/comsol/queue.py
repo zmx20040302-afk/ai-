@@ -679,6 +679,7 @@ class JobQueue:
         comparison: dict[str, Any] = {}
         sim = outcome.result or {}
         rtol = template.analytic_rtol
+        baselines = template.baseline_params()
         for name in template.outputs:
             sim_value = sim.get(name)
             ref_value = analytic.get(name)
@@ -689,11 +690,31 @@ class JobQueue:
                 "passed": None,
                 "reason": None,
             }
+            baseline_param = baselines.get(name)
+            baseline = params.get(baseline_param) if baseline_param else None
+            entry["baseline_param"] = baseline_param
+            entry["baseline"] = baseline
+
             if isinstance(sim_value, (int, float)) and isinstance(ref_value, (int, float)):
                 entry["abs_error"] = abs(float(sim_value) - float(ref_value))
-                scale = abs(float(ref_value)) if ref_value else 1.0
-                entry["rel_error"] = abs(float(sim_value) - float(ref_value)) / scale
-                entry["passed"] = bool(entry["rel_error"] <= rtol)
+                # 判据作用在**扣掉基线后的增量**上（温升 ΔT），而不是绝对温度。
+                # 绝对温度口径下 3% × 300 K = 9 K ≈ 整个温升，等于放行一切（实测踩过）。
+                if baseline is not None:
+                    sim_rise = float(sim_value) - float(baseline)
+                    ref_rise = float(ref_value) - float(baseline)
+                    entry["simulation_rise"] = sim_rise
+                    entry["analytic_rise"] = ref_rise
+                    if abs(ref_rise) <= 1e-12:
+                        entry["reason"] = (
+                            "解析增量≈0：相对误差无意义（该工况下输出等于基线，判据不适用）"
+                        )
+                    else:
+                        entry["rel_error"] = abs(sim_rise - ref_rise) / abs(ref_rise)
+                        entry["passed"] = bool(entry["rel_error"] <= rtol)
+                else:
+                    scale = abs(float(ref_value)) if ref_value else 1.0
+                    entry["rel_error"] = abs(float(sim_value) - float(ref_value)) / scale
+                    entry["passed"] = bool(entry["rel_error"] <= rtol)
             else:
                 entry["reason"] = "仿真值或解析值缺失（见 run 日志）"
             comparison[name] = entry
@@ -984,6 +1005,23 @@ def _terminate_pid(pid: int) -> list[str]:
 # --------------------------------------------------------------------------------------
 
 
+def _aggregate_l0(comparison: dict[str, Any]) -> bool | None:
+    """把逐项对照汇总成 L0 结论。
+
+    - 任一项 ``passed is False`` → ``False``（有失败就是失败）
+    - 全部为 ``None``（判据均不适用） → ``None``（无法判定，**不等于通过**）
+    - 其余 → ``True``（在适用项上通过；不适用项保留在 detail 中备查）
+    """
+    verdicts = [entry.get("passed") for entry in (comparison or {}).values()]
+    if not verdicts:
+        return None
+    if any(v is False for v in verdicts):
+        return False
+    if all(v is None for v in verdicts):
+        return None
+    return True
+
+
 def ingest_run(
     conn: Any,
     queue: JobQueue,
@@ -1029,9 +1067,13 @@ def ingest_run(
     input_units = {name: units.get(name) for name in sorted(params)}
 
     l0 = {
-        "passed": all(bool(entry.get("passed")) for entry in comparison.values()) if comparison else None,
+        # 汇总口径（ΔT 判据引入后必须区分三种情况，不能一律 bool() 掉 None）：
+        #   - 有任何一项判为 False        → 整体不通过
+        #   - 没有 False，但全部为 None    → 无法判定（inconclusive），不得当通过
+        #   - 有 True 且无 False          → 在**适用项**上通过（不适用项不计入，但要如实保留在 detail 里）
+        "passed": _aggregate_l0(comparison),
         "detail": comparison,
-        "reference": "闭式解 T_max = T0 + q_in*Lx/k（见 java_model.py 模板说明）",
+        "reference": "闭式解 ΔT = q_in*Lx/k（判据施加在温升上，见 java_model.py 模板说明）",
         "tolerance_rtol": next(
             (entry.get("tolerance_rtol") for entry in comparison.values()), None
         ),
