@@ -24,22 +24,38 @@ whenToUse: 生成、抽取、入库、筛选、切分或导出样本与数据集
 
 对应的 `sample` 字段：`inputs`（JSON）、`outputs`（JSON）。
 
-## 2. 必须带 source_type（五种之一，不得自造）
+## 2. 必须带 source_type（**六种**之一，不得自造）
 
-`sample.source_type` 只能取以下五种之一：
+`sample.source_type` 只能取以下六种之一：
 
-| source_type | 含义 | 典型来源 |
+| source_type | 含义 | 溯源链（必填） |
 |---|---|---|
-| `simulation` | 仿真值 | COMSOL 求解（`run_id`） |
-| `analytic` | 解析/闭式解或降阶模型值 | 解析公式、1D 等效电路 |
-| `literature` | 文献值 | PDF 抽取（必须带 `evidence_id` 与原文摘录） |
-| `experiment` | 实验测量值 | 实测数据（`experiment_id`） |
-| `human_feedback` | 人反馈修正值 | 评审修正（`feedback_id`） |
+| `simulation` | COMSOL 仿真值 | `run_id` |
+| `analytic` | 解析/闭式解或降阶模型值 | 无（但 `extractor` 必填，须含公式/代码版本） |
+| `literature` | 文献值 | `evidence_id`（必须带原文摘录与页码） |
+| `experiment` | 实验测量值 | `experiment_id` |
+| `human_feedback` | 人反馈修正值 | `feedback_id` |
+| **`ai_solver`** | **AI 求解器输出（免 COMSOL 出解）** | **`model_id`（必须挂到具体模型版本）+ `uncertainty`（误差界必填）** |
 
-- 取值不在这五种内 → **拒绝**（`store.insert_sample` 抛错）。不得新增自定义类型、不得写 `unknown`、不得留空
+- 取值不在这六种内 → **拒绝**（`store.insert_sample` 抛错）。不得新增自定义类型、不得写 `unknown`、不得留空
   （该列是 `NOT NULL`）。
+- **`ai_solver` 是独立来源，绝不与 `simulation` 混同**：AI 解的可信度取决于模型版本与适用范围判定，
+  当成 COMSOL 结果使用会直接污染结论。缺 `model_id` 或 `uncertainty` 一律拒绝入库（红线 7/8）。
+- **`simulation` 样本对应的 `run` 状态必须是 `succeeded`**：失败点不得当有效输出
+  （构建数据集时会被排除并附原因，不是悄悄丢掉）。
 - 同一物理量的不同来源样本**分条存储**，绝不合并成一条「平均值」。
 - 任何统计、训练、报告都必须**显式声明混用了哪些 `source_type`**，以及各自权重。
+
+## 2.1 数据集构建时的强制泄漏检查
+
+用 `memsharness.dataset.build_dataset` 建数据集，它会**强制**做以下判定并写进 `dataset.report`：
+
+- 缺 `geometry_family` 的样本一律排除（无法判定归属 = 无法防泄漏）；
+- 按几何族**整族切分**，训练集与留出集的族交集必须为空；
+- 族数 < 2 时**不得假装跨族留出**：报告里 `cross_family_holdout=false` + 明确降级原因，
+  并附警告「指标只反映族内插值」；
+- 需要声称跨族泛化的场合（如场级求解器放行）用 `require_cross_family=True`，**直接拒绝**构建；
+- 来源构成（`source_counts`）与保真度构成必须进报告。
 
 ## 3. 必须标注 fidelity（保真度等级）
 
