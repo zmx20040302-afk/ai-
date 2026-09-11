@@ -63,6 +63,24 @@ class LinearCoeffModel:
         return mean, std
 
 
+def conformal_quantile(scores: Sequence[float], alpha: float = 0.1) -> float:
+    """保形预测的分位数：取第 ⌈(n+1)(1−α)⌉ 小的非一致性得分。
+
+    **当样本不足时返回 inf**，这是数学上正确的答案而不是缺陷：
+    n 个校准点最多只能保证 (n)/(n+1) 的覆盖率，例如 n=6 时 `k=7>6` → 无法给出 90% 的有限保证。
+    这种情况下必须如实报告"样本不足以认证该置信水平"，绝不能用残差标准差硬凑一个窄区间
+    （实测后果：90% 区间实际覆盖率塌到 3%）。
+    """
+    arr = np.sort(np.asarray([s for s in scores if np.isfinite(s)], dtype=float))
+    n = arr.size
+    if n == 0:
+        return float("inf")
+    k = int(np.ceil((n + 1) * (1.0 - alpha)))
+    if k > n:
+        return float("inf")
+    return float(arr[k - 1])
+
+
 @dataclass
 class PodModel:
     """POD 降阶模型：场 ≈ 均值 + Σ aᵢ(θ)·φᵢ(x)，系数 aᵢ 由参数 θ 回归得到。"""
@@ -76,13 +94,19 @@ class PodModel:
     coeff_model: Any                 # 系数回归：LinearCoeffModel（默认）或 SurrogateEnsemble
     n_snapshots: int = 0
     meta: dict[str, Any] = field(default_factory=dict)
+    # 保形校准（S5）：区间 = ŷ ± q·σ；未校准时 q=None，此时区间**不可用于放行**
+    conformal_q: float | None = None
+    conformal_meta: dict[str, Any] = field(default_factory=dict)
 
     @property
     def n_modes(self) -> int:
         return int(self.basis.shape[0])
 
     def predict(self, params: dict[str, float]) -> tuple[np.ndarray, np.ndarray]:
-        """返回 (场均值, 场标准差)，长度 = 被掩膜选中的点数。"""
+        """返回 (场均值, 场标准差)，长度 = 被掩膜选中的点数。
+
+        若已做保形校准，返回的标准差已按 ``conformal_q`` 放大（可直接乘 1.6449 得 90% 区间）。
+        """
         import pandas as pd
 
         row = pd.DataFrame([{f"in_{name}": float(params[name]) for name in self.param_names}])
@@ -92,7 +116,72 @@ class PodModel:
         field_mean = self.mean + coeff_mean @ self.basis
         # 系数独立近似下，场标准差 = sqrt(Σ (σᵢ·φᵢ)²)
         field_std = np.sqrt(np.sum((coeff_std[:, None] * self.basis) ** 2, axis=0))
+        if self.conformal_q is not None and np.isfinite(self.conformal_q):
+            field_std = field_std * float(self.conformal_q)
         return field_mean, field_std
+
+    def calibrate(
+        self,
+        params: Sequence[dict[str, float]],
+        snapshots: Sequence[np.ndarray],
+        *,
+        alpha: float = 0.1,
+        leave_one_out: bool = True,
+    ) -> dict[str, Any]:
+        """保形校准（S5）：用**非一致性得分**给出有覆盖率保证的区间放大系数 q。
+
+        非一致性得分（每个快照一个标量）：该快照上逐点 |真值−预测| / σ 的最大值。
+        ``leave_one_out=True`` 时对训练点做 LOO 重拟合取分——避免用训练偏差自证校准
+        （直接拿拟合残差当得分正是"覆盖率塌到 3%"的根因）。
+        """
+        scores: list[float] = []
+        if leave_one_out:
+            for i in range(len(params)):
+                rest_p = [p for j, p in enumerate(params) if j != i]
+                rest_s = [s for j, s in enumerate(snapshots) if j != i]
+                if len(rest_p) < 2:
+                    continue
+                try:
+                    fold = fit(rest_p, rest_s, energy_ratio=self.energy_ratio,
+                               param_names=self.param_names,
+                               coeff_model=self.meta.get("coeff_model", "linear"))
+                except Exception:
+                    continue
+                mean, std = fold.predict(params[i])
+                truth = np.asarray(snapshots[i], dtype=float).ravel()[fold.mask]
+                keep = np.isfinite(truth)
+                if not keep.any():
+                    continue
+                scale = np.maximum(std[keep], 1e-30)
+                scores.append(float(np.max(np.abs(truth[keep] - mean[keep]) / scale)))
+        else:
+            for point, snap in zip(params, snapshots):
+                mean, std = self.predict(point)
+                truth = np.asarray(snap, dtype=float).ravel()[self.mask]
+                keep = np.isfinite(truth)
+                if not keep.any():
+                    continue
+                scale = np.maximum(std[keep], 1e-30)
+                scores.append(float(np.max(np.abs(truth[keep] - mean[keep]) / scale)))
+
+        q = conformal_quantile(scores, alpha=alpha)
+        self.conformal_q = q
+        self.conformal_meta = {
+            "alpha": alpha,
+            "target_coverage": 1.0 - alpha,
+            "n_calibration": len(scores),
+            "leave_one_out": leave_one_out,
+            "scores": scores,
+            "q": None if not np.isfinite(q) else q,
+            "guarantee": (
+                f"可保证 ≥{(1 - alpha):.0%} 覆盖率"
+                if np.isfinite(q)
+                else f"校准点仅 {len(scores)} 个，**不足以认证 {1 - alpha:.0%} 覆盖率**"
+                     f"（最多保证 {len(scores) / (len(scores) + 1):.0%}）——必须补样本"
+            ),
+            "certified": bool(np.isfinite(q)),
+        }
+        return self.conformal_meta
 
     def to_meta(self) -> dict[str, Any]:
         return {
@@ -103,6 +192,7 @@ class PodModel:
             "energy_ratio": self.energy_ratio,
             "singular_values": [float(v) for v in self.singular_values],
             "n_snapshots": self.n_snapshots,
+            "conformal": self.conformal_meta,
             **self.meta,
         }
 
@@ -225,13 +315,12 @@ def holdout_report(
     params: Sequence[dict[str, float]],
     snapshots: Sequence[np.ndarray],
 ) -> dict[str, Any]:
-    """在**留出快照**上评估场级误差（含逐点误差界覆盖率）。"""
+    """在**留出快照**上评估场级误差（含逐点误差界覆盖率与 S5 认证状态）。"""
     errors: list[float] = []
     coverages: list[float] = []
     for point, snap in zip(params, snapshots):
         field_mean, field_std = model.predict(point)
         truth = np.asarray(snap, dtype=float).ravel()[model.mask]
-        # 真值里也可能有掩膜外的 NaN；只比共同有限点
         keep = np.isfinite(truth)
         if not keep.any():
             continue
@@ -240,13 +329,22 @@ def holdout_report(
         coverages.append(float(np.mean(inside)))
     if not errors:
         return {"n_holdout": 0, "note": "没有可评估的留出快照"}
+
+    coverage = float(np.mean(coverages))
+    certified = bool((model.conformal_meta or {}).get("certified"))
+    # S5 只在**已认证**（保形校准给出有限保证）时才谈达标；否则如实标为未认证
+    s5_passed = bool(certified and 0.85 <= coverage <= 0.95) if certified else None
     return {
         "n_holdout": len(errors),
         "field_rel_l2": errors,
         "field_rel_l2_mean": float(np.mean(errors)),
         "field_rel_l2_max": float(np.max(errors)),
-        "interval_coverage_90": float(np.mean(coverages)),
+        "interval_coverage_90": coverage,
         "s1_threshold": 0.05,
         "s1_passed": bool(max(errors) <= 0.05),
-        "note": "S1 判据：场级相对 L2 ≤ 5%（WORKING_PLAN 6.1.1）",
+        "s5_certified": certified,
+        "s5_passed": s5_passed,
+        "conformal": model.conformal_meta or None,
+        "note": "S1 判据：场级相对 L2 ≤ 5%；S5 判据：90% 区间覆盖率 85–95%，"
+                "且必须已通过保形校准（未认证时 s5_passed=null，不得当通过）",
     }

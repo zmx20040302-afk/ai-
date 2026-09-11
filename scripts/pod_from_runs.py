@@ -104,8 +104,13 @@ def main(argv: list[str] | None = None) -> int:
     train_p, train_s = params_list[:-n_holdout], snapshots[:-n_holdout]
     hold_p, hold_s = params_list[-n_holdout:], snapshots[-n_holdout:]
 
-    # ---- 3) 拟合 POD（线性系数）并在留出快照上评估 ----
+    # ---- 3) 拟合 POD（线性系数）+ 保形校准，并在留出快照上评估 ----
     model = pod.fit(train_p, train_s, energy_ratio=0.999999, coeff_model="linear")
+    # 保形校准：n 个校准点最多保证 n/(n+1)；因此目标覆盖率必须与样本量相容
+    n_cal = len(train_p)
+    max_alpha = 1.0 / (n_cal + 1)                 # 可认证的最小 α
+    alpha = max(0.1, max_alpha)                   # 90% 做不到时退到能认证的水平
+    conformal = model.calibrate(train_p, train_s, alpha=alpha, leave_one_out=True)
     report = pod.holdout_report(model, hold_p, hold_s)
     report.update({
         "runs_used": used,
@@ -118,6 +123,7 @@ def main(argv: list[str] | None = None) -> int:
         "energy_ratio_actual": model.meta.get("cumulative_energy_at_n"),
         "singular_values": [float(v) for v in model.singular_values],
         "coeff_model": model.meta.get("coeff_model"),
+        "conformal": conformal,
     })
 
     out = Path(args.out)
@@ -136,7 +142,11 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  留出 q_in={p['q_in']:.0f}, k={p['k_cond']:.1f} → 场级相对 L2 = {err:.3e}")
     print(f"  平均 {report['field_rel_l2_mean']:.3e}｜最大 {report['field_rel_l2_max']:.3e}｜"
           f"S1(≤5%) 判定：{'通过' if report['s1_passed'] else '**不通过**'}")
-    print(f"  90% 逐点误差界覆盖率：{report['interval_coverage_90']:.3f}")
+    target = (conformal.get("target_coverage") or 0) if conformal else 0
+    print(f"  区间覆盖率实测 {report['interval_coverage_90']:.3f}"
+          f"｜校准目标 {target:.1%}（n={conformal.get('n_calibration')} 个校准点，"
+          f"90% 需 ≥9 点才可认证）")
+    print(f"  S5 认证：{'是' if conformal.get('certified') else '否'}｜{conformal.get('guarantee')}")
     print(f"  报告：{out}")
     return 0 if report["s1_passed"] else 2
 

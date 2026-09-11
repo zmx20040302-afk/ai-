@@ -121,3 +121,48 @@ def test_mask_is_applied_in_prediction_shape() -> None:
     assert model.mask.sum() == snaps[0].size - 5
     field_mean, _ = model.predict(params[0])
     assert field_mean.size == int(model.mask.sum())
+
+
+# ---------------- 保形校准（S5） ----------------
+
+def test_conformal_quantile_math() -> None:
+    # n=9, alpha=0.1 → k=ceil(10*0.9)=9 → 取第 9 小（最大）
+    assert pod.conformal_quantile(list(range(1, 10)), alpha=0.1) == 9.0
+    # n=4, alpha=0.5 → k=ceil(5*0.5)=3 → 第 3 小
+    assert pod.conformal_quantile([4.0, 1.0, 3.0, 2.0], alpha=0.5) == 3.0
+
+
+def test_conformal_quantile_is_infinite_when_samples_insufficient() -> None:
+    """n 个点最多保证 n/(n+1)：n=6 时无法认证 90%，必须返回 inf 而不是硬凑一个数。"""
+    scores = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+    assert pod.conformal_quantile(scores, alpha=0.1) == float("inf")
+    assert pod.conformal_quantile(scores, alpha=0.15) == 6.0   # k=ceil(7*0.85)=6 ≤ 6
+
+
+def test_calibrate_marks_uncertifiable_alpha() -> None:
+    params, snaps, _ = _analytic_family([1.0, 2.0, 3.0, 4.0])
+    model = pod.fit(params, snaps, energy_ratio=0.999999, coeff_model="linear")
+    meta = model.calibrate(params, snaps, alpha=0.1)   # n=4 → k=5>4
+    assert meta["certified"] is False
+    assert "不足以认证" in meta["guarantee"]
+    assert model.conformal_q == float("inf")
+
+
+def test_calibrate_certifies_and_widens_intervals() -> None:
+    """可认证时区间必须被放大：原残差标准差过窄正是覆盖率塌到 3% 的根因。"""
+    params, snaps, _ = _analytic_family([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0])
+    model = pod.fit(params, snaps, energy_ratio=0.999999, coeff_model="linear")
+    _, std_before = model.predict(params[0])
+    meta = model.calibrate(params, snaps, alpha=0.25)   # n=8 → k=7 ≤ 8
+    assert meta["certified"] is True and meta["q"] >= 0.0
+    _, std_after = model.predict(params[0])
+    assert np.all(std_after >= std_before - 1e-12)
+
+
+def test_holdout_report_s5_is_null_when_not_certified() -> None:
+    """未认证时 S5 必须是 null（不得当通过），S1 仍独立判定。"""
+    params, snaps, _ = _analytic_family([1.0, 2.0, 3.0, 4.0])
+    model = pod.fit(params[:3], snaps[:3], energy_ratio=0.999999, coeff_model="linear")
+    report = pod.holdout_report(model, params[3:], snaps[3:])
+    assert report["s5_certified"] is False
+    assert report["s5_passed"] is None
