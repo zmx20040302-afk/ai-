@@ -416,6 +416,100 @@ def test_retry_plan_respects_limits() -> None:
     assert diagnostics.retry_plan(mesh, attempt=1)["should_retry"] is False
 
 
+# --------------------------------------------------------------------------------------
+# geometry 规则误报的回归（实测留证，见 diagnostics.py 的 _NOISE_LINE_RE 注释）
+# --------------------------------------------------------------------------------------
+#
+# 收紧前 geometry 规则里含裸子串 ``geometr`` 与裸汉字 ``几何``，会命中**正常行**：
+#   1) 稳态求解成功的 batchlog 第 32 行原样是「几何形函数: 二次拉格朗日单元」
+#      （实测 run-20260911T013113Z-1a25aa9f，status=succeeded）⇒ 成功运行被判成
+#      「几何构建失败」；
+#   2) Java 属性名 geometricNonlinearity；
+#   3) 失败信息块里的字段行「- Geometry: geom1」（那是"出错域所属的几何名"，
+#      真错因是材料引用了未定义变量）⇒ 真错因被掩掉。
+#   4) mesh 规则同样含裸汉字，会命中进度行「当前进度: 0 % - 自由三角形网格 1」。
+
+_GEOMETRY_NOISE_SUCCESS_LOG = """\
+*******************************************
+***COMSOL 6.4.0.293 progress output file***
+*******************************************
+           当前进度:   0 % - 自由三角形网格 1
+Memory: 687/718 731/761
+顶点单元数：4
+边界单元数：18
+单元数：56
+---------- 当前进度: 100 % - 正在提高单元质量
+<---- 研究 1/解 1 (sol1) 中的“编译方程: 稳态” --------------------------------
+几何形函数: 二次拉格朗日单元
+在 AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD 上运行。
+           当前进度:   7 % - 编译方程: 稳态
+时间：2。
+----- 研究 1/解 1 (sol1) 中的“编译方程: 稳态” ------------------------------->
+"""
+
+
+def test_geometry_rule_does_not_fire_on_successful_batchlog() -> None:
+    """成功运行的 batchlog（含「几何形函数」与网格进度行）不得被判成几何/网格错误。"""
+    diagnosis = diagnostics.classify_failure(_GEOMETRY_NOISE_SUCCESS_LOG, exit_code=0, stage="batch")
+    assert diagnosis["code"] == "unknown", (
+        f"正常行被误判为 {diagnosis['code']}：{diagnosis.get('evidence')}"
+    )
+
+
+def test_geometry_rule_does_not_fire_on_geometric_nonlinearity() -> None:
+    """``geometricNonlinearity`` 是属性名，不是几何失败。"""
+    text = (
+        "model.component('comp1').physics('solid').set('geometricNonlinearity', true);\n"
+        "Loaded property geometricNonlinearity"
+    )
+    diagnosis = diagnostics.classify_failure(text, exit_code=1, stage="batch")
+    assert diagnosis["code"] != "geometry", diagnosis.get("evidence")
+
+
+def test_geometry_field_line_in_error_block_is_not_a_geometry_failure() -> None:
+    """报错块里的「- Geometry: geom1」只是定位信息，真错因（未定义变量）必须被读到。
+
+    实测对应 run-20260911T025650Z-96aa38fb：收紧前判 geometry，收紧后正确判 api。
+    """
+    text = (
+        "ERROR_MARKER::com.comsol.util.exceptions.FlException: "
+        "The_following_feature_has_encountered_a_problem\n"
+        "Messages:\n"
+        "\tUndefined variable\n"
+        "\t- Variable: comp1.mat1.def.E\n"
+        "\t- Geometry: geom1\n"
+        "\t- Domain: 1\n"
+    )
+    diagnosis = diagnostics.classify_failure(text, exit_code=1, stage="batch")
+    assert diagnosis["code"] == "api", diagnosis.get("evidence")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Messages:\n\tGeometry could not be built\n\t- Feature: geom1",
+        "Failed to build geometry sequence",
+        "几何构建失败：参数使厚度为 0",
+        "Invalid geometry: self-intersecting face detected",
+        "Zero-thickness domain detected",
+        "degenerate geometry",
+    ],
+)
+def test_geometry_rule_still_catches_real_geometry_failures(text: str) -> None:
+    """收紧之后，真几何失败仍必须被认出来（不能为了消误报把规则废掉）。"""
+    diagnosis = diagnostics.classify_failure(text, exit_code=1, stage="batch")
+    assert diagnosis["code"] == "geometry", (text, diagnosis["code"])
+    assert diagnosis["evidence"], "必须带回可复核的原文证据"
+
+
+def test_mesh_rule_does_not_fire_on_mesh_progress_line() -> None:
+    """网格进度行「当前进度: 0 % - 自由三角形网格 1」不得被判成网格错误。"""
+    diagnosis = diagnostics.classify_failure(
+        "           当前进度:   0 % - 自由三角形网格 1\nMemory: 687/718", exit_code=0
+    )
+    assert diagnosis["code"] != "mesh", diagnosis.get("evidence")
+
+
 def test_failed_run_gets_diagnosis_and_negative_sample(sandbox, conn) -> None:
     backend = StubBackend(ok=False, failure_text="OutOfMemoryError: Failed to allocate memory")
     job_queue = make_queue(sandbox, backend, conn=conn)

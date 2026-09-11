@@ -108,8 +108,19 @@ RULES: tuple[tuple[str, str, str, tuple[str, ...], bool, str], ...] = (
             "该参数区间应显式排除并记录。",
         ),
         False,
-        r"geometry could not be built|self-intersect|invalid geometry|zero-thickness|"
-        r"degenerate|geometr|几何|实体数量|no domains",
+        # 收紧前的规则里含裸子串 ``geometr`` 与裸汉字 ``几何``，会把**正常行**判成几何失败
+        # （实测两例，见文件末尾「几何规则误报」注释）：
+        #   1) 稳态成功运行的 batchlog 第 32 行原样写着「几何形函数: 二次拉格朗日单元」；
+        #   2) 失败信息块里有字段行「- Geometry: geom1」（那是**发生问题的域所属几何名**，
+        #      不是几何构建失败），当时的真错因是材料引用了未定义变量 comp1.mat1.def.E。
+        # 现在只保留"几何构建失败"本身的措辞，不再用裸词兜底。
+        r"geometry could not be built|could not be built.*geometr|"
+        r"failed to (build|create|generate).{0,20}geometr|"
+        r"invalid geometr|ill-formed geometr|self-?intersect|zero-?thickness|"
+        r"degenerate (geometr|entit|domain|edge|face)|"
+        r"geometry (is )?(empty|invalid)|"
+        r"几何(构建|建模|创建|生成)?(失败|错)|无法(构建|创建|生成)几何|几何不合法|"
+        r"几何数据无效|没有有效几何|实体数量为 ?0|no domains",
     ),
     (
         "mesh",
@@ -199,6 +210,24 @@ _COMPILED: tuple[tuple[re.Pattern[str], tuple[str, str, str, tuple[str, ...], bo
 # 从日志中截取多少字符作为证据片段
 EVIDENCE_WINDOW = 400
 
+# 识别性噪声行（**不是错误**，但含"几何/网格"字眼，会污染 geometry/mesh 规则）。
+# 实测依据：
+#   1) 成功运行的 batchlog 第 32 行：「几何形函数: 二次拉格朗日单元」
+#      —— 这是"单元几何阶数"的说明行，与几何构建无关（run-20260911T013113Z-1a25aa9f）；
+#   2) Java 属性名 ``geometricNonlinearity``（几何非线性开关）；
+#   3) batchlog 的**进度行**：「           当前进度:   0 % - 自由三角形网格 1」之类
+#      —— 与成功与否无关的信息行，命中 mesh 规则（"网格"）造成误报；
+#   4) 本模块自己写在 stdout 上的标记行（探针的诊断数据，不是求解器输出）。
+# 用「等同长度空白」替换而不是删行：保持字符下标不变，证据片段仍能定位回原文。
+_NOISE_LINE_RE = re.compile(
+    r"[^\n]*(?:"
+    r"几何形函数|几何非线|geometric\s*nonlinearity|"
+    r"当前进度\s*:|"
+    r"MEMS_GEOMETRY=|MEMS_NAMED_SELECTIONS="
+    r")[^\n]*",
+    re.IGNORECASE,
+)
+
 
 def _evidence(text: str, match: re.Match[str]) -> str:
     """截取命中位置附近的原文，作为可复核证据。"""
@@ -268,10 +297,15 @@ def classify_failure(
         if marked:
             match_text = raw + "\n" + "\n".join(part.replace("_", " ") for part in marked)
 
+    # 识别性噪声行：这些**不是错误**，但有"几何/网格"字眼，会让 geometry/mesh 规则误报。
+    # 用「等同长度的空白」替换而不是删除，避免把相邻两行粘成一行、造出跨行的假匹配。
+    masked = _NOISE_LINE_RE.sub(lambda m: " " * len(m.group(0)), match_text)
+    scan_text = masked if masked.strip() else match_text
+
     for pattern, (code, title, summary, actions, retryable) in _COMPILED:
         if code == "connection" and comsol_block:
             continue
-        match = pattern.search(match_text)
+        match = pattern.search(scan_text)
         if match:
             diag = Diagnosis(
                 code=code,
