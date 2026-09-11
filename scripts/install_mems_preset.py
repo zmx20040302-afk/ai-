@@ -52,23 +52,14 @@ MEMS_PERSONA = """      You are the MEMS Harness platform engineer, powered by t
       Answer in Chinese unless asked otherwise, and state uncertainty explicitly."""
 
 # 注入位置：标准模式的 agent-instructions 条目之后
-MCP_BLOCK = """
-# ── MEMS 平台工具（本模式的核心）──────────────────────────────────────────────
-# 平台能力全部经 MCP 暴露为 mcp__mems__*：环境/设备/队列/数据/寻优/场级降阶。
-# 求解类工具只入队（submit 立即返回 run_id），执行由单实例 worker 串行完成。
-- id: mcp-mems-harness
-  name: '@deepseek-ai/dsh-mcp-client'
-  config:
-    serverName: mems
-    transport: stdio
-    command: '{python}'
-    args: ['-m', 'memsharness.mcp_server']
-    cwd: '{repo}'
-    toolCallTimeoutMs: 60000
-    failOnStartupError: false
-    reconnect:
-      enabled: true
-"""
+# ⚠️ 实测教训（2026-09-11）：**不要**在 preset 里再挂一个 MCP 客户端实例。
+#   MCP 工具已由 profile 补丁层（~/.dsh/profiles/web/cordis.patch.yml）在宿主平面挂载，
+#   每个模式都能用；而 @deepseek-ai/dsh-mcp-client 禁止**重复的 serverName**：
+#   "A duplicate `serverName` across live instances fails the later plugin instance at load."
+#   在 preset 里再挂同名实例会让整个 preset 的 recompose 失败——表现正是
+#   「选择器里能选到，选完立刻跳回原模式」（挂载失败 → 界面回退）。
+#   证据：重启后 dsh-server.log 只有一次 MCP 服务器启动记录，没有第二个实例。
+MCP_BLOCK = ""
 
 PRESET_META = """name: MEMS 模式
 description: MEMS/PMUT 仿真自动化平台：COMSOL 求解、溯源数据、自主寻优、解析数据工厂与场级降阶模型（经 mcp__mems__* 工具）。
