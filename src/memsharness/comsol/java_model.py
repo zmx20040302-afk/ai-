@@ -488,26 +488,35 @@ public class cantilever_beam_2d {
 
     // ---- parameters (SI, all ASCII) ----
     model.param().set("L", "@@L@@[m]", "beam length");
-    model.param().set("h", "@@H@@[m]", "beam thickness (in-plane)");
-    model.param().set("E", "@@E@@[Pa]", "Young modulus");
-    model.param().set("nu", "@@NU@@", "Poisson ratio");
-    model.param().set("rho", "@@RHO@@[kg/m^3]", "density");
+    // NOTE: "h" is a COMSOL built-in global variable (mesh element size), so declaring
+    // param("h", ...) fails stationary compilation with
+    // "Duplicate variable name - Variable: h - Global scope" (measured, run ...0435e10f).
+    // The internal name is therefore h_beam; the external task parameter stays "h".
+    model.param().set("h_beam", "@@H@@[m]", "beam thickness (in-plane)");
+    // NOTE: E / nu / rho are aliases of the material properties themselves, so using them
+    // as global parameter names makes the material read its own (undefined) variable:
+    // "Undefined variable comp1.mat1.def.E ... Defined as comp1.mat1.def.E"
+    // (measured, run-20260911T025650Z-96aa38fb). Internal names are therefore suffixed;
+    // the external task parameter names stay E / nu / rho.
+    model.param().set("E_young", "@@E@@[Pa]", "Young modulus");
+    model.param().set("nu_pois", "@@NU@@", "Poisson ratio");
+    model.param().set("rho_beam", "@@RHO@@[kg/m^3]", "density");
     model.param().set("p_load", "@@PLOAD@@[Pa]", "pressure-type load on the free edge");
     model.param().set("Fy_load", "-p_load", "signed transverse load (property values must be a bare parameter name)");
     model.param().set("hmax_mesh", "@@HMAX@@[m]", "maximum element size");
-    model.param().set("delta_ref", "4*p_load*L^3/(E*h^2)", "closed-form tip deflection");
+    model.param().set("delta_ref", "3*p_load*L^4/(2*E_young*h_beam^3)", "closed-form tip deflection (uniform pressure on the top edge)");
 
     // ---- geometry: rectangle L x h at origin ----
     model.geom().create("geom1", 2);
     model.geom("geom1").feature().create("r1", "Rectangle");
-    model.geom("geom1").feature("r1").set("size", new String[]{"L", "h"});
+    model.geom("geom1").feature("r1").set("size", new String[]{"L", "h_beam"});
     model.geom("geom1").run();
 
     // ---- material ----
     model.component("comp1").material().create("mat1", "Common");
-    model.component("comp1").material("mat1").propertyGroup("def").set("youngsmodulus", "E");
-    model.component("comp1").material("mat1").propertyGroup("def").set("poissonsratio", "nu");
-    model.component("comp1").material("mat1").propertyGroup("def").set("density", "rho");
+    model.component("comp1").material("mat1").propertyGroup("def").set("youngsmodulus", "E_young");
+    model.component("comp1").material("mat1").propertyGroup("def").set("poissonsratio", "nu_pois");
+    model.component("comp1").material("mat1").propertyGroup("def").set("density", "rho_beam");
 
     // ---- physics: solid mechanics (2D defaults to plane stress) ----
     model.component("comp1").physics().create("solid", "SolidMechanics", "geom1");
@@ -515,29 +524,73 @@ public class cantilever_beam_2d {
     model.component("comp1").physics("solid").create("fix1", "Fixed", 1);
     model.component("comp1").physics("solid").feature("fix1").selection().set(new int[]{@@BND_FIX@@});
 
+    // DIAGNOSIS PROBE (run-20260911T025847Z-7fad567c): with the F-vector free-end load the
+    // load read back correctly (forceType=ForceArea, F=[0, Fy_load, 0]) and the solve
+    // produced 6410 elements / 26954 dof, yet solid.disp, abs(u) and abs(v) were ALL exactly
+    // 0.0 - i.e. that path did not move the beam. So keep it AND add a pressure load on the
+    // top edge (boundary 3); pressure acts normal to the edge = transverse, and its closed
+    // form is delta = 3 p L^4 / (2 E h^3) for a cantilever under uniform pressure.
+    model.component("comp1").physics("solid").create("load2", "BoundaryLoad", 1);
+    model.component("comp1").physics("solid").feature("load2").selection().set(new int[]{3});
+    try {
+      model.component("comp1").physics("solid").feature("load2").set("forceType", "Pressure");
+    } catch (Exception ignored) {
+    }
+    try {
+      model.component("comp1").physics("solid").feature("load2").set("pressure", "p_load");
+      System.out.println("PRESSURE_APPLIED=1");
+    } catch (Exception e) {
+      System.out.println("PRESSURE_APPLIED=0 " + e);
+    }
+    // The probed property list contains BOTH "F" and "force", and the zero-displacement runs
+    // suggest the live property for forceType=ForceArea may be "force", not "F". Set both and
+    // read the effective values back.
+    try {
+      model.component("comp1").physics("solid").feature("load1")
+          .set("force", new String[]{"0", "Fy_load", "0"});
+      System.out.println("FORCE_SET=1");
+    } catch (Exception e) {
+      System.out.println("FORCE_SET=0 " + e);
+    }
+    try {
+      System.out.println("LOAD2_FORCETYPE=" + model.component("comp1").physics("solid")
+          .feature("load2").getString("forceType"));
+      System.out.println("LOAD2_PRESSURE=" + model.component("comp1").physics("solid")
+          .feature("load2").getString("pressure"));
+      System.out.println("LOAD1_FORCE_READBACK=" + java.util.Arrays.toString(
+          model.component("comp1").physics("solid").feature("load1").getStringArray("force")));
+    } catch (Exception e) {
+      System.out.println("LOAD2_READBACK_ERROR=" + e);
+    }
+
     model.component("comp1").physics("solid").create("load1", "BoundaryLoad", 1);
     model.component("comp1").physics("solid").feature("load1").selection().set(new int[]{@@BND_LOAD@@});
-    // The component property name of a boundary load varies with dimension/version
-    // ("Fy" fails in 2D with Unknown_parameter_X#Fy). Try candidates in order and print
-    // the feature's REAL property list instead of guessing.
-    // NOTE: do not declare a feature variable with an explicit type here
-    // (com.comsol.model.PhysicsFeature does not resolve in 6.4) - call inline.
+    // A 2D BoundaryLoad has NO "Fy" property (probed from COMSOL 6.4: the real list is
+    // forceType, pressure, F, force, q1, q2, q4, tractionType, ...).
+    // Use the vector form F first; fall back to the traction components q1/q2.
+    // Values are bare parameter names (Fy_load is defined in the parameter table).
     try {
-      String[] candidates = new String[]{"Fy", "FAy", "FperArea", "Fty"};
-      boolean applied = false;
-      for (String candidate : candidates) {
+      try {
+        model.component("comp1").physics("solid").feature("load1").set("forceType", "ForceArea");
+      } catch (Exception ignored) {
+      }
+      String how = "";
+      try {
+        model.component("comp1").physics("solid").feature("load1")
+            .set("F", new String[]{"0", "Fy_load", "0"});
+        how = "F-vector";
+      } catch (Exception first) {
         try {
-          model.component("comp1").physics("solid").feature("load1").set(candidate, "Fy_load");
-          System.out.println("LOAD_PROP_OK=" + candidate);
-          applied = true;
-          break;
-        } catch (Exception ignored) {
+          model.component("comp1").physics("solid").feature("load1")
+              .set("q1", new String[]{"0", "0", "0"});
+          model.component("comp1").physics("solid").feature("load1")
+              .set("q2", new String[]{"0", "Fy_load", "0"});
+          how = "q1-q2";
+        } catch (Exception second) {
+          System.out.println("LOAD_PROP_PROBE_ERROR2=" + first + " | " + second);
         }
       }
-      if (!applied) {
-        System.out.println("LOAD_PROPS=" + java.util.Arrays.toString(
-            model.component("comp1").physics("solid").feature("load1").properties()));
-      }
+      System.out.println("LOAD_APPLIED_VIA=" + how);
     } catch (Exception e) {
       System.out.println("LOAD_PROP_PROBE_ERROR=" + e);
     }
@@ -558,6 +611,37 @@ public class cantilever_beam_2d {
     // ---- extract scalar results (y-displacement magnitude = tip deflection) ----
     double dTip = evalNum(model, "mxV", "MaxSurface", "abs(v)");
     double dRef = evalParam(model, "delta_ref");
+
+    // Probe: why can abs(v) be exactly 0 while the solve succeeds?
+    // Print the EFFECTIVE load-type enum, the read-back vector, and alternative measures.
+    try {
+      // NOTE: getEnum() does not exist on the untyped PhysicsFeature exposed to the batch
+      // compiler ("cannot find symbol ... getEnum") - read back with getString only.
+      System.out.println("LOAD_FORCETYPE=" + model.component("comp1").physics("solid")
+          .feature("load1").getString("forceType"));
+      System.out.println("LOAD_F_READBACK=" + java.util.Arrays.toString(
+          model.component("comp1").physics("solid").feature("load1").getStringArray("F")));
+    } catch (Exception e) {
+      System.out.println("LOAD_READBACK_ERROR=" + e);
+    }
+    System.out.println("PROBE_DISP_MAG=" + evalNum(model, "mxD", "MaxSurface", "solid.disp"));
+    System.out.println("PROBE_ABS_U=" + evalNum(model, "mxU", "MaxSurface", "abs(u)"));
+    // Control: X is a built-in coordinate variable, so it MUST evaluate to 0.004 on this beam.
+    // If X works but the displacement variables do not, the read path is fine and the field is
+    // really zero; if X also fails, the numerical-node readout itself is broken.
+    double ctrlX = evalNum(model, "mxX", "MaxSurface", "X");
+    System.out.println("PROBE_CTRL_X=" + ctrlX);
+    try {
+      System.out.println("RAW_DISP=" + java.util.Arrays.toString(
+          model.result().numerical("mxD").getReal()));
+      System.out.println("RAW_ABS_V=" + java.util.Arrays.toString(
+          model.result().numerical("mxV").getReal()));
+      System.out.println("RAW_CTRL_X=" + java.util.Arrays.toString(
+          model.result().numerical("mxX").getReal()));
+      System.out.println("DATASET_TAG=" + firstDataset(model));
+    } catch (Exception e) {
+      System.out.println("RAW_READ_ERROR=" + e);
+    }
 
     model.save("out.mph");
 
@@ -685,9 +769,13 @@ def render_cantilever_beam_2d(values: dict[str, float]) -> str:
 
 
 def analytic_cantilever_beam_2d(values: dict[str, float]) -> dict[str, float]:
-    """闭式解：端部挠度 δ = 4 p L³ / (E h²)（Euler-Bernoulli，厚度自动约掉）。"""
+    """闭式解：上表面均布压强 p 下悬臂梁端部挠度 δ = 3 p L⁴ / (2 E h³)（厚度自动约掉）。
+
+    推导：均布载荷 w = p·d（d 为面外厚度），δ = wL⁴/(8EI)，I = d h³/12
+    ⇒ δ = 3pL⁴/(2Eh³)。
+    """
     L, h, E, p = values["L"], values["h"], values["E"], values["p_load"]
-    return {"d_tip_m": 4.0 * p * L**3 / (E * h**2)}
+    return {"d_tip_m": 3.0 * p * L**4 / (2.0 * E * h**3)}
 
 
 CANTILEVER_BEAM_2D = TemplateSpec(

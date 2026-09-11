@@ -246,8 +246,32 @@ def classify_failure(
         )
         return {**diag.to_dict(), **base}
 
+    # 噪声屏蔽 + 标记文本归一（实测依据：run-20260911T025541Z-0435e10f）
+    # batchlog 在真实报错之后常追加 "java.net.SocketException: Connection reset"：
+    # 那是模型类已跑完、桥接通道正常关闭时的噪声，不是失败原因。
+    # 若直接用整段文本按顺序匹配，先命中的连接规则会把运行期 API 报错误判成 connection。
+    # 因此：文本里存在 COMSOL 结构化报错时，连接类规则不参与匹配。
+    comsol_block = (
+        "FlException" in raw
+        or "com.comsol.util.exceptions" in raw
+        or re.search(r"(?m)^Messages:\s*$", raw) is not None
+    )
+    # worker 把异常写成单行 ERROR_MARKER::<Exception>（空格被替换为下划线），
+    # 这里额外拼一份「去下划线」副本专供匹配，避免 Duplicate_variable_name 漏配。
+    match_text = raw
+    if "ERROR_MARKER::" in raw:
+        marked = [
+            line.split("ERROR_MARKER::", 1)[1]
+            for line in raw.splitlines()
+            if "ERROR_MARKER::" in line
+        ]
+        if marked:
+            match_text = raw + "\n" + "\n".join(part.replace("_", " ") for part in marked)
+
     for pattern, (code, title, summary, actions, retryable) in _COMPILED:
-        match = pattern.search(raw)
+        if code == "connection" and comsol_block:
+            continue
+        match = pattern.search(match_text)
         if match:
             diag = Diagnosis(
                 code=code,
@@ -257,7 +281,7 @@ def classify_failure(
                 retryable=retryable,
                 stage=stage,
                 matched_pattern=pattern.pattern,
-                evidence=_evidence(raw, match),
+                evidence=_evidence(match_text, match),
             )
             return {**diag.to_dict(), **base}
 
