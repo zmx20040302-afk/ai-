@@ -825,6 +825,12 @@ public class @@CLASS@@ {
     return sb.append('"').toString();
   }
 
+  /** JSON number or null for a read-back value (NaN/Infinity are NOT values: emit null). */
+  private static String num(Double x) {
+    if (x == null || x.isNaN() || x.isInfinite()) return "null";
+    return String.format(java.util.Locale.ROOT, "%.12g", x);
+  }
+
   // getVertex() is [ndim][nvertices] (column-major) - verified live against COMSOL 6.4:
   // reading it as [nvertices][ndim] yields a bogus box (measured: [0,0] x [0, 1.25e-05]).
   private static String boxJson(double[][] pts, int axis) {
@@ -880,52 +886,76 @@ public class @@CLASS@@ {
     StringBuilder out = new StringBuilder();
     out.append("{\"ok\":true,\"input_file\":").append(esc(@@INPUT_LIT@@));
     out.append(",\"output_file\":").append(esc(@@OUTPUT_LIT@@));
-    out.append(",\"changes\":[");
+    // Each parameter gets TWO INDEPENDENT read-backs: the before state and the after state are
+    // collected and serialized separately, never through a shared variable.
+    // Historical defect (measured, audit case 01: changing v0 gave value_before=2.0 and
+    // value_after=2.0 while the pre-change value was 1.0): beforeValue's evaluate() used to sit
+    // AFTER set(), so the "before" number was really a re-evaluation of the new state - the
+    // provenance record lied. The order is now:
+    //   read expression before -> read value before -> set -> read expression after -> read value after
+    // The two groups use different variables, so they cannot stand in for each other any more.
+    out.append(",\"readbacks\":[");
     for (int i = 0; i < NAMES.length; i++) {
       String name = NAMES[i];
       if (i > 0) out.append(",");
-      String before = null;
+
+      // ---- BEFORE read-back (read-only: the model is not touched here) ----
+      String beforeExpr = null;
+      String beforeExprError = null;
       try {
-        before = model.param().get(name);
+        beforeExpr = model.param().get(name);
       } catch (Exception e) {
-        System.out.println("MEMS_ERROR_UNREADABLE=parameter_expression:" + name + ":" + e);
+        beforeExprError = e.getClass().getName() + ": " + e.getMessage();
+        System.out.println("MEMS_ERROR_UNREADABLE=parameter_expression_before:" + name + ":" + e);
       }
+      Double beforeValue = null;
+      String beforeValueError = null;
+      try {
+        beforeValue = Double.valueOf(model.param().evaluate(name));
+      } catch (Exception e) {
+        beforeValueError = e.getClass().getName() + ": " + e.getMessage();
+        System.out.println("MEMS_ERROR_UNREADABLE=parameter_value_before:" + name + ":" + e);
+      }
+
+      // ---- WRITE ----
       String applyError = null;
       try {
         model.param().set(name, WANTED[i]);
       } catch (Exception e) {
         applyError = e.getClass().getName() + ": " + e.getMessage();
       }
-      String after = null;
+
+      // ---- AFTER read-back ----
+      String afterExpr = null;
+      String afterExprError = null;
       try {
-        after = model.param().get(name);
+        afterExpr = model.param().get(name);
       } catch (Exception e) {
-        System.out.println("MEMS_ERROR_UNREADABLE=parameter_readback:" + name + ":" + e);
+        afterExprError = e.getClass().getName() + ": " + e.getMessage();
+        System.out.println("MEMS_ERROR_UNREADABLE=parameter_expression_after:" + name + ":" + e);
       }
-      Double beforeValue = null;
       Double afterValue = null;
+      String afterValueError = null;
       try {
-        beforeValue = Double.valueOf(model.param().evaluate(name));
+        afterValue = Double.valueOf(model.param().evaluate(name));
       } catch (Exception e) {
-        System.out.println("MEMS_ERROR_UNREADABLE=parameter_value:" + name + ":" + e);
+        afterValueError = e.getClass().getName() + ": " + e.getMessage();
+        System.out.println("MEMS_ERROR_UNREADABLE=parameter_value_after:" + name + ":" + e);
       }
-      if (after != null) {
-        try {
-          afterValue = Double.valueOf(model.param().evaluate(name));
-        } catch (Exception e) {
-          System.out.println("MEMS_ERROR_UNREADABLE=parameter_value_after:" + name + ":" + e);
-        }
-      }
+
       out.append("{\"name\":").append(esc(name));
       out.append(",\"requested\":").append(esc(WANTED[i]));
-      out.append(",\"expression_before\":").append(esc(before));
-      out.append(",\"expression_after\":").append(esc(after));
-      out.append(",\"value_before\":").append(beforeValue == null || beforeValue.isNaN()
-          ? "null" : String.format(java.util.Locale.ROOT, "%.12g", beforeValue));
-      out.append(",\"value_after\":").append(afterValue == null || afterValue.isNaN()
-          ? "null" : String.format(java.util.Locale.ROOT, "%.12g", afterValue));
-      out.append(",\"applied\":").append(WANTED[i].equals(after) ? "true" : "false");
       out.append(",\"apply_error\":").append(applyError == null ? "null" : esc(applyError));
+      out.append(",\"before_readback\":{\"read\":true");
+      out.append(",\"expression\":").append(esc(beforeExpr));
+      out.append(",\"expression_error\":").append(esc(beforeExprError));
+      out.append(",\"value\":").append(num(beforeValue));
+      out.append(",\"value_error\":").append(esc(beforeValueError)).append("}");
+      out.append(",\"after_readback\":{\"read\":").append(afterExpr == null ? "false" : "true");
+      out.append(",\"expression\":").append(esc(afterExpr));
+      out.append(",\"expression_error\":").append(esc(afterExprError));
+      out.append(",\"value\":").append(num(afterValue));
+      out.append(",\"value_error\":").append(esc(afterValueError)).append("}");
       out.append("}");
     }
     out.append("]}");
@@ -1748,6 +1778,9 @@ def set_parameters(
     facts = run.payload or {}
     rejected = bool(facts) and facts.get("error") == "unknown_parameter"
     unknown = [str(x) for x in (facts.get("unknown") or [])]
+    # diff 由**纯函数**从 Java 的两组独立读回组装（before 一组、after 一组），
+    # 结构上不可能再出现 "用 after 顶替 before"。
+    diff = build_parameter_diff(facts.get("readbacks") or [])
     geometry, geometry_error = _parse_prefixed_json(run.stdout, GEOMETRY_MARKER)
     selections, selections_error = _parse_prefixed_json(run.stdout, SELECTIONS_MARKER)
     output_path = run_dir / output_name
@@ -1786,7 +1819,7 @@ def set_parameters(
         "staged_sha256": stage.get("staged_sha256"),
         "output_path": str(output_path) if saved_ok else None,
         "output_sha256": sha256_file(output_path) if saved_ok else None,
-        "diff": list(facts.get("changes") or []),
+        "diff": diff,
         "unknown_parameters": unknown,
         "legal_parameter_names": [str(x) for x in (facts.get("legal_parameter_names") or [])],
         "rejected_reserved": reserved,
@@ -1845,6 +1878,111 @@ def _ascii_stem(stem: str) -> str:
     cleaned = "".join(ch if (ch.isascii() and (ch.isalnum() or ch in "-_")) else "_" for ch in stem)
     cleaned = re.sub(r"_{2,}", "_", cleaned).strip("_")
     return cleaned or "model"
+
+
+def _reading(
+    readback: Any, field: str, *, error_field: str | None = None
+) -> tuple[Any, str | None]:
+    """从一段读回字典里取一个字段，返回 ``(值, 原因)``。
+
+    值取不到时**返回 None 并给出原因**，绝不用另一侧的值顶替。
+    失败模式：``readback`` 不是 Mapping / 字段缺失 / 读回自报 ``read=false`` → ``(None, 原因)``。
+    """
+    if not isinstance(readback, Mapping):
+        return None, "读回结构缺失（该侧没有读数）"
+    value = readback.get(field)
+    if value is not None:
+        return value, None
+    if error_field:
+        err = readback.get(error_field)
+        if err:
+            return None, str(err)
+    if readback.get("read") is False:
+        return None, "该侧读回失败（read=false），无读数"
+    return None, f"该侧读数缺失（字段 {field!r} 为 null 且未记录原因）"
+
+
+def build_parameter_diff(readbacks: Iterable[Mapping[str, Any]] | None) -> list[dict[str, Any]]:
+    """把"写前读回"和"写后读回"组装成参数 diff（**纯函数**，便于回归测试）。
+
+    ``readbacks`` 每项形如::
+
+        {"name": "v0", "requested": "2[V]",
+         "apply_error": None,
+         "before_readback": {"read": true, "expression": "1[V]", "expression_error": null,
+                             "value": 1.0, "value_error": null},
+         "after_readback":  {"read": true, "expression": "2[V]", "expression_error": null,
+                             "value": 2.0, "value_error": null}}
+
+    返回的每条 diff::
+
+        {"name", "requested",
+         "expression_before", "expression_before_source", "expression_before_reason",
+         "expression_after",  "expression_after_source",  "expression_after_reason",
+         "value_before",      "value_before_source",      "value_before_reason",
+         "value_after",       "value_after_source",       "value_after_reason",
+         "applied", "apply_error"}
+
+    **铁律：before 侧只来自 ``before_readback``，after 侧只来自 ``after_readback``。**
+    一侧读不到就写 ``None`` + 原因，**不得用另一侧顶替、也不得静默省略**——
+    这个字段是溯源证据（红线 1：没有证据不出数字；历史 append-only 才能回溯）。
+
+    ``applied`` 的判据是"写后读回表达式 == 请求表达式"（**只依赖 after 侧**）；
+    当某侧表达式读不到时为 ``None``（未判定），不是 ``False``。
+
+    失败模式：``readbacks`` 为 None/空 → 返回空列表（调用方会发现 diff 为空，而不是拿到假条目）；
+    非 Mapping 的条目 → 跳过（不猜它的内容）。
+    """
+    diff: list[dict[str, Any]] = []
+    for item in readbacks or []:
+        if not isinstance(item, Mapping):
+            continue
+        name = item.get("name")
+        if name is None:
+            continue
+        before = item.get("before_readback")
+        after = item.get("after_readback")
+        expr_before, expr_before_reason = _reading(
+            before, "expression", error_field="expression_error"
+        )
+        value_before, value_before_reason = _reading(
+            before, "value", error_field="value_error"
+        )
+        expr_after, expr_after_reason = _reading(
+            after, "expression", error_field="expression_error"
+        )
+        value_after, value_after_reason = _reading(after, "value", error_field="value_error")
+        requested = item.get("requested")
+        applied: bool | None
+        if expr_after is None:
+            applied = None
+        else:
+            applied = _normalize_expr(requested) == _normalize_expr(expr_after)
+        entry: dict[str, Any] = {
+            "name": str(name),
+            "requested": requested,
+            "expression_before": expr_before,
+            "expression_before_source": "before_readback",
+            "expression_before_reason": expr_before_reason,
+            "expression_after": expr_after,
+            "expression_after_source": "after_readback",
+            "expression_after_reason": expr_after_reason,
+            "value_before": value_before,
+            "value_before_source": "before_readback",
+            "value_before_reason": value_before_reason,
+            "value_after": value_after,
+            "value_after_source": "after_readback",
+            "value_after_reason": value_after_reason,
+            "applied": applied,
+            "apply_error": item.get("apply_error"),
+        }
+        if value_before is None and value_after is not None:
+            # 显式写清"这不是 after 顶替"：审计时最容易被误读的一处。
+            entry["value_before_note"] = (
+                "写前数值读不到，因此为 None；**没有**用写后值顶替（见 value_before_reason）"
+            )
+        diff.append(entry)
+    return diff
 
 
 def _probe_bbox(

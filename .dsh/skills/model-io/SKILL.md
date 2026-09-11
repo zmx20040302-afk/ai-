@@ -76,6 +76,9 @@ description: 任意 COMSOL 模型的参数读取与修改 SOP：只读复制与�
 - **属性名不可猜**：先用 `feature.properties()` 打印真实属性清单再设值。
 - **数值结果节点必须显式绑定 dataset**，否则求解成功却读到 NaN；`Max/Av/Int` 作用在 `Surface` 上还需要显式选择集。
 - **生成的 Java 源码必须全 ASCII**（含注释），否则 `UnicodeEncodeError`；模板层有守卫会直接拦下。
+- **`comsolbatch` 下 Java 侧不能读写自己的工作文件**：用"跑完写哨兵文件"传递结果的方案会失败（实测），必须改用 **stdout 单行标记**。
+- **`comsolcompile` 会在 `.class` 看起来较新时跳过重编译**：改了 `.java` 却没重编，会拿到旧行为（实测）。生成脚本应**先强制删除旧 `.class`** 再编译。
+- **结果目录里的边界/选择集读数只证明"这次运行"**：几何或网格变更后必须重跑探针复核，不能沿用旧读数（技能第 8 步）。
 - **枚举赋值失败会被静默吞掉，必须回读**：实测 `set("forceType", "Pressure")` 抛异常被 `catch` 吞掉，`forceType` 停留默认 `ForceArea`，而该模式下 `pressure` 属性**不生效** → 载荷为零、位移恒为 0。合法枚举值查 `physics.xml`：Solid Mechanics 边界载荷的压力选项是 **`FollowerPressure`**（**不存在 `"Pressure"`**）。设完必须 `getString()` 回读，**回读值才是事实**。
 
 ## 产物与落点

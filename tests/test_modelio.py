@@ -970,11 +970,62 @@ def test_set_parameters_round_trip_on_real_model() -> None:
     entry = next(item for item in result["diff"] if item["name"] == pick[0])
     assert entry["applied"] is True, entry
     assert entry["expression_after"] == pick[1]
+    # 幂等写入：写前读回也应等于同一个表达式（且来源标注为 before_readback）
+    assert entry["expression_before"] == pick[1]
+    assert entry["expression_before_source"] == "before_readback"
+    assert entry["value_before_source"] == "before_readback"
+    assert entry["value_after_source"] == "after_readback"
+    assert entry["value_before"] == entry["value_after"]
     assert entry["apply_error"] is None
     assert result["source_original_untouched"] is True
     output = Path(result["output_path"])
     assert output.is_file() and output.stat().st_size > 0
     assert result["output_sha256"] != result["source_sha256"]
+
+
+@requires_comsol
+def test_set_parameters_real_change_reports_true_before_value() -> None:
+    """真改一个数值参数：``value_before`` 必须是**改动前**的读数（实测 case 01 的回归）。
+
+    历史缺陷：改 ``v0`` 时 diff 里 ``value_before == value_after == 2.0``，而改动前是 1.0。
+    这里选一个"纯数值 + 单位"的参数，把它改成**两倍**（语义上仍可求解，只多跑一次批处理），
+    断言 ``value_before`` 等于改动前表达式算出的值、``value_after`` 等于两倍值，且二者不同。
+    """
+    model = _find_real_model()
+    if model is None:
+        pytest.skip("work/runs 下没有可用的真实 .mph（未跑过任何求解）")
+    work = _probe_work_root()
+    probe = mio.probe_model(model, work_root=work)
+    if not probe.get("ok") or not probe.get("parameters"):
+        pytest.skip(f"探针未取得参数表：{probe.get('payload_error') or probe.get('diagnostic')}")
+
+    import re as _re
+
+    pick = None
+    for row in probe["parameters"]:
+        expr = row.get("expression")
+        value = row.get("value")
+        match = _re.fullmatch(r"\s*([-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)\s*(\[[^\]]*\])\s*", expr or "")
+        if match and isinstance(value, (int, float)) and float(value) != 0.0:
+            pick = (row["name"], float(match.group(1)), match.group(2))
+            break
+    if pick is None:
+        pytest.skip("该模型没有'纯数值+单位'形式的参数，无法做确定性的改值验证")
+
+    name, original, unit = pick
+    target = original * 2.0
+    # 用简单小数形式写回（repr 可能给出 '2e-05'，COMSOL 未必认这种写法）
+    wanted = f"{target:.12g}{unit}"
+    result = mio.set_parameters(model, {name: wanted}, work_root=work, baseline_geometry=False)
+    assert result["ok"] is True, result["diagnostic"]
+    entry = next(item for item in result["diff"] if item["name"] == name)
+    assert entry["applied"] is True, entry
+    assert entry["value_before"] == pytest.approx(original), (
+        f"value_before 不是改动前的值：{entry}"
+    )
+    assert entry["value_after"] == pytest.approx(target)
+    assert entry["value_before"] != entry["value_after"], "改值前后必须不同，否则这次验证没有意义"
+    assert entry["expression_before"] != entry["expression_after"]
 
 
 # ======================================================================================
@@ -1539,3 +1590,206 @@ def test_real_gui_export_sections_and_enums() -> None:
         report = spec["enum_validation"]
         assert report["available"] is True
         assert report["checked_count"] > 0
+
+
+# ======================================================================================
+# 10. 参数 diff 的 before/after 同源缺陷（实测 case 01）
+# ======================================================================================
+#
+# 实测缺陷（效验 case 01，真实模型 bGEtask2.mph）：改 v0 时 diff 里 value_before=2.0、
+# value_after=2.0，而改动前是 **1.0**。根因是 Java 里 `beforeValue` 的 evaluate() 写在
+# `set()` **之后**，"写前值"其实是写后重算的读数——diff 的 before 侧被 after 顶替。
+# 这个字段是溯源证据（红线 1 + append-only 可回溯），错一次会让后续审计得出错误结论。
+# 现在改成：Java 分两组独立读回（before_readback / after_readback），Python 由纯函数
+# `build_parameter_diff` 组装，两侧不同源、结构上不可互换。
+
+
+def _readback_pair(
+    *,
+    name: str = "v0",
+    requested: Any = "2[V]",
+    before_expr: Any = "1[V]",
+    before_value: Any = 1.0,
+    after_expr: Any = "2[V]",
+    after_value: Any = 2.0,
+    before_error: str | None = None,
+    before_value_error: str | None = None,
+    apply_error: str | None = None,
+    before_read: bool = True,
+) -> dict:
+    """构造一条"模拟的 Java 读回"（before / after 两组分别给值）。"""
+    return {
+        "name": name,
+        "requested": requested,
+        "apply_error": apply_error,
+        "before_readback": {
+            "read": before_read,
+            "expression": before_expr,
+            "expression_error": before_error,
+            "value": before_value,
+            "value_error": before_value_error,
+        },
+        "after_readback": {
+            "read": True,
+            "expression": after_expr,
+            "expression_error": None,
+            "value": after_value,
+            "value_error": None,
+        },
+    }
+
+
+def test_diff_value_before_comes_from_before_readback_not_after() -> None:
+    """核心回归：写前读回值 ≠ 写后读回值时，两侧必须各归各位（实测 case 01 的形状）。"""
+    diff = mio.build_parameter_diff([_readback_pair()])
+    assert len(diff) == 1
+    entry = diff[0]
+    assert entry["value_before"] == 1.0, f"before 被 after 顶替了：{entry}"
+    assert entry["value_after"] == 2.0
+    assert entry["value_before"] != entry["value_after"], "这一对读数本来就不同，不该相等"
+    assert entry["expression_before"] == "1[V]"
+    assert entry["expression_after"] == "2[V]"
+    # 来源字段显式标注，审计时能一眼看出两侧不同源
+    assert entry["value_before_source"] == "before_readback"
+    assert entry["value_after_source"] == "after_readback"
+    assert entry["value_before_reason"] is None
+    assert entry["applied"] is True
+
+
+def test_diff_value_before_none_is_not_backfilled_by_after() -> None:
+    """写前读不到 → ``None`` + 原因；**绝不用 after 顶替**，也不静默省略。"""
+    diff = mio.build_parameter_diff([
+        _readback_pair(
+            before_expr=None,
+            before_value=None,
+            before_error="com.comsol.util.exceptions.FlException: undefined parameter",
+            before_value_error="com.comsol.util.exceptions.FlException: cannot evaluate",
+            before_read=False,
+        )
+    ])
+    entry = diff[0]
+    assert entry["value_before"] is None, f"before 不得被 after 顶替：{entry}"
+    assert entry["value_after"] == 2.0
+    assert entry["value_before_reason"], "必须给出读不到的原因"
+    assert "FlException" in entry["value_before_reason"]
+    assert entry["expression_before"] is None
+    assert "FlException" in (entry["expression_before_reason"] or "")
+    # 显式写清"这不是 after 顶替"，避免审计误读
+    assert "顶替" in entry.get("value_before_note", "")
+    # 字段本身必须存在（不得静默省略）
+    assert "value_before" in entry and "expression_before" in entry
+
+
+def test_diff_missing_before_readback_section_is_explicit() -> None:
+    """整段 before 读回缺失（结构都没有）→ 也要 None + 原因，而不是拿 after 充数。"""
+    item = _readback_pair()
+    item.pop("before_readback")
+    entry = mio.build_parameter_diff([item])[0]
+    assert entry["value_before"] is None
+    assert entry["expression_before"] is None
+    assert "缺失" in (entry["value_before_reason"] or "")
+
+
+def test_diff_no_substitution_even_when_before_is_none_and_after_matches() -> None:
+    """极端情形：before 读不到，而 after 恰好等于 requested —— 仍然不得回填。"""
+    diff = mio.build_parameter_diff([
+        _readback_pair(before_expr=None, before_value=None, before_value_error="no read")
+    ])
+    entry = diff[0]
+    assert entry["value_before"] is None
+    assert entry["applied"] is True  # applied 只看 after 侧，与 before 缺失无关
+
+
+def test_diff_applied_detects_swallowed_write() -> None:
+    """写入被静默吞掉（after 没变）→ applied=False，且 before/after 都如实记录。"""
+    diff = mio.build_parameter_diff([
+        _readback_pair(after_expr="1[V]", after_value=1.0)
+    ])
+    entry = diff[0]
+    assert entry["applied"] is False
+    assert entry["value_before"] == 1.0
+    assert entry["value_after"] == 1.0
+
+
+def test_diff_applied_is_none_when_after_unreadable() -> None:
+    """写后表达式读不到 → applied 为 None（未判定），不是 False。"""
+    item = _readback_pair()
+    item["after_readback"] = {
+        "read": False,
+        "expression": None,
+        "expression_error": "readback failed",
+        "value": None,
+        "value_error": "readback failed",
+    }
+    entry = mio.build_parameter_diff([item])[0]
+    assert entry["applied"] is None
+    assert entry["value_after"] is None
+    assert entry["value_after_reason"]
+    assert entry["value_before"] == 1.0
+    assert entry["expression_after_reason"]
+
+
+def test_diff_carries_apply_error_verbatim() -> None:
+    """apply_error 只反映 set() 自身是否报错，不得被其它字段掩盖。"""
+    diff = mio.build_parameter_diff([
+        _readback_pair(apply_error="com.comsol.util.exceptions.FlException: bad value")
+    ])
+    assert diff[0]["apply_error"] == "com.comsol.util.exceptions.FlException: bad value"
+
+
+def test_diff_empty_and_malformed_inputs() -> None:
+    """空/畸形输入不得产出假条目（不猜内容）。"""
+    assert mio.build_parameter_diff(None) == []
+    assert mio.build_parameter_diff([]) == []
+    assert mio.build_parameter_diff([None, "x", {"no_name": 1}]) == []
+
+
+def test_diff_handles_multiple_parameters_independently() -> None:
+    """多参数时每条 diff 必须各用自己那一对读数（避免索引串位）。"""
+    diff = mio.build_parameter_diff([
+        _readback_pair(name="v0", requested="2[V]", before_expr="1[V]", before_value=1.0,
+                       after_expr="2[V]", after_value=2.0),
+        _readback_pair(name="f0", requested="7[MHz]", before_expr="5[MHz]", before_value=5e6,
+                       after_expr="7[MHz]", after_value=7e6),
+    ])
+    by_name = {d["name"]: d for d in diff}
+    assert by_name["v0"]["value_before"] == 1.0 and by_name["v0"]["value_after"] == 2.0
+    assert by_name["f0"]["value_before"] == 5e6 and by_name["f0"]["value_after"] == 7e6
+
+
+def test_rendered_set_template_reads_before_value_before_writing() -> None:
+    """静态不变量：生成的 Java 源码里，before 侧读回必须**全部早于** ``set()``。
+
+    这条直接钉住那个缺陷的成因（beforeValue 的 evaluate 曾被放在 set 之后）；
+    它不需要跑 COMSOL，因此能在默认测试里拦住回归。
+    """
+    src = mio.render_set_source(
+        java_class="model_set_parameters",
+        input_name="input.mph",
+        output_name="m_modified.mph",
+        names=["v0"],
+        wanted=["2[V]"],
+    )
+    idx = {
+        "expr_before": src.index("parameter_expression_before"),
+        "value_before": src.index("parameter_value_before"),
+        "set": src.index("model.param().set(name, WANTED[i])"),
+        "expr_after": src.index("parameter_expression_after"),
+        "value_after": src.index("parameter_value_after"),
+    }
+    assert idx["expr_before"] < idx["set"], idx
+    assert idx["value_before"] < idx["set"], f"写前数值读回必须在 set 之前：{idx}"
+    assert idx["set"] < idx["expr_after"], idx
+    assert idx["set"] < idx["value_after"], idx
+    # 结构上也必须是"两组独立读回"，不是一组变量复用
+    # （Java 源码里 JSON 键写作 \"readbacks\"，故只断言裸标识符）
+    assert "readbacks" in src
+    assert '"changes"' not in src, "旧的单组 changes 结构已废除"
+    # 两组读回各自成段（before 段 + after 段），不是一组变量复用
+    assert src.count("before_readback") >= 1 and src.count("after_readback") >= 1
+    # 旧的单组变量名不得回来：正是它让 before 与 after 同源
+    assert "parameter_value:" not in src
+    # Java 侧不再自行拼 diff 字段，只发两组原始读回；diff 由 Python 组装
+    assert '"value_before"' not in src
+    assert '"value_after"' not in src
+    assert '"applied"' not in src
