@@ -188,10 +188,12 @@ def test_java_source_is_ascii_and_fully_substituted() -> None:
     source.encode("ascii")  # 非 ASCII 会抛错
     assert "@@" not in source
     assert "class heat_slab_2d" in source
-    assert "new int[]{4}" in source  # 固定温度边界编号
-    assert "new int[]{2}" in source  # 热流边界编号
+    assert "new int[]{4}" in source  # 固定温度边界编号（右）
+    # 热流边界必须与温度边界【相对】：二维矩形编号 1=左 2=下 3=上 4=右，
+    # 故 4(右)+1(左) 才构成与解析解一致的一维导热；曾误用 2(下) 导致 T_max 偏低 0.4%（实测）。
+    assert "new int[]{1}" in source  # 热流边界编号（左）
     assert resolved["q_in"] == 4000.0
-    assert resolved["bnd_t"] == 4 and resolved["bnd_q"] == 2
+    assert resolved["bnd_t"] == 4 and resolved["bnd_q"] == 1
 
 
 def test_java_source_is_deterministic() -> None:
