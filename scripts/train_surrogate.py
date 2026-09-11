@@ -27,6 +27,7 @@ from memsharness.ml.surrogate import (  # noqa: E402
     MIN_ROWS_FOR_TRAINING,
     SurrogateEnsemble,
     discover_columns,
+    drop_constant_columns,
     grouped_split,
     load_samples,
     new_model_id,
@@ -68,6 +69,14 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 3
 
+    # ---- 剔除恒定输入列（零方差会导致标准化除零）----
+    inputs, dropped_inputs = drop_constant_columns(frame, inputs)
+    if not inputs:
+        print("所有输入列在本批数据内恒定，没有可训练的自变量", file=sys.stderr)
+        return 3
+    if dropped_inputs:
+        print(f"[提示] 剔除 {len(dropped_inputs)} 个恒定输入列（非本批自变量）：{dropped_inputs}")
+
     # ---- 切分 / 训练 / 评分 ----
     train, test, split_report = grouped_split(
         frame, group_col="geometry_family", test_frac=args.test_frac, seed=args.seed
@@ -85,6 +94,7 @@ def main(argv: list[str] | None = None) -> int:
         extras={
             "n_samples": len(frame),
             "inputs": inputs,
+            "dropped_constant_inputs": dropped_inputs,
             "outputs": outputs,
             "fidelity_filter": args.fidelity,
             "source_types": sorted(frame["source_type"].dropna().unique().tolist()),

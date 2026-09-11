@@ -121,9 +121,18 @@ def grouped_split(
     n_test = max(1, int(round(len(frame) * test_frac)))
     test_idx = set(shuffled_idx[:n_test].tolist())
     mask = frame.index.isin(test_idx)
+    # 说清到底是哪一种退化：缺列 vs 只有一族。两者风险不同，不能混为一句话。
+    if group_col not in frame.columns:
+        reason = f"缺少分组列 {group_col!r}"
+    else:
+        distinct = frame[group_col].dropna().nunique()
+        reason = (
+            f"{group_col!r} 只有 {distinct} 个取值：本批数据全部同族，"
+            f"无法用族间切分来检验跨族泛化"
+        )
     report = {
         "strategy": "random_degraded",
-        "warning": f"缺少可用于分组切分的列 {group_col!r}，已退化为随机切分（泄漏风险上升）",
+        "warning": f"{reason}，已退化为随机切分（同族样本会同时出现在训练与测试集，指标偏乐观）",
     }
     return frame[~mask].copy(), frame[mask].copy(), report
 
@@ -362,3 +371,27 @@ def discover_columns(frame: pd.DataFrame) -> tuple[list[str], list[str]]:
     inputs = sorted(c for c in frame.columns if c.startswith("in_"))
     outputs = sorted(c for c in frame.columns if c.startswith("out_"))
     return inputs, outputs
+
+
+def drop_constant_columns(
+    frame: pd.DataFrame, columns: Sequence[str], tolerance: float = 0.0
+) -> tuple[list[str], list[str]]:
+    """剔除在数据集内**恒定**的列，返回 (保留, 剔除)。
+
+    为什么必须剔除：任务合同里固定不扫的参数（Lx、T0、网格设置等）在本批数据里方差为零，
+    标准化会除以零并产出 NaN/Inf —— 模型表面训得出来、实际不可用。
+    剔除是物理上正确的处理（它们不是这批数据的自变量），但**必须如实记录剔除了哪些列**，
+    否则模型卡会让人误以为模型"考虑了"这些参数。
+    """
+    import numpy as np
+
+    kept: list[str] = []
+    dropped: list[str] = []
+    for name in columns:
+        values = pd.to_numeric(frame[name], errors="coerce").to_numpy(dtype=float)
+        finite = values[np.isfinite(values)]
+        if finite.size == 0 or float(finite.max() - finite.min()) <= tolerance:
+            dropped.append(name)
+        else:
+            kept.append(name)
+    return kept, dropped
