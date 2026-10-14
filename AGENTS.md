@@ -95,3 +95,17 @@
   内存与提交限制的完整实测见第 3 节「内存 / 提交限制」行（commit limit 仅 37.1 GB 是本机跑 11 GB 级模型的真实约束）。
   MATLAB R2023b + COMSOL LiveLink 在位（`D:\matlab`、`D:\COMSOL64\Multiphysics\mli`）。
   另可借用服务器/集群 → 从第一天抽象 `ExecutionBackend`（`local` / `remote`），P0–P2 只实现 `local`。
+
+## 8. 交付节奏：完成任务即同步到 GitHub（2026-10-14 用户指示）
+
+**规则**：**每完成一个任务，就立刻把仓库同步到 GitHub**——不要攒到会话末尾或等用户催。
+
+- **仓库与远端**：`origin` = `git@github.com:zmx20040302-afk/ai-.git`（**必须保持 private**，见第 2 节第 5 条与人保留放行权；仓库内含 DAC 2027 双盲投稿件与内部记录，**一旦转公开即构成匿名泄露**）。本机 `git` 在 `C:\Program Files\Git\cmd\git.exe`（不在 PATH 时用全路径）。
+- **一律用 `scripts\git_sync.py` 提交**，不要手写 `git commit -m "中文…"`：本机是 Windows PowerShell 5.1，命令行里的中文会经控制台代码页损毁（本项目反复踩过）。`git_sync.py` 把提交信息写成 UTF-8 文件再 `git commit -F`，并在提交后**校验** `HEAD == origin/master` 且工作区干净。
+  ```
+  & work\.venv\Scripts\python.exe -X utf8 scripts\git_sync.py -m "简短标题" -b work/logs/COMMIT_MSG_<stamp>.txt
+  ```
+  （`-b` 给长正文文件；不给则只用标题。无改动时如实报「无需提交」，**不造假提交**。）
+- **同步必须验证**，不能只看 `push` 退出码：脚本会 `git fetch` 后比对 `HEAD` 与 `origin/master`，并检查 `git status --porcelain` 为空；两者任一不满足即报失败。
+- **提交信息要能自查**：写清「做了什么 / 验收结论 / 遗留与不主张」，数字必须来自产物（第 2 节第 1 条）。
+- **注意 `work/` 不进版本库**（第 5 节）。因此 `work\dist\` 下的投稿包、`work\tools\` 下的生成器、`work\runs\` 下的证据**都不会**随提交上去；若某个交付物需要随仓库发布，必须先与用户确认改 `.gitignore` 或改落点，**不要**为了「更新成功」而静默放宽忽略规则。
