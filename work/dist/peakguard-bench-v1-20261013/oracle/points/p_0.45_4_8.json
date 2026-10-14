@@ -1,0 +1,134 @@
+{
+  "x_scale": 0.45,
+  "N_w_te1": 4,
+  "N_w_te2": 8,
+  "tag": "A4_gp_ei_gated_s0_k9",
+  "cls": "dse_run_p90",
+  "payload": {
+    "kind": "n3_dse_point",
+    "tag": "A4_gp_ei_gated_s0_k9",
+    "x_scale": 0.45,
+    "N_w_te1": 4,
+    "N_w_te2": 8,
+    "comsol": "COMSOL Multiphysics 6.4 (开发版本: 293)",
+    "params": [
+      {
+        "name": "x_scale",
+        "want": "0.4500",
+        "before": "0.600000",
+        "after": "0.4500"
+      },
+      {
+        "name": "N_w_te1",
+        "want": "4",
+        "before": "4",
+        "after": "4"
+      },
+      {
+        "name": "N_w_te2",
+        "want": "8",
+        "before": "9",
+        "after": "8"
+      }
+    ],
+    "geometry": {
+      "status": "ok",
+      "error": null,
+      "wall_seconds": 0.7223874
+    },
+    "mesh_spec": {
+      "ftri1": [
+        {
+          "set": "2E-6",
+          "readback": "2E-6"
+        },
+        {
+          "set": "6E-6",
+          "readback": "6E-6"
+        },
+        {
+          "set": "3E-6",
+          "readback": "3E-6"
+        }
+      ],
+      "ftet1_size1": {
+        "set": "lamda/5",
+        "readback": "lamda/5"
+      }
+    },
+    "mesh": {
+      "status": "ok",
+      "error": null,
+      "num_elements": 108810,
+      "num_vertices": 23384,
+      "wall_seconds": 1.0405918
+    },
+    "solve": {
+      "status": "ok",
+      "error": null,
+      "wall_seconds": 44.1088306
+    },
+    "sol_tag": "sol4",
+    "hemi": {
+      "area": {
+        "re": 6.283182218e-08,
+        "im": 0.0
+      },
+      "pabs2": {
+        "re": 38.68620002,
+        "im": 0.0
+      },
+      "K": {
+        "re": -385421.337,
+        "im": 3340973.336
+      }
+    },
+    "asi": {
+      "area": {
+        "re": 2.493794017e-09,
+        "im": 0.0
+      },
+      "pabs2": {
+        "re": 66.05523118,
+        "im": 0.0
+      },
+      "K": {
+        "re": -2610976.132,
+        "im": 3276187.76
+      }
+    },
+    "vin": {
+      "area": {
+        "re": 3.99004291e-10,
+        "im": 0.0
+      },
+      "intV": {
+        "re": -3.99004291e-10,
+        "im": 0.0
+      },
+      "JZ": {
+        "re": -2.450680984e-05,
+        "im": -0.0004483375111
+      }
+    },
+    "globals": {
+      "Ptot": {
+        "re": 1.331724931e-05,
+        "im": 0.0
+      },
+      "Vave": {
+        "re": 0.06362259715,
+        "im": 0.0
+      }
+    },
+    "status": "ok",
+    "total_wall_seconds": 52.886032
+  },
+  "status": "ok",
+  "y": 1.331724939493203e-05,
+  "y_asi": 1.305901157438741e-05,
+  "elements": 108810,
+  "solve_status": "ok",
+  "batchexit": 0,
+  "wall_seconds": 57.97105550765991
+}

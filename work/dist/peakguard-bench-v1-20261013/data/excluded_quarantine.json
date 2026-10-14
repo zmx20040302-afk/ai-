@@ -1,0 +1,15 @@
+{
+  "excluded_quarantine": [
+    [
+      0.2,
+      1.0,
+      7.0
+    ],
+    [
+      0.2,
+      1.0,
+      8.0
+    ]
+  ],
+  "note": "the frozen quarantine list; this package takes only this field and contains no internal model file"
+}

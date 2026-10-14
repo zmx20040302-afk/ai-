@@ -1,0 +1,81 @@
+{
+  "x_scale": 0.69,
+  "N_w_te1": 1,
+  "N_w_te2": 8,
+  "tag": "A4_gp_ei_gated_s0_k23",
+  "cls": "dse_run_p104",
+  "payload": {
+    "kind": "n3_dse_point",
+    "tag": "A4_gp_ei_gated_s0_k23",
+    "x_scale": 0.69,
+    "N_w_te1": 1,
+    "N_w_te2": 8,
+    "comsol": "COMSOL Multiphysics 6.4 (开发版本: 293)",
+    "params": [
+      {
+        "name": "x_scale",
+        "want": "0.6900",
+        "before": "0.600000",
+        "after": "0.6900"
+      },
+      {
+        "name": "N_w_te1",
+        "want": "1",
+        "before": "4",
+        "after": "1"
+      },
+      {
+        "name": "N_w_te2",
+        "want": "8",
+        "before": "9",
+        "after": "8"
+      }
+    ],
+    "geometry": {
+      "status": "ok",
+      "error": null,
+      "wall_seconds": 0.6185677
+    },
+    "mesh_spec": {
+      "ftri1": [
+        {
+          "set": "2E-6",
+          "readback": "2E-6"
+        },
+        {
+          "set": "6E-6",
+          "readback": "6E-6"
+        },
+        {
+          "set": "3E-6",
+          "readback": "3E-6"
+        }
+      ],
+      "ftet1_size1": {
+        "set": "lamda/5",
+        "readback": "lamda/5"
+      }
+    },
+    "mesh": {
+      "status": "ok",
+      "error": null,
+      "num_elements": 129230,
+      "num_vertices": 28843,
+      "wall_seconds": 0.9622659
+    },
+    "solve": {
+      "status": "failed",
+      "error": "FlException: The_following_feature_has_encountered_a_problem <- FlException: Failed_to_find_a_solution",
+      "wall_seconds": 54.2580089
+    },
+    "status": "failed_solve",
+    "total_wall_seconds": 62.4384508
+  },
+  "status": "failed_solve",
+  "y": null,
+  "y_asi": null,
+  "elements": 129230,
+  "solve_status": "failed",
+  "batchexit": 0,
+  "wall_seconds": 67.6803879737854
+}

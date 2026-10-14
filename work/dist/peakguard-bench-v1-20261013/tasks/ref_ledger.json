@@ -1,0 +1,1999 @@
+{
+  "kind": "t7_registered_ledger_projection",
+  "note": "(arm,seed,k) -> design projection; used only to check each replayed **proposal** call by call; contains no y values (truth can come only from the oracle cache)",
+  "sources": [
+    {
+      "file": "eda64-20261010/n3_dse/LEDGER.jsonl",
+      "sha256": "066a3c3c59f96eb35648e2d1461565fe3740f5d36e8e93e19424338bccb59995",
+      "records": 105
+    },
+    {
+      "file": "ai11-t7-multiseed-20261013/dse/LEDGER.jsonl",
+      "sha256": "25b21fb8bdbd690bcfc04e13858c0854738058986cea0a6dd8e15d82eec11565",
+      "records": 165
+    }
+  ],
+  "n_records": 165,
+  "records": [
+    {
+      "arm": "A1_random",
+      "seed": 0,
+      "k": 0,
+      "call_index": 6,
+      "design": [
+        0.75,
+        5,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 0,
+      "k": 1,
+      "call_index": 7,
+      "design": [
+        0.62,
+        2,
+        5
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 0,
+      "k": 2,
+      "call_index": 8,
+      "design": [
+        0.75,
+        1,
+        6
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 0,
+      "k": 3,
+      "call_index": 9,
+      "design": [
+        0.74,
+        2,
+        6
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 0,
+      "k": 4,
+      "call_index": 10,
+      "design": [
+        0.71,
+        1,
+        6
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 1,
+      "k": 0,
+      "call_index": 11,
+      "design": [
+        0.52,
+        1,
+        7
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 1,
+      "k": 1,
+      "call_index": 12,
+      "design": [
+        0.77,
+        2,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 1,
+      "k": 2,
+      "call_index": 13,
+      "design": [
+        0.66,
+        2,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 1,
+      "k": 3,
+      "call_index": 14,
+      "design": [
+        0.55,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 1,
+      "k": 4,
+      "call_index": 15,
+      "design": [
+        0.71,
+        3,
+        6
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 2,
+      "k": 0,
+      "call_index": 16,
+      "design": [
+        0.53,
+        6,
+        7
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 2,
+      "k": 1,
+      "call_index": 17,
+      "design": [
+        0.45,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 2,
+      "k": 2,
+      "call_index": 18,
+      "design": [
+        0.75,
+        5,
+        7
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 2,
+      "k": 3,
+      "call_index": 19,
+      "design": [
+        0.73,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 2,
+      "k": 4,
+      "call_index": 20,
+      "design": [
+        0.7,
+        2,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 3,
+      "k": 0,
+      "call_index": 21,
+      "design": [
+        0.72,
+        2,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 3,
+      "k": 1,
+      "call_index": 22,
+      "design": [
+        0.56,
+        6,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 3,
+      "k": 2,
+      "call_index": 23,
+      "design": [
+        0.61,
+        2,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 3,
+      "k": 3,
+      "call_index": 24,
+      "design": [
+        0.79,
+        4,
+        6
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 3,
+      "k": 4,
+      "call_index": 25,
+      "design": [
+        0.56,
+        1,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 4,
+      "k": 0,
+      "call_index": 26,
+      "design": [
+        0.76,
+        6,
+        7
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 4,
+      "k": 1,
+      "call_index": 27,
+      "design": [
+        0.79,
+        5,
+        7
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 4,
+      "k": 2,
+      "call_index": 28,
+      "design": [
+        0.48,
+        6,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 4,
+      "k": 3,
+      "call_index": 29,
+      "design": [
+        0.49,
+        6,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A1_random",
+      "seed": 4,
+      "k": 4,
+      "call_index": 30,
+      "design": [
+        0.72,
+        2,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 0,
+      "call_index": 31,
+      "design": [
+        0.69,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 1,
+      "call_index": 32,
+      "design": [
+        0.68,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 10,
+      "call_index": 41,
+      "design": [
+        0.59,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 11,
+      "call_index": 42,
+      "design": [
+        0.58,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 12,
+      "call_index": 43,
+      "design": [
+        0.57,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 13,
+      "call_index": 44,
+      "design": [
+        0.56,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 14,
+      "call_index": 45,
+      "design": [
+        0.55,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 15,
+      "call_index": 46,
+      "design": [
+        0.54,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 16,
+      "call_index": 47,
+      "design": [
+        0.53,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 17,
+      "call_index": 48,
+      "design": [
+        0.52,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 18,
+      "call_index": 49,
+      "design": [
+        0.51,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 19,
+      "call_index": 50,
+      "design": [
+        0.5,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 2,
+      "call_index": 33,
+      "design": [
+        0.67,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 20,
+      "call_index": 51,
+      "design": [
+        0.49,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 21,
+      "call_index": 52,
+      "design": [
+        0.48,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 22,
+      "call_index": 53,
+      "design": [
+        0.47,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 23,
+      "call_index": 54,
+      "design": [
+        0.46,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 24,
+      "call_index": 55,
+      "design": [
+        0.45,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 3,
+      "call_index": 34,
+      "design": [
+        0.66,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 4,
+      "call_index": 35,
+      "design": [
+        0.65,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 5,
+      "call_index": 36,
+      "design": [
+        0.64,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 6,
+      "call_index": 37,
+      "design": [
+        0.63,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 7,
+      "call_index": 38,
+      "design": [
+        0.62,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 8,
+      "call_index": 39,
+      "design": [
+        0.61,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 0,
+      "k": 9,
+      "call_index": 40,
+      "design": [
+        0.6,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 1,
+      "k": 0,
+      "call_index": 106,
+      "design": [
+        0.69,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 1,
+      "k": 1,
+      "call_index": 107,
+      "design": [
+        0.68,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 1,
+      "k": 2,
+      "call_index": 108,
+      "design": [
+        0.67,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 1,
+      "k": 3,
+      "call_index": 109,
+      "design": [
+        0.66,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 1,
+      "k": 4,
+      "call_index": 110,
+      "design": [
+        0.65,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 2,
+      "k": 0,
+      "call_index": 111,
+      "design": [
+        0.69,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 2,
+      "k": 1,
+      "call_index": 112,
+      "design": [
+        0.68,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 2,
+      "k": 2,
+      "call_index": 113,
+      "design": [
+        0.67,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 2,
+      "k": 3,
+      "call_index": 114,
+      "design": [
+        0.66,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 2,
+      "k": 4,
+      "call_index": 115,
+      "design": [
+        0.65,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 3,
+      "k": 0,
+      "call_index": 116,
+      "design": [
+        0.69,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 3,
+      "k": 1,
+      "call_index": 117,
+      "design": [
+        0.68,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 3,
+      "k": 2,
+      "call_index": 118,
+      "design": [
+        0.67,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 3,
+      "k": 3,
+      "call_index": 119,
+      "design": [
+        0.66,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 3,
+      "k": 4,
+      "call_index": 120,
+      "design": [
+        0.65,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 4,
+      "k": 0,
+      "call_index": 121,
+      "design": [
+        0.69,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 4,
+      "k": 1,
+      "call_index": 122,
+      "design": [
+        0.68,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 4,
+      "k": 2,
+      "call_index": 123,
+      "design": [
+        0.67,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 4,
+      "k": 3,
+      "call_index": 124,
+      "design": [
+        0.66,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A2_greedy",
+      "seed": 4,
+      "k": 4,
+      "call_index": 125,
+      "design": [
+        0.65,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 0,
+      "call_index": 56,
+      "design": [
+        0.8,
+        8,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 1,
+      "call_index": 57,
+      "design": [
+        0.8,
+        6,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 10,
+      "call_index": 66,
+      "design": [
+        0.8,
+        1,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 11,
+      "call_index": 67,
+      "design": [
+        0.56,
+        7,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 12,
+      "call_index": 68,
+      "design": [
+        0.8,
+        4,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 13,
+      "call_index": 69,
+      "design": [
+        0.45,
+        3,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 14,
+      "call_index": 70,
+      "design": [
+        0.5,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 15,
+      "call_index": 71,
+      "design": [
+        0.45,
+        6,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 16,
+      "call_index": 72,
+      "design": [
+        0.53,
+        8,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 17,
+      "call_index": 73,
+      "design": [
+        0.68,
+        8,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 18,
+      "call_index": 74,
+      "design": [
+        0.59,
+        6,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 19,
+      "call_index": 75,
+      "design": [
+        0.46,
+        6,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 2,
+      "call_index": 58,
+      "design": [
+        0.45,
+        6,
+        7
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 20,
+      "call_index": 76,
+      "design": [
+        0.47,
+        7,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 21,
+      "call_index": 77,
+      "design": [
+        0.61,
+        8,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 22,
+      "call_index": 78,
+      "design": [
+        0.46,
+        6,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 23,
+      "call_index": 79,
+      "design": [
+        0.45,
+        7,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 24,
+      "call_index": 80,
+      "design": [
+        0.46,
+        6,
+        7
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 3,
+      "call_index": 59,
+      "design": [
+        0.45,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 4,
+      "call_index": 60,
+      "design": [
+        0.45,
+        6,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 5,
+      "call_index": 61,
+      "design": [
+        0.45,
+        8,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 6,
+      "call_index": 62,
+      "design": [
+        0.45,
+        5,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 7,
+      "call_index": 63,
+      "design": [
+        0.48,
+        6,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 8,
+      "call_index": 64,
+      "design": [
+        0.45,
+        4,
+        5
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 0,
+      "k": 9,
+      "call_index": 65,
+      "design": [
+        0.45,
+        5,
+        6
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 1,
+      "k": 0,
+      "call_index": 126,
+      "design": [
+        0.8,
+        8,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 1,
+      "k": 1,
+      "call_index": 127,
+      "design": [
+        0.8,
+        6,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 1,
+      "k": 2,
+      "call_index": 128,
+      "design": [
+        0.45,
+        6,
+        7
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 1,
+      "k": 3,
+      "call_index": 129,
+      "design": [
+        0.45,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 1,
+      "k": 4,
+      "call_index": 130,
+      "design": [
+        0.45,
+        6,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 2,
+      "k": 0,
+      "call_index": 131,
+      "design": [
+        0.8,
+        8,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 2,
+      "k": 1,
+      "call_index": 132,
+      "design": [
+        0.8,
+        6,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 2,
+      "k": 2,
+      "call_index": 133,
+      "design": [
+        0.45,
+        6,
+        7
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 2,
+      "k": 3,
+      "call_index": 134,
+      "design": [
+        0.45,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 2,
+      "k": 4,
+      "call_index": 135,
+      "design": [
+        0.45,
+        6,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 3,
+      "k": 0,
+      "call_index": 136,
+      "design": [
+        0.8,
+        8,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 3,
+      "k": 1,
+      "call_index": 137,
+      "design": [
+        0.8,
+        6,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 3,
+      "k": 2,
+      "call_index": 138,
+      "design": [
+        0.45,
+        6,
+        7
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 3,
+      "k": 3,
+      "call_index": 139,
+      "design": [
+        0.45,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 3,
+      "k": 4,
+      "call_index": 140,
+      "design": [
+        0.45,
+        6,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 4,
+      "k": 0,
+      "call_index": 141,
+      "design": [
+        0.8,
+        8,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 4,
+      "k": 1,
+      "call_index": 142,
+      "design": [
+        0.8,
+        6,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 4,
+      "k": 2,
+      "call_index": 143,
+      "design": [
+        0.45,
+        6,
+        7
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 4,
+      "k": 3,
+      "call_index": 144,
+      "design": [
+        0.45,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A3_gp_ei",
+      "seed": 4,
+      "k": 4,
+      "call_index": 145,
+      "design": [
+        0.45,
+        6,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 0,
+      "call_index": 81,
+      "design": [
+        0.8,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 1,
+      "call_index": 82,
+      "design": [
+        0.8,
+        1,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 10,
+      "call_index": 91,
+      "design": [
+        0.46,
+        6,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 11,
+      "call_index": 92,
+      "design": [
+        0.45,
+        1,
+        5
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 12,
+      "call_index": 93,
+      "design": [
+        0.67,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 13,
+      "call_index": 94,
+      "design": [
+        0.47,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 14,
+      "call_index": 95,
+      "design": [
+        0.48,
+        5,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 15,
+      "call_index": 96,
+      "design": [
+        0.8,
+        5,
+        6
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 16,
+      "call_index": 97,
+      "design": [
+        0.61,
+        6,
+        7
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 17,
+      "call_index": 98,
+      "design": [
+        0.74,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 18,
+      "call_index": 99,
+      "design": [
+        0.53,
+        5,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 19,
+      "call_index": 100,
+      "design": [
+        0.45,
+        2,
+        5
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 2,
+      "call_index": 83,
+      "design": [
+        0.45,
+        6,
+        7
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 20,
+      "call_index": 101,
+      "design": [
+        0.45,
+        3,
+        5
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 21,
+      "call_index": 102,
+      "design": [
+        0.46,
+        1,
+        5
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 22,
+      "call_index": 103,
+      "design": [
+        0.75,
+        4,
+        5
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 23,
+      "call_index": 104,
+      "design": [
+        0.69,
+        1,
+        8
+      ],
+      "y_available": false
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 24,
+      "call_index": 105,
+      "design": [
+        0.69,
+        1,
+        8
+      ],
+      "y_available": false
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 3,
+      "call_index": 84,
+      "design": [
+        0.45,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 4,
+      "call_index": 85,
+      "design": [
+        0.45,
+        6,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 5,
+      "call_index": 86,
+      "design": [
+        0.45,
+        5,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 6,
+      "call_index": 87,
+      "design": [
+        0.47,
+        6,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 7,
+      "call_index": 88,
+      "design": [
+        0.45,
+        5,
+        6
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 8,
+      "call_index": 89,
+      "design": [
+        0.54,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 0,
+      "k": 9,
+      "call_index": 90,
+      "design": [
+        0.45,
+        4,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 1,
+      "k": 0,
+      "call_index": 146,
+      "design": [
+        0.8,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 1,
+      "k": 1,
+      "call_index": 147,
+      "design": [
+        0.8,
+        1,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 1,
+      "k": 2,
+      "call_index": 148,
+      "design": [
+        0.45,
+        6,
+        7
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 1,
+      "k": 3,
+      "call_index": 149,
+      "design": [
+        0.45,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 1,
+      "k": 4,
+      "call_index": 150,
+      "design": [
+        0.45,
+        6,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 2,
+      "k": 0,
+      "call_index": 151,
+      "design": [
+        0.8,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 2,
+      "k": 1,
+      "call_index": 152,
+      "design": [
+        0.8,
+        1,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 2,
+      "k": 2,
+      "call_index": 153,
+      "design": [
+        0.45,
+        6,
+        7
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 2,
+      "k": 3,
+      "call_index": 154,
+      "design": [
+        0.45,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 2,
+      "k": 4,
+      "call_index": 155,
+      "design": [
+        0.45,
+        6,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 3,
+      "k": 0,
+      "call_index": 156,
+      "design": [
+        0.8,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 3,
+      "k": 1,
+      "call_index": 157,
+      "design": [
+        0.8,
+        1,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 3,
+      "k": 2,
+      "call_index": 158,
+      "design": [
+        0.45,
+        6,
+        7
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 3,
+      "k": 3,
+      "call_index": 159,
+      "design": [
+        0.45,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 3,
+      "k": 4,
+      "call_index": 160,
+      "design": [
+        0.45,
+        6,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 4,
+      "k": 0,
+      "call_index": 161,
+      "design": [
+        0.8,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 4,
+      "k": 1,
+      "call_index": 162,
+      "design": [
+        0.8,
+        1,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 4,
+      "k": 2,
+      "call_index": 163,
+      "design": [
+        0.45,
+        6,
+        7
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 4,
+      "k": 3,
+      "call_index": 164,
+      "design": [
+        0.45,
+        7,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "A4_gp_ei_gated",
+      "seed": 4,
+      "k": 4,
+      "call_index": 165,
+      "design": [
+        0.45,
+        6,
+        8
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "DOE",
+      "seed": 0,
+      "k": 0,
+      "call_index": 1,
+      "design": [
+        0.5,
+        1,
+        5
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "DOE",
+      "seed": 0,
+      "k": 1,
+      "call_index": 2,
+      "design": [
+        0.55,
+        2,
+        6
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "DOE",
+      "seed": 0,
+      "k": 2,
+      "call_index": 3,
+      "design": [
+        0.6,
+        4,
+        9
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "DOE",
+      "seed": 0,
+      "k": 3,
+      "call_index": 4,
+      "design": [
+        0.65,
+        3,
+        7
+      ],
+      "y_available": true
+    },
+    {
+      "arm": "DOE",
+      "seed": 0,
+      "k": 4,
+      "call_index": 5,
+      "design": [
+        0.7,
+        5,
+        9
+      ],
+      "y_available": true
+    }
+  ]
+}

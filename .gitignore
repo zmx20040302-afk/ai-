@@ -1,5 +1,14 @@
 # 运行区（数据、模型、产物、虚拟环境）不进版本库
-work/
+#
+# ⚠️ 用 `work/*` 而不是 `work/`：gitignore 的否定规则（`!`）**无法**穿透一个被忽略的目录，
+# 所以要让 `work/dist/`、`work/tools/` 进库，必须先只忽略 `work/` 的**直接子项**，再逐个放行。
+# 放行的两个目录是**交付物/构建脚本**，不是运行数据：
+#   * `work/dist/`  —— 投稿/发布包（M4 benchmark 包等），是交付物
+#   * `work/tools/` —— 生成与校验这些包的脚本（可重建）
+# 仍然忽略：`work/runs/`（证据与运行产物，25 GB 级）、`work/logs/`、`work/.venv/`、模型副本等。
+work/*
+!work/dist/
+!work/tools/
 
 # Python
 __pycache__/

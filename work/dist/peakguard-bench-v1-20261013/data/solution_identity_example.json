@@ -1,0 +1,54 @@
+{
+  "kind": "solution_identity_record",
+  "synthetic": true,
+  "note": "Synthetic demonstration record. The quantities mirror the measured probe reported in the paper's supplement (section S13): four solutions of one model file, identical geometry (fluid-domain volume 2.094393557e-12), identical parameter read-back, one mesh object, yet an electrode-area quantity evaluated from a hard-coded face list differs by a factor 6.667. The stored-mesh digests here are synthetic labels, not values read from the model file. Scope of the printed spreads: max_rel_spread is relative to the SMALLEST value across all four solutions, so for the electrode area it is 5.667 and the corresponding ratio hi/lo is 6.667 (the factor quoted in the paper). The paper also quotes a factor 3.6 for the mean electrode potential; that is the sol1-vs-sol4 ratio, whereas the max spread printed here (8.78) is taken over all four solutions and is driven by sol2.",
+  "tolerance_rel": 1e-09,
+  "expected_decision": {
+    "steps": "pass",
+    "admissible": ["fluid_volume"],
+    "refused": ["elec_area", "mean_elec_potential"],
+    "max_rel_spread_refused": {"elec_area": 5.6666, "mean_elec_potential": 8.7801}
+  },
+  "solutions": [
+    {
+      "tag": "sol1",
+      "stored_mesh_digest": "mesh-digest-A",
+      "params": {"x_scale": 0.6, "n1": 4, "n2": 9},
+      "quantities": {
+        "fluid_volume": {"value": 2.094393557e-12, "geometry_only": true, "depends_on_entity_numbering": true, "selection_re_resolved": false},
+        "elec_area": {"value": 3.5467e-09, "geometry_only": false, "depends_on_entity_numbering": true, "selection_re_resolved": false},
+        "mean_elec_potential": {"value": 8.2248e-03, "geometry_only": false, "depends_on_entity_numbering": true, "selection_re_resolved": false}
+      }
+    },
+    {
+      "tag": "sol2",
+      "stored_mesh_digest": "mesh-digest-A",
+      "params": {"x_scale": 0.6, "n1": 4, "n2": 9},
+      "quantities": {
+        "fluid_volume": {"value": 2.094393557e-12, "geometry_only": true, "depends_on_entity_numbering": true, "selection_re_resolved": false},
+        "elec_area": {"value": 3.5467e-09, "geometry_only": false, "depends_on_entity_numbering": true, "selection_re_resolved": false},
+        "mean_elec_potential": {"value": 8.0439e-02, "geometry_only": false, "depends_on_entity_numbering": true, "selection_re_resolved": false}
+      }
+    },
+    {
+      "tag": "sol3",
+      "stored_mesh_digest": "mesh-digest-A",
+      "params": {"x_scale": 0.6, "n1": 4, "n2": 9},
+      "quantities": {
+        "fluid_volume": {"value": 2.094393557e-12, "geometry_only": true, "depends_on_entity_numbering": true, "selection_re_resolved": false},
+        "elec_area": {"value": 3.5467e-09, "geometry_only": false, "depends_on_entity_numbering": true, "selection_re_resolved": false},
+        "mean_elec_potential": {"value": 8.2248e-03, "geometry_only": false, "depends_on_entity_numbering": true, "selection_re_resolved": false}
+      }
+    },
+    {
+      "tag": "sol4",
+      "stored_mesh_digest": "mesh-digest-B",
+      "params": {"x_scale": 0.6, "n1": 4, "n2": 9},
+      "quantities": {
+        "fluid_volume": {"value": 2.094393557e-12, "geometry_only": true, "depends_on_entity_numbering": true, "selection_re_resolved": false},
+        "elec_area": {"value": 5.3201e-10, "geometry_only": false, "depends_on_entity_numbering": true, "selection_re_resolved": false},
+        "mean_elec_potential": {"value": 2.9744e-02, "geometry_only": false, "depends_on_entity_numbering": true, "selection_re_resolved": false}
+      }
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+# Pinned so the reference values in expected/ are reproducible.
+# These are the versions recorded in MANIFEST.json for the frozen reference run.
+# Interpreter: CPython 3.12.14 (not expressible here; see MANIFEST.json environment_recorded).
+numpy==2.5.3
+scipy==1.18.1
+scikit-learn==1.9.1

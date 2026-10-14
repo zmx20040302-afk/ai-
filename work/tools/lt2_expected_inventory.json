@@ -1,0 +1,73 @@
+{
+ "schema": "posix-normalized+allowlist-consistent",
+ "normalization": "Path(x.replace(chr(92),/)).as_posix() （与验收执行器 norm_path 同一实现）",
+ "derived_from_namespace": "acc-172143-run1",
+ "derived_at": "2026-09-14T17:42:36",
+ "source_run_82_of_82": true,
+ "note": "按**确定性集合**（即经 allowlist 排除后的集合）生成，保证清单与 allowlist 自洽",
+ "generated_by": "脚本生成（非手维护）",
+ "roots": {
+  "lt2-supervisor-selftest": [
+   "lt2-supervisor-selftest/batch_manifest.json",
+   "lt2-supervisor-selftest/child_00_attempt_1/resource_timeline.csv",
+   "lt2-supervisor-selftest/child_00_attempt_1/resource_timeline.jsonl",
+   "lt2-supervisor-selftest/child_00_attempt_1/sampler_state.json",
+   "lt2-supervisor-selftest/child_01_attempt_1/resource_timeline.csv",
+   "lt2-supervisor-selftest/child_01_attempt_1/resource_timeline.jsonl",
+   "lt2-supervisor-selftest/child_01_attempt_1/sampler_state.json",
+   "lt2-supervisor-selftest/child_02_attempt_1/resource_timeline.csv",
+   "lt2-supervisor-selftest/child_02_attempt_1/resource_timeline.jsonl",
+   "lt2-supervisor-selftest/child_02_attempt_1/sampler_state.json",
+   "lt2-supervisor-selftest/child_03_attempt_1/resource_timeline.csv",
+   "lt2-supervisor-selftest/child_03_attempt_1/resource_timeline.jsonl",
+   "lt2-supervisor-selftest/child_03_attempt_1/sampler_state.json",
+   "lt2-supervisor-selftest/child_03_attempt_2/resource_timeline.csv",
+   "lt2-supervisor-selftest/child_03_attempt_2/resource_timeline.jsonl",
+   "lt2-supervisor-selftest/child_03_attempt_2/sampler_state.json",
+   "lt2-supervisor-selftest/child_04_attempt_1/sampler_state.json",
+   "lt2-supervisor-selftest/child_08_attempt_1/resource_timeline.csv",
+   "lt2-supervisor-selftest/child_08_attempt_1/resource_timeline.jsonl",
+   "lt2-supervisor-selftest/child_08_attempt_1/sampler_state.json",
+   "lt2-supervisor-selftest/child_09_attempt_1/resource_timeline.csv",
+   "lt2-supervisor-selftest/child_09_attempt_1/resource_timeline.jsonl",
+   "lt2-supervisor-selftest/child_09_attempt_1/sampler_state.json",
+   "lt2-supervisor-selftest/child_10_attempt_1/resource_timeline.csv",
+   "lt2-supervisor-selftest/child_10_attempt_1/resource_timeline.jsonl",
+   "lt2-supervisor-selftest/child_10_attempt_1/sampler_state.json"
+  ],
+  "lt2-supervisor-selftest-atomic": [
+   "lt2-supervisor-selftest-atomic/atomicprobe/ok.json"
+  ],
+  "lt2-supervisor-selftest-drill": [
+   "lt2-supervisor-selftest-drill/child_00_attempt_1/raw_rows.csv",
+   "lt2-supervisor-selftest-drill/child_00_attempt_1/resource_timeline.csv",
+   "lt2-supervisor-selftest-drill/child_00_attempt_1/resource_timeline.jsonl",
+   "lt2-supervisor-selftest-drill/child_00_attempt_1/rows.csv",
+   "lt2-supervisor-selftest-drill/child_00_attempt_1/sampler_state.json",
+   "lt2-supervisor-selftest-drill/child_00_attempt_1/termination_trigger.json",
+   "lt2-supervisor-selftest-drill/signals/child_00_attempt_1.signal.json"
+  ],
+  "lt2-supervisor-selftest-postsolve": [
+   "lt2-supervisor-selftest-postsolve/child_00_attempt_1/raw_rows.csv",
+   "lt2-supervisor-selftest-postsolve/child_00_attempt_1/resource_timeline.csv",
+   "lt2-supervisor-selftest-postsolve/child_00_attempt_1/resource_timeline.jsonl",
+   "lt2-supervisor-selftest-postsolve/child_00_attempt_1/rows.csv",
+   "lt2-supervisor-selftest-postsolve/child_00_attempt_1/sampler_state.json"
+  ],
+  "lt2-supervisor-selftest-retry": [
+   "lt2-supervisor-selftest-retry/child_00_attempt_1/preexisting.txt",
+   "lt2-supervisor-selftest-retry/child_00_attempt_2/raw_rows.csv",
+   "lt2-supervisor-selftest-retry/child_00_attempt_2/resource_timeline.csv",
+   "lt2-supervisor-selftest-retry/child_00_attempt_2/resource_timeline.jsonl",
+   "lt2-supervisor-selftest-retry/child_00_attempt_2/rows.csv",
+   "lt2-supervisor-selftest-retry/child_00_attempt_2/sampler_state.json"
+  ],
+  "lt2-supervisor-selftest-smoke": [
+   "lt2-supervisor-selftest-smoke/child_00_attempt_1/raw_rows.csv",
+   "lt2-supervisor-selftest-smoke/child_00_attempt_1/resource_timeline.csv",
+   "lt2-supervisor-selftest-smoke/child_00_attempt_1/resource_timeline.jsonl",
+   "lt2-supervisor-selftest-smoke/child_00_attempt_1/rows.csv",
+   "lt2-supervisor-selftest-smoke/child_00_attempt_1/sampler_state.json"
+  ]
+ }
+}

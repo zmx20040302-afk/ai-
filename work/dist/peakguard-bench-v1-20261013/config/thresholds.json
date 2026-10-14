@@ -1,0 +1,14 @@
+{
+  "thresholds": {
+    "S0_limit_rel_err_max": 0.01,
+    "S1_key_region_rel_L2_max": 0.02,
+    "S1_global_rel_L2_max": 0.05,
+    "S2_engineering_rel_err_max": 0.03,
+    "S3_conservation_residual_max": 0.005,
+    "S3_bc_residual_max": 0.01,
+    "S4_mesh_diff_max": 0.02,
+    "S5_coverage_min": 0.85,
+    "S5_coverage_max": 0.95
+  },
+  "note": "S0-S5 thresholds taken verbatim from the frozen solver specification; no value was changed"
+}
