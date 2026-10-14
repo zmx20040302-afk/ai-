@@ -1,0 +1,19 @@
+{
+  "contract_version": "1.0.0",
+  "task_id": "fixture-invalid-task-spec-unknown-parameter",
+  "device_spec_ref": "device-ge-task3-oval-draft-v0",
+  "objective": {
+    "mode": "single",
+    "goals": [
+      { "name": "Ptot_W", "kind": "maximize", "weight": 1.0, "unit_si": "W" }
+    ]
+  },
+  "constraints": [],
+  "parameters": [
+    { "name": "t_piezo", "type": "continuous", "range": [1e-06, 3e-06], "unit_si": "m" }
+  ],
+  "budget": { "max_comsol_points": 10, "max_wall_hours": 1.0, "batch_size": 5 },
+  "stop": { "max_rounds": 2, "no_improve_rounds": 1 },
+  "automation": { "level": "supervised", "model_write": "copy_only", "allow_ai_solver": false },
+  "deliverables": [{ "kind": "evidence_report" }]
+}

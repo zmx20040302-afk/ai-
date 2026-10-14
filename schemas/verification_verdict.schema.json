@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://memsharness.local/schemas/verification_verdict.schema.json",
+  "title": "A8 验证与冻结 —— 门禁判定（verification_verdict）",
+  "description": "由 src/memsharness/freeze_gate.run_gate() 产出、scripts/verify_and_freeze.py 落盘。语义为 fail-closed：任一检查 False ⇒ failed；任一 None ⇒ inconclusive；证据为空 ⇒ failed；release_allowed 仅在全部检查为 True 时为 true。本契约**不允许**把 inconclusive 解释为通过。",
+  "type": "object",
+  "required": [
+    "kind", "gate_version", "target_dir", "freeze_id", "verdict", "reason",
+    "n_checks", "n_failed", "n_inconclusive", "checks", "release_allowed",
+    "evidence_inventory", "n_evidence_files", "not_checked", "semantics"
+  ],
+  "properties": {
+    "kind": {"const": "verification_verdict"},
+    "gate_version": {"type": "string", "description": "门禁实现版本；代码变更必须体现在这里"},
+    "target_dir": {"type": "string", "description": "被验证的冻结目录绝对路径"},
+    "freeze_id": {"type": ["string", "null"], "description": "冻结件 id；清单缺失时为 null"},
+    "run_id": {"type": ["string", "null"]},
+    "verdict": {"enum": ["passed", "failed", "inconclusive"]},
+    "reason": {"type": "string"},
+    "n_checks": {"type": "integer", "minimum": 0},
+    "n_failed": {"type": "integer", "minimum": 0},
+    "n_inconclusive": {"type": "integer", "minimum": 0},
+    "release_allowed": {
+      "type": "boolean",
+      "description": "硬门禁：仅当 verdict == passed 时为 true。人保留最终放行权（红线 §5）"
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "description": "空数组属于违约：门禁自身不得在无检查项时给出结论",
+      "items": {
+        "type": "object",
+        "required": ["name", "passed", "metric", "threshold", "reason", "detail"],
+        "properties": {
+          "name": {"type": "string"},
+          "passed": {"type": ["boolean", "null"], "description": "null = 无法判定（**不等于通过**）"},
+          "metric": {"type": ["number", "null"]},
+          "threshold": {"type": ["number", "null"]},
+          "reason": {"type": "string"},
+          "detail": {"type": "object"}
+        }
+      }
+    },
+    "evidence_inventory": {
+      "type": "array",
+      "description": "冻结目录内每个文件的 bytes 与 sha256（'三方回读'的第一方）",
+      "items": {
+        "type": "object",
+        "required": ["rel", "bytes", "sha256"],
+        "properties": {
+          "rel": {"type": "string"},
+          "bytes": {"type": "integer", "minimum": 0},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "n_evidence_files": {"type": "integer", "minimum": 0},
+    "not_checked": {
+      "type": "array",
+      "minItems": 1,
+      "description": "本次**没有**检查的项（显式列出，避免把'没查'读成'查过且通过'）",
+      "items": {"type": "string"}
+    },
+    "semantics": {"type": "string"}
+  },
+  "additionalProperties": true
+}

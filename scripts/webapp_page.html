@@ -1,0 +1,1759 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MEMS 平台 · 响应级代理与任务控制台</title>
+<style>
+:root{--bg:#0d1117;--card:#161b22;--fg:#e6edf3;--dim:#8b949e;--ok:#3fb950;--bad:#f85149;--warn:#d29922;--acc:#1f6feb}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+ padding:10px 16px;border-bottom:1px solid #22282f;background:#0b0f14;position:sticky;top:0;z-index:9}
+h1{font-size:15px;margin:0;font-weight:600}
+h1 small{color:#586069;font-size:11.5px;font-weight:400}
+h2{font-size:14px;margin:0 0 8px}
+main{display:grid;grid-template-columns:212px 1fr;min-height:calc(100vh - 52px)}
+nav{border-right:1px solid #22282f;padding:10px 8px;background:#0b0f14}
+nav button{display:block;width:100%;text-align:left;background:transparent;color:var(--fg);
+ border:0;border-radius:7px;padding:7px 10px;cursor:pointer;font-size:13px;margin-bottom:2px}
+nav button:hover{background:#161b22}
+nav button.on{background:#1f6feb22;color:#79c0ff;font-weight:600}
+nav .grp{color:#586069;font-size:11px;margin:10px 6px 4px;letter-spacing:.5px}
+section{padding:14px 18px;max-width:1180px}
+.panel{display:none}.panel.on{display:block}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+label{color:var(--dim);font-size:12px}
+input,select,textarea{background:#0b0f14;color:var(--fg);border:1px solid #30363d;border-radius:7px;
+ padding:6px 9px;font-size:13px;font-family:inherit}
+input[type=number]{width:92px}
+textarea{width:100%;min-height:74px;resize:vertical}
+button.b{background:var(--acc);color:#fff;border:0;border-radius:7px;padding:7px 14px;cursor:pointer;font-size:13px}
+button.ghost{background:#21262d;border:1px solid #30363d;color:var(--fg)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.pill{display:inline-block;padding:1px 9px;border-radius:11px;font-size:11px;border:1px solid #30363d;color:var(--dim)}
+.pill.ok{border-color:#238636;color:var(--ok)}.pill.bad{border-color:#8b2c2c;color:var(--bad)}
+.pill.warn{border-color:#9e6a03;color:var(--warn)}
+.card{background:var(--card);border:1px solid #22282f;border-radius:9px;padding:11px 13px;margin:10px 0}
+.card.notice{border-color:#9e6a03;background:#221a08;color:#e3b341;font-size:12.5px}
+table{border-collapse:collapse;width:100%;font-size:12px;margin:6px 0}
+th,td{border-bottom:1px solid #22282f;padding:3px 6px;text-align:left;vertical-align:top}
+th{color:var(--dim);font-weight:500}
+code{background:#0b0f14;padding:1px 4px;border-radius:4px;font-size:11.5px}
+pre{background:#0b0f14;border:1px solid #22282f;border-radius:6px;padding:8px;overflow:auto;max-height:260px;font-size:11.5px}
+.src{color:#586069;font-size:10.5px}
+#log{max-height:60vh;overflow:auto;border:1px solid #22282f;border-radius:9px;padding:10px;background:#0b0f14}
+.msg{border-radius:9px;padding:8px 11px;margin-bottom:9px;max-width:94%}
+.msg.user{background:#1f6feb22;border:1px solid #1f6feb55;margin-left:auto}
+.msg.bot{background:var(--card);border:1px solid #22282f}
+.msg.sys{background:#2a1f0a;border:1px solid #9e6a0344;color:#e3b341;font-size:12.5px}
+.msg .who{font-size:11px;color:#7d8792;margin-bottom:4px}
+svg{background:#0b0f14;border:1px solid #22282f;border-radius:8px;width:100%;height:auto}
+.kv{display:grid;grid-template-columns:190px 1fr;gap:2px 10px;font-size:12.5px}
+.kv div:nth-child(odd){color:var(--dim)}
+.bar{height:9px;background:#1f6feb;border-radius:3px;display:inline-block;vertical-align:middle}
+#errBanner{display:none;margin:10px 18px 0;border:1px solid #8b2c2c;background:#2a0f0f;color:#ffb4b4;
+ border-radius:9px;padding:10px 12px;font-size:12.5px}
+#errBanner pre{max-height:150px;background:#170808;border-color:#8b2c2c44;color:#ffd7d7}
+/* 失败弹窗：**不占分区**，出事时自己冒出来，由人决定上报还是忽略 */
+#popups{position:fixed;right:16px;bottom:16px;z-index:50;display:flex;flex-direction:column;
+ gap:8px;max-width:440px}
+.pop{background:#1b1113;border:1px solid #8b2c2c;border-left:4px solid #ff6b6b;border-radius:9px;
+ padding:10px 12px;font-size:12.5px;box-shadow:0 6px 22px #0009}
+.pop b{color:#ffb4b4}
+.pop .src{color:#a98a8a}
+.pop .row{margin-top:8px;gap:6px}
+/* 历史/人工上报：按需对话框 */
+.dlg{display:none;position:fixed;inset:0;background:#0009;z-index:60;overflow:auto;padding:24px}
+.dlg.on{display:block}
+.dlgbox{max-width:1080px;margin:0 auto;background:var(--bg);border:1px solid #2a313a;border-radius:12px;padding:14px}
+</style></head><body>
+<div id="errBanner"></div>
+<header>
+ <h1>MEMS 平台 · 响应级代理与任务控制台 <small>本地 · 不触发 COMSOL · 代理非求解器</small></h1>
+ <div class="row">
+  <span class="pill" id="pMode">模式：…</span>
+  <button class="ghost" id="bOff" title="不发出任何网络请求，全部本地计算">离线模式</button>
+  <button class="ghost" id="bOn" title="用服务端凭据调用 DeepSeek（密钥绝不下发前端）">连接 DeepSeek</button>
+  <span class="pill" id="pStat">…</span>
+  <span class="pill" id="pMid">…</span>
+  <button class="ghost" id="bIncOpen" title="失败历史与人工上报（失败时会自动弹上报按钮）">错误与上报</button>
+  <span class="pill bad" id="errBadge" style="display:none" title="未处理的失败条数">0</span>
+ </div>
+</header>
+<div id="popups"></div>
+<div class="dlg" id="incDlg"><div class="dlgbox">
+  <div class="row"><h2 style="margin:0">错误历史与上报</h2>
+   <button class="ghost" id="bIncClose" style="margin-left:auto">关闭</button></div>
+  <div class="card notice"><b>失败时会**自动弹出上报按钮**，由你决定报不报；这里放的是历史与人工上报。</b>
+   <div class="src" style="margin-top:6px">
+    <b>包只落本机</b>（<code>work/runs/incidents/</code>），控制台不直接调用任何外部 API。<br>
+    <b>上报给 DSH</b> = 在本机启动一次 <code>dsh --profile headless</code>：它做<b>只读分析</b>
+    （给根因与修复建议，<b>不改仓库里任何文件</b>，也不改变任何裁定/模型状态）；
+    它会联网调模型 ⇒ <b>离线模式下这个按钮被禁用</b>，请先切到 DeepSeek 模式。<br>
+    包内只有：<b>现象</b> + <b>原始错误全文（含堆栈）</b> + <b>当时的输入与调用（端点/参数/复现命令）</b>；
+    密钥一律脱敏。包内<b>不含任何分析结论</b>，接收方的判断也不得改变裁定或模型状态。
+   </div></div>
+  <div class="row"><button class="b" id="bInc">刷新列表</button>
+   <span class="src" id="incCount"></span>
+   <span class="src" id="incQueue"></span></div>
+  <div id="incList"></div>
+  <div id="incPkg"></div>
+
+  <div class="card"><h2>人工上报（自动收不到的那一类）</h2>
+   <div class="src">比如"我点了某按钮，结果和预期不一样""这个回答不对"。
+    现象必填；参数照抄你填进页面的值即可（贴 JSON 也行）。</div>
+   <div class="row">
+    <label>类别 <select id="incKind">
+      <option value="manual">人工上报</option>
+      <option value="page_error">页面脚本异常</option>
+      <option value="service_unavailable">服务不可用</option>
+      <option value="refusal">代理拒答</option>
+      <option value="task_failed">任务失败</option>
+      <option value="task_timeout">任务超时</option>
+    </select></label>
+    <label>端点（可选） <input type="text" id="incEndpoint" placeholder="/api/mc/predict" style="width:180px"></label>
+    <button class="b" id="bIncUp">上报并生成包</button>
+   </div>
+   <div class="row"><label style="flex:1">现象（必填）<br>
+     <textarea id="incSym" rows="2" style="width:100%" placeholder="我做了什么 → 期待什么 → 实际看到什么"></textarea></label></div>
+   <div class="row"><label style="flex:1">参数 / 输入（可选，JSON 或直接写）<br>
+     <input type="text" id="incParams" style="width:100%" placeholder='{"x_scale":0.55,"n1":1,"n2":8}'></label></div>
+   <div class="row"><label style="flex:1">复现命令（可选，留空则按端点/参数自动推导）<br>
+     <input type="text" id="incRepro" style="width:100%"></label></div>
+  </div>
+</div></div>
+<main>
+ <nav id="nav"></nav>
+ <section>
+  <div class="card notice">本页集成的是 <b>响应级代理（不是 AI 求解器）</b>：导出物里没有场数据 ⇒
+   <b>无场级误差界</b>；也没有 L1 网格收敛 ⇒ <b>不给工程绝对值</b>。每次预测都强制带
+   <code>model_id</code>、认证区间与<b>拒答判定</b>；状态只能是 <code>draft_surrogate</code>，
+   <b>放行权在人</b>。拒答域内不返回任何数字，直接回退 COMSOL。</div>
+  <div class="card notice" id="modeNotice"></div>
+
+  <!-- ================= 对话 ================= -->
+  <div class="panel" id="p-chat">
+   <h2>对话</h2>
+   <div id="log"></div>
+   <div class="row" style="margin-top:9px">
+    <textarea id="inp" placeholder="用中文问我，例如：一阶谐振在多少 MHz？／跑 A5 排名／校验镜像／这个代理能做什么（Enter 发送，Shift+Enter 换行）"></textarea>
+   </div>
+   <div class="row"><button class="b" id="bSend">发送</button>
+    <button class="ghost" id="bClear">清空对话</button>
+    <span class="src" id="chatHint"></span></div>
+  </div>
+
+  <!-- ================= 模型卡 ================= -->
+  <div class="panel" id="p-card"><h2>模型卡（代理身份与红线）</h2><div id="card"></div></div>
+
+  <!-- ================= 预测 ================= -->
+  <div class="panel" id="p-predict">
+   <h2>预测：频谱 + 认证误差带</h2>
+   <div class="row">
+    <label>x_scale <input type="number" id="px" value="0.55" step="0.01" min="0.20" max="1.00"></label>
+    <label>N_w_te1 <input type="number" id="pn1" value="1" step="1" min="1"></label>
+    <label>N_w_te2 <input type="number" id="pn2" value="6" step="1" min="3"></label>
+    <label>α <select id="palpha"><option value="0.10">0.10（90%）</option>
+      <option value="0.05">0.05（95%）</option><option value="0.01">0.01（99%）</option></select></label>
+    <button class="b" id="bPred">预测</button>
+   </div>
+   <div class="row" style="margin-top:4px"><span class="src">示例：</span>
+    <button class="ghost" data-ex="0.55,1,6">0.55 / 1 / 6（可答）</button>
+    <button class="ghost" data-ex="0.60,3,8">0.60 / 3 / 8（可答）</button>
+    <button class="ghost" data-ex="0.55,1,9">0.55 / 1 / 9（N2 一步外推）</button>
+    <button class="ghost" data-ex="0.20,1,8">0.20 / 1 / 8（<b>会被拒答</b>：隔离角点）</button>
+    <button class="ghost" data-ex="0.55,7,6">0.55 / 7 / 6（<b>会被拒答</b>：N2=6 层没有 N1=7）</button>
+   </div>
+   <div class="src">拒答域内的请求<b>不会返回任何数字</b>，只给理由与「回退 COMSOL」提示。</div>
+   <div id="pred"></div>
+  </div>
+
+  <!-- ================= 覆盖与拒答 ================= -->
+  <div class="panel" id="p-cov"><h2>覆盖与拒答普查</h2>
+   <div class="row"><button class="b" id="bCov">普查</button>
+    <span class="src">把 (x 0.20–1.00 步长 0.01) × N1 1–8 × N2 {5,6,7,8,9} 全部枚举一遍</span></div>
+   <div id="cov"></div></div>
+
+  <!-- ================= 两点对比 ================= -->
+  <div class="panel" id="p-cmp"><h2>两点对比（只在差异超过区间时才算有区分度）</h2>
+   <div class="row">
+    <span>A：</span><input type="number" id="ax" value="0.55" step="0.01"><input type="number" id="an1" value="1" step="1"><input type="number" id="an2" value="8" step="1">
+    <span>B：</span><input type="number" id="bx" value="0.60" step="0.01"><input type="number" id="bn1" value="1" step="1"><input type="number" id="bn2" value="8" step="1">
+    <button class="b" id="bCmp">对比</button></div>
+   <div id="cmp"></div></div>
+
+  <!-- ================= DOE 预筛 ================= -->
+  <div class="panel" id="p-doe"><h2>多参数网格批量预测（N2 × N1 × x）</h2>
+   <div class="src">这就是「我研究的不是单个参数」的用法：一次把<b>三维参数网格</b>全算完，
+    每个点都带认证区间，可导出 CSV 去安排 COMSOL 排产。拒答点不给数字、只计数。</div>
+   <div class="row">
+    <label>N2 列表 <input type="text" id="dn2list" value="5,6,7,8,9" style="width:140px"></label>
+    <label>N1 到 <input type="number" id="dn1max" value="7" step="1" min="1" style="width:70px"></label>
+    <label>x 从 <input type="number" id="dxlo" value="0.21" step="0.01" style="width:88px"></label>
+    <label>到 <input type="number" id="dxhi" value="0.99" step="0.01" style="width:88px"></label>
+    <label>步长 <input type="number" id="dxstep" value="0.01" step="0.01" style="width:80px"></label>
+    <label>α <select id="dalpha"><option value="0.10">0.10</option><option value="0.05">0.05</option></select></label>
+    <button class="b" id="bDoe">计算网格</button>
+    <button class="ghost" id="bCsv" disabled>下载 CSV</button></div>
+   <div id="doe"></div></div>
+
+  <!-- ================= 哨兵 ================= -->
+  <div class="panel" id="p-sen"><h2>一致性哨兵（新 run 结果是否落在认证区间外）</h2>
+   <div class="row">
+    <label>x <input type="number" id="sx" value="0.55" step="0.01"></label>
+    <label>N1 <input type="number" id="sn1" value="1" step="1"></label>
+    <label>N2 <input type="number" id="sn2" value="6" step="1"></label>
+    <label>方式 <select id="smode"><option value="spl20">只给 20 MHz 的 SPL</option>
+      <option value="spec">给 91 点频谱</option></select></label></div>
+   <div class="row" style="margin-top:6px"><input type="number" id="sspl" value="172.3" step="0.1" style="width:120px">
+    <span class="src">20 MHz SPL(dB)</span></div>
+   <textarea id="sspec" placeholder="或粘贴 91 个 SPL 值（逗号/空格/换行分隔），按 5.0–50.0 MHz 顺序"></textarea>
+   <div class="row"><button class="b" id="bSen">检查</button>
+    <span class="src">命中区间外只报「疑似该次求解有问题」，<b>不判定谁对</b></span></div>
+   <div id="sen"></div></div>
+
+  <!-- ================= 一阶峰（Pareto + 热力图） ================= -->
+  <div class="panel" id="p-peaks"><h2>一阶峰：哪组参数更好</h2>
+   <div class="card notice">这里看的是<b>扫频曲线上最低频的那个共振峰</b>。三个目标——
+    <b>带宽</b>、<b>位移幅值</b>、<b>声压灵敏度</b>——要一起看，因此<b>不合成总分</b>。
+    Q/ζ 只是合格门槛，功率/应力/能量只是约束，<b>都不参与排名</b>。
+    批 A 与批 C 的 x 步长和频段不同（A：0.1 步长 / 5–35 MHz；C：0.01 步长 / 5–50 MHz），
+    <b>必须按批次分别看，不能混比</b>。</div>
+   <div class="row">
+    <label>批次 <select id="kBatch"><option value="C">C（1782 组合 / 0.01 步长）</option>
+      <option value="A">A（223 组合 / 0.1 步长）</option></select></label>
+    <label>热力图指标 <select id="kMetric"></select></label>
+    <button class="b" id="bPeaks">加载</button>
+    <button class="ghost" id="bPeaksReset">清空筛选</button></div>
+   <div class="row" style="margin-top:6px">
+    <span class="src"><b>筛选</b>（下面对<b>所有图与表</b>统一生效；留空＝不筛）</span>
+    <label>x 范围 <input type="number" id="kXmin" step="0.01" min="0" max="1" placeholder="min" style="width:74px">
+      – <input type="number" id="kXmax" step="0.01" min="0" max="1" placeholder="max" style="width:74px"></label>
+    <label>N1 范围 <input type="number" id="kN1min" step="1" min="1" placeholder="min" style="width:64px">
+      – <input type="number" id="kN1max" step="1" min="1" placeholder="max" style="width:64px"></label>
+    <label>N2 <input type="number" id="kN2" step="1" placeholder="留空=全部层" style="width:78px"></label>
+   </div>
+   <div class="src" style="margin:4px 0 0 2px">筛选会<b>改变 Pareto 池</b>：池变小后前沿更容易「人人都非支配」，
+    所以结果会标明是<b>条件前沿</b>还是<b>全局前沿</b>。N2 留空时热力图把各层叠在一起（同一格可能有多个值，
+    只显示其中之一）——要看清某一层就填 N2。</div>
+   <div id="peaks"></div></div>
+
+  <!-- ================= 多通道一阶峰代理 ================= -->
+  <div class="panel" id="p-mc"><h2>多通道一阶峰代理（带宽 / 振幅 / 灵敏度）</h2>
+   <div class="card notice"><b>这不是 AI 求解器</b>：它只预测<b>一阶峰处的标量</b>
+    （−3 dB 带宽、位移幅值、单位电压声压灵敏度等），<b>没有场级误差界、没有 L1 网格收敛</b> ⇒
+    只能用于<b>趋势与选点</b>，不能当工程绝对值。参数落到适用域外时会<b>拒答且不返回任何数字</b>。</div>
+   <div class="row">
+    <label>x_scale <input type="number" id="mcX" step="0.01" min="0.2" max="1" value="0.55" style="width:82px"></label>
+    <label>N_w_te1 <input type="number" id="mcN1" step="1" min="1" value="1" style="width:64px"></label>
+    <label>N_w_te2 <input type="number" id="mcN2" step="1" min="5" max="9" value="8" style="width:64px"></label>
+    <label>α <select id="mcAlpha"><option value="0.05">0.05</option><option value="0.10">0.10</option>
+      <option value="0.01">0.01</option></select></label>
+    <button class="b" id="bMc">预测</button>
+    <button class="b" id="bMcScreen">网格筛查</button>
+    <button class="ghost" id="bMcCard">看模型卡</button></div>
+   <div class="row" style="margin-top:6px">
+    <span class="src"><b>网格筛查</b>范围（只作用于「网格筛查」按钮）</span>
+    <label>x <input type="number" id="scXmin" step="0.05" value="0.4" style="width:70px">
+      – <input type="number" id="scXmax" step="0.05" value="0.8" style="width:70px">
+      步长 <input type="number" id="scXstep" step="0.05" value="0.1" style="width:66px"></label>
+    <label>N1 <input type="number" id="scN1min" step="1" value="1" style="width:58px">
+      – <input type="number" id="scN1max" step="1" value="3" style="width:58px"></label>
+    <label>N2 <input type="number" id="scN2min" step="1" value="6" style="width:58px">
+      – <input type="number" id="scN2max" step="1" value="8" style="width:58px"></label>
+    <label>前 N <input type="number" id="scTop" step="1" value="5" style="width:56px"></label></div>
+   <div class="src" style="margin-top:4px">只认 α ∈ {0.10, 0.05, 0.01}（其它取值没有校准记录 ⇒ 拒答）。
+    求的是<b>单点</b>预测；要做多参数扫描请用「DOE 预筛」（响应级代理）。</div>
+   <div id="mc"></div></div>
+
+  <!-- ================= 子智能体（离线可点名） ================= -->
+  <div class="panel" id="p-agents"><h2>子智能体：角色点名与载荷生成</h2>
+   <div class="card notice"><b>离线模式能做什么、不能做什么（必须说清）：</b>
+    <ul style="margin:4px 0 0 18px">
+     <li>✅ <b>能</b>：列出 9 个角色 → 按角色契约生成<b>可注入载荷</b>（契约原文逐字节 + 任务 + 交付要求）
+      → 落 <code>work/role-spawns/spawn_ledger.jsonl</code>（append-only）→ 给出可复制的 prompt。</li>
+     <li>🚫 <b>不能</b>：<b>真正 spawn 一个子智能体</b>。离线模式<b>绝不调用 LLM</b>——
+      真正的 spawn 要么把下面的 prompt 全文注入 DSH 的 subagent，要么切到 DeepSeek 模式（会联网）。</li>
+    </ul>
+    <b>这条边界不是功能缺失，是红线</b>：离线模式的承诺就是「不发任何网络请求」。</div>
+   <div class="row"><button class="b" id="bAgents">加载角色列表</button>
+    <span class="src">只读；不 spawn、不联网</span></div>
+   <div id="agents"></div>
+   <div class="card"><h2>生成载荷</h2>
+    <div class="row"><label>角色 <select id="agRole"></select></label></div>
+    <label class="src">任务（必须写清交付物，空任务会被拒）</label>
+    <textarea id="agTask" placeholder="例如：对 work/runs/…/x.csv 做 A5 分族分指标排名，给出排除构成与下一批选点建议；不要输出工程绝对值。"></textarea>
+    <div class="row"><button class="b" id="bAgBuild">生成载荷（写台账）</button>
+     <span class="src">离线可做；不涉及任何模型调用</span></div>
+    <!-- 沙盒钩子：填了就落到 work/ 下指定位置。真实台账是 append-only，
+         自动化验证不该往里写；人用界面时留空 ⇒ 走默认真实台账。服务端校验路径必须在 work/ 下。 -->
+    <input type="hidden" id="agOutRoot" value="">
+    <input type="hidden" id="agLedgerPath" value="">
+    <div id="agOut"></div></div>
+   <div id="agLedger"></div></div>
+
+  <!-- ================= 数据字典 ================= -->
+  <div class="panel" id="p-gloss"><h2>数据字典：每个名字讲清楚</h2>
+   <div class="card notice">本页<b>不做任何计算</b>：只解释每个<b>参数</b>与每个<b>结果名字</b>
+    是什么、单位、口径、在不在排名里、以及已知的坑。
+    凡<b>没有书面确认表达式/取样点</b>的量，一律标
+    <span class="pill warn">口径未书面确认</span>——宁可不解释死，也不编一个听起来对的解释。</div>
+   <div class="row"><label>搜索 <input type="text" id="glQ" placeholder="名字 / 中文名 / 说明里的词" style="width:240px"></label>
+    <label>类别 <select id="glKind"><option value="">（全部）</option></select></label>
+    <label>只看<input type="checkbox" id="glOnlyRank"> <span class="src">参与排名的正式目标</span></label>
+    <button class="b" id="bGloss">加载字典</button>
+    <span class="src" id="glCount"></span></div>
+   <div id="gloss"></div></div>
+
+  <!-- ================= 数据浏览 ================= -->
+  <div class="panel" id="p-data"><h2>数据浏览：版本 / 隔离表 / 数据集</h2>
+   <div class="row"><button class="b" id="bData">加载</button>
+    <span class="src">只读；不修改任何数据版本</span></div>
+   <div id="data"></div></div>
+
+  <!-- ================= 平台任务 ================= -->
+  <div class="panel" id="p-task"><h2>平台任务（点一下即运行）</h2>
+   <div class="src">只读任务直接跑；写产物任务会先让你确认。</div>
+   <div id="tasks"></div>
+   <div id="tasklog"></div></div>
+
+  <!-- 失败不再占一个分区：失败时**自动弹出上报按钮**（#popups），
+       这里只是"历史与人工上报"的**按需对话框**（由顶栏的 #bIncOpen / #errBadge 打开）。 -->
+ </section>
+</main>
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+/* 诊断模式（`?no_incident=1` 或 `?diag=1`）：自动化探针把页面跑一遍时，
+   它自己触发的拒答/异常**不是**用户遇到的问题 ⇒ 不登记失败通道（服务端也认这个头）。
+   实测动机：例行复检每跑一次都会制造一条拒答，把台账稀释成"机器噪音"。 */
+const DIAG_MODE=/[?&](no_incident|diag)=1/.test((typeof location!=='undefined'&&location.search)||'');
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const VC={passed:'ok',ranked:'ok',proposed:'warn',provisional:'warn',inconclusive:'warn',blocked:'warn',failed:'bad',error:'bad',done:'ok',running:'warn'};
+const pill=(v,cls)=>'<span class="pill '+((cls||VC[v])||'')+'">'+esc(v)+'</span>';
+const f=(v,n)=>(v==null||isNaN(v))?'—':Number(v).toFixed(n==null?3:n);
+async function api(path,body,noQueue){
+  const o=body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{headers:{}};
+  if(DIAG_MODE) o.headers['X-MEMS-No-Incident']='1';   // 诊断探针如实声明"不是人的操作"
+  o.cache='no-store';
+  const url=(API_BASE||'')+path;
+  let r,t;
+  try{ r=await fetch(url,o); t=await r.text(); }
+  catch(e){
+    const msg='无法连接 '+url+'（'+e.message+'）';
+    // 「服务不可用」这一面：**人正在用页面、请求却没应答**才算失败。
+    // （控制台"按需启动、不常驻"是既定策略 ⇒ 没跑不等于故障，所以只在页面发不出请求时登记。）
+    if(!noQueue){ try{ incNoteServiceDown(msg,path,body); }catch(_){} }
+    return {error:msg, _fatal:true, _url:url};
+  }
+  try{ return JSON.parse(t); }
+  catch(_){ return {error:'非 JSON 响应（HTTP '+r.status+'）来自 '+url
+    +'　—— 说明这个地址上没有本平台的 API（页面可能被别的端口/界面内嵌打开了）。',
+    _fatal:true, _url:url, _status:r.status, _body:t.slice(0,200)}; }
+}
+/** 服务不可用：同一条路径只登记一次（否则一屏十几个请求会把台账刷爆）。 */
+function incNoteServiceDown(msg,path,body){
+  if(DIAG_MODE) return;                 // 探针自己造成的连不上，不算用户的失败
+  const key='svc:'+path;
+  if(INC_SEEN.has(key)) return;
+  INC_SEEN.add(key);
+  incEnqueue({kind:'service_unavailable',
+    symptom:msg+'　（用 '+path+' 时发不出去 ⇒ 这一步没做成）',
+    source:'page',endpoint:path,method:body?'POST':'GET',
+    params:body||null,error_text:String(msg)});
+  popFailure({kind:'service_unavailable',
+    symptom:msg+'　（这一步没做成：请求根本没送到服务端）'});
+}
+/* ------------------------------------------------------------------
+   API 基址探测：页面可能**不是**从 8877 打开的（被 DSH 界面内嵌、被别的本地
+   服务代理、或直接以 file:// 打开）。那时相对路径 `/api/...` 会打到错的服务器，
+   返回非 JSON ⇒ 表现为「两个模式按钮都点不动 + 预测失败 + 错误横幅」。
+   做法：依次探测 [当前源, 127.0.0.1:8877, localhost:8877]，取第一个答对 JSON 的。
+   （服务端只对**回环来源**回 CORS 头，所以这条回落不会把服务暴露给任意网页。）
+   ------------------------------------------------------------------ */
+let API_BASE='';                       // '' = 同源相对路径
+let CONN={ok:false, base:'', tried:[]};
+const API_CANDIDATES=()=>[location.origin,'http://127.0.0.1:8877','http://localhost:8877'];
+async function detectApiBase(){
+  const tried=[]; const seen=new Set();
+  for(const b of API_CANDIDATES()){
+    if(!b||seen.has(b)) continue; seen.add(b);
+    const url=b+'/api/mode';
+    try{
+      const r=await fetch(url,{cache:'no-store'});
+      const t=await r.text();
+      let j=null; try{ j=JSON.parse(t); }catch(_){}
+      if(j&&j.mode){ tried.push(url+' → OK'); return {ok:true, base:(b===location.origin?'':b), tried}; }
+      tried.push(url+' → HTTP '+r.status+'，非 JSON（不是本平台 API）');
+    }catch(e){ tried.push(url+' → '+e.message); }
+  }
+  return {ok:false, base:'', tried};
+}
+function diagText(){
+  return ['页面 URL   : '+location.href,
+          '页面源     : '+location.origin,
+          'API 基址   : '+(API_BASE||'（同源）'),
+          '连通性     : '+(CONN.ok?'正常':'失败'),
+          '探测记录   :'].concat((CONN.tried||[]).map(s=>'  - '+s)).join('\n');
+}
+function showConnBanner(){
+  const b=$('#errBanner'); b.style.display='block';
+  b.innerHTML='<b>连不上本平台的本地服务</b>　'
+   +'<button class="ghost" style="float:right;padding:2px 8px" data-act="diag">复制诊断信息</button>'
+   +'<button class="ghost" style="float:right;padding:2px 8px;margin-right:6px" data-act="retry">重试连接</button>'
+   +'<div style="margin-top:6px">请在浏览器地址栏<b>直接打开</b> '
+   +'<code>http://127.0.0.1:8877/</code>（不要通过其它界面内嵌打开）。</div>'
+   +'<pre>'+esc(diagText())+'</pre>';
+  b.querySelectorAll('[data-act]').forEach(x=>{
+    x.onclick=()=>{ if(x.dataset.act==='retry') location.reload();
+      else { navigator.clipboard&&navigator.clipboard.writeText(diagText());
+             x.textContent='已复制'; } };
+  });
+}
+async function connect(){
+  const d=await detectApiBase(); CONN={...d};
+  if(!d.ok){
+    $('#pStat').textContent='服务未连接'; $('#pStat').className='pill bad';
+    $('#pMode').textContent='模式：未知'; $('#pMode').className='pill bad';
+    showConnBanner();
+    appendDiagLine();
+    return false;
+  }
+  API_BASE=d.base;
+  $('#pStat').textContent='服务在线'+(d.base?('（经 '+d.base+'）'):'');
+  $('#pStat').className='pill ok';
+  return true;
+}
+function appendDiagLine(){
+  const d=document.createElement('div'); d.className='msg sys';
+  d.innerHTML='诊断：<pre>'+esc(diagText())+'</pre>'; $('#log').appendChild(d);
+}
+/* ---------------- 侧栏 ---------------- */
+const NAV=[['chat','对话'],['card','模型卡'],['gloss','数据字典'],['predict','预测'],['peaks','一阶峰'],
+ ['mc','多通道代理'],['agents','子智能体'],['cov','覆盖与拒答'],['cmp','两点对比'],['doe','DOE 预筛'],
+ ['sen','一致性哨兵'],['task','平台任务'],['data','数据浏览']];
+let TASKS={};
+function buildNav(){
+  $('#nav').innerHTML=NAV.map(([k,t])=>'<button data-k="'+k+'">'+esc(t)+'</button>').join('');
+  $('#nav').querySelectorAll('button').forEach(b=>b.onclick=()=>show(b.dataset.k));
+}
+function show(k){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id==='p-'+k));
+  $('#nav').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
+}
+/* ---------------- 对话 ---------------- */
+let HIST=[];
+function add(cls,html,who){const d=document.createElement('div');d.className='msg '+cls;
+  d.innerHTML=(who?'<div class="who">'+esc(who)+'</div>':'')+html;
+  $('#log').appendChild(d);d.scrollIntoView({block:'end'});return d;}
+function greet(){
+  add('bot','我是这个平台的控制台助手。左侧分区里可以直接用表格调用代理与任务；'
+   +'也可以在这里用中文问，我会去调平台工具并把结果（含来源）告诉你。<br><br>'
+   +'试试：<code>这个代理能做什么</code> · <code>覆盖普查</code> · <code>一阶谐振在多少 MHz</code>');
+}
+function renderRes(r){
+  if(!r||typeof r!=='object') return '<span class="src">（无结果）</span>';
+  if(r.error) return pill('error','bad')+' '+esc(r.error);
+  let h='';
+  if(r.verdict!==undefined) h+=pill(r.verdict)+' <span class="src">release_allowed='+esc(r.release_allowed)+'</span><br>';
+  if(r.note) h+='<div class="src">'+esc(r.note)+'</div>';
+  if(r.blocking&&r.blocking.length) h+='<table><tr><th>未通过</th><th>passed</th><th>理由</th></tr>'
+    +r.blocking.map(b=>'<tr><td>'+esc(b.name)+'</td><td>'+esc(b.passed)+'</td><td>'+esc(b.reason||'')+'</td></tr>').join('')+'</table>';
+  if(r.tops&&r.tops.length) h+='<table><tr><th>族</th><th>指标</th><th>口径</th><th>有效/排除</th><th>榜首</th></tr>'
+    +r.tops.map(t=>'<tr><td>'+esc(t.family)+'</td><td>'+esc(t.metric)+'</td><td>'+esc(t.caliber)+'</td><td>'
+      +esc(t.n_available)+'/'+esc(t.n_excluded)+'</td><td><code>'+esc(JSON.stringify((t.top&&t.top.params)||{}))+'</code></td></tr>').join('')+'</table>';
+  if(r.hist_MHz) h+='<div class="src">一阶峰中位 '+esc(r.median_MHz)+' MHz｜直方图 <code>'+esc(JSON.stringify(r.hist_MHz))+'</code></div>';
+  if(r.store) h+='<div class="src">'+Object.entries(r.store).map(([k,v])=>'<code>'+esc(k)+'='+esc(v)+'</code>').join(' ')+'</div>';
+  if(r.artifacts&&r.artifacts.length) h+='<div class="src">产物：'+r.artifacts.map(a=>'<code>'+esc(String(a.path).split(/[\\/]/).pop())+'</code> '+esc(String(a.sha256||'').slice(0,10))).join('　')+'</div>';
+  if(r.model_id) h+='<div class="src">model_id <code>'+esc(r.model_id.slice(0,16))+'</code></div>';
+  return h||'<pre>'+esc(JSON.stringify(r,null,1).slice(0,1500))+'</pre>';
+}
+async function send(){
+  const box=$('#inp'),text=box.value.trim(); if(!text) return;
+  box.value=''; add('user',esc(text),'你'); HIST.push({role:'user',content:text});
+  const card=add('bot','<div class="who">助手</div>思考中…');
+  const j=await api('/api/chat',{message:text,history:HIST.slice(0,-1)});
+  if(j.error){card.innerHTML='<div class="who">助手</div>'+pill('error','bad')+' '+esc(j.error);return;}
+  const tag=(j.mode==='llm')?(' · '+esc((j.llm||{}).model||'DeepSeek')):' · 离线本地路由（非 LLM 生成）';
+  let h='<div class="who">助手'+tag+'</div>'+esc(j.reply||'').replace(/\n/g,'<br>');
+  if(j.note) h+='<div class="src">'+esc(j.note)+'</div>';
+  (j.tool_trace||[]).forEach(t=>{h+='<div style="margin-top:8px;border-top:1px dashed #22282f;padding-top:6px">'
+    +'<div class="row">'+pill('done')+'<b>'+esc(t.title||t.task)+'</b><span class="src">'+(t.duration_s||'')+'s</span></div>'
+    +renderRes(t.result||{})+'</div>';});
+  (j.pending||[]).forEach(p=>{h+='<div style="margin-top:8px;border:1px solid #9e6a03;border-radius:8px;padding:8px">'
+    +pill('warn')+'<b>'+esc(p.title)+'</b> 需要确认才会执行（写产物）'
+    +'<div class="src">参数 <code>'+esc(JSON.stringify(p.args))+'</code></div>'
+    +'<button class="b" style="margin-top:6px" data-runtask="'+esc(p.task)+'">允许执行</button></div>';});
+  card.innerHTML=h; bindRuntask(card);
+  HIST.push({role:'assistant',content:(j.reply||'')});
+}
+/* ---------------- 模式 ---------------- */
+/* 模式按钮：**永不双双禁用**（用户看到的「两个都点不动」正是双双被 disable 的结果）。
+   当前模式用边框高亮表示；无凭据时按钮仍可点，点击后由服务端给出明确拒绝原因。 */
+function setModeButtons(on,keyPresent){
+  const off=$('#bOff'), onb=$('#bOn');
+  off.disabled=false; onb.disabled=false;
+  off.style.boxShadow=on?'':'inset 0 0 0 1px #3fb950';
+  onb.style.boxShadow=on?'inset 0 0 0 1px #3fb950':'';
+  off.textContent=on?'离线模式（切换）':'离线模式（当前）';
+  onb.textContent='连接 DeepSeek'+((!on&&!keyPresent)?'（无凭据）':(on?'（当前）':''));
+}
+async function refreshMode(){
+  const m=await api('/api/mode');
+  if(m.error||!m.mode){
+    $('#pMode').textContent='模式：取不到（API 不可用）';
+    $('#pMode').className='pill bad';
+    setModeButtons(false,false);
+    $('#modeNotice').innerHTML='<b>取不到模式状态</b>：'+esc(m.error||'响应里没有 mode 字段')
+      +'<br>这通常意味着页面连的不是本平台的 API —— 见上方横幅里的诊断信息。';
+    return false;
+  }
+  const on=m.mode==='deepseek';
+  $('#pMode').textContent='模式：'+(on?'DeepSeek 已连接':'离线（本地计算）');
+  $('#pMode').className='pill '+(on?'ok':'warn');
+  setModeButtons(on,!!m.key_present);
+  $('#modeNotice').innerHTML = on
+    ? '已连接 DeepSeek：对话由 LLM 驱动（可调平台工具）。密钥只存在服务端，<b>绝不下发前端</b>；'
+      +'LLM <b>不参与裁决</b>——verdict / release_allowed 一律以代码输出为准。来源 <code>'+esc(m.key_source)+'</code>'
+    : '<b>离线模式</b>：不发任何网络请求，全部本地计算。对话框<b>降级为本地关键词路由</b>，'
+      +'回答里会标注「离线本地路由（非 LLM 生成）」。'
+      +(m.key_present?('检测到服务端有凭据（<code>'+esc(m.key_source)+'</code>），点「连接 DeepSeek」即可切换。')
+                     :'服务端未检测到 API key（可用环境变量 <code>DEEPSEEK_API_KEY</code> 或 <code>~/.dsh/.credentials.yaml</code>）。');
+  $('#chatHint').textContent = on?'':'离线：仅本地关键词路由';
+  return true;
+}
+/* ---------------- 图表（内联 SVG，无外部依赖） ---------------- */
+function svgSpectrum(p){
+  const W=980,H=320,ml=74,mr=16,mt=34,mb=46;
+  const xs=p.freqs_MHz, ys=p.spl_dB, bs=p.band_per_dim_dB, qs=p.band_simultaneous_dB;
+  const lo=Math.min.apply(null,ys)-8, hi=Math.max.apply(null,ys)+8;
+  const X=v=>ml+(v-xs[0])/(xs[xs.length-1]-xs[0])*(W-ml-mr);
+  const Y=v=>H-mb-(v-lo)/(hi-lo)*(H-mt-mb);
+  const lines=(vals)=>{let d='';for(let i=0;i<xs.length;i++){d+=(i?' L':'M')+X(xs[i]).toFixed(1)+' '+Y(vals[i]).toFixed(1);}return d;};
+  const up=ys.map((v,i)=>v+bs[i]), dn=ys.map((v,i)=>v-bs[i]);
+  const upS=ys.map(v=>v+qs), dnS=ys.map(v=>v-qs);
+  let g='';
+  for(let k=0;k<=4;k++){const v=lo+(hi-lo)*k/4;g+='<line x1="'+ml+'" y1="'+Y(v).toFixed(1)+'" x2="'+(W-mr)+'" y2="'+Y(v).toFixed(1)+'" stroke="#1b2026"/>'
+    +'<text x="'+(ml-8)+'" y="'+(Y(v)+4).toFixed(1)+'" fill="#586069" font-size="11" text-anchor="end">'+v.toFixed(0)+'</text>';}
+  for(let k=0;k<=8;k++){const v=xs[0]+(xs[xs.length-1]-xs[0])*k/8;
+    g+='<line x1="'+X(v).toFixed(1)+'" y1="'+mt+'" x2="'+X(v).toFixed(1)+'" y2="'+(H-mb)+'" stroke="#141a20"/>'
+     +'<text x="'+X(v).toFixed(1)+'" y="'+(H-mb+16)+'" fill="#586069" font-size="11" text-anchor="middle">'+v.toFixed(0)+'</text>';}
+  const c=(p.combo||{});
+  const title='预测 SPL 频谱　x_scale='+f(c.x_scale,2)+'　N1='+f(c.N_w_te1,0)+'　N2='+f(c.N_w_te2,0)
+    +'　引擎='+(p.mode||'')+'　α='+f(p.alpha,2);
+  return '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet">'
+   +'<polygon points="'+xs.map((v,i)=>X(v)+','+Y(dnS[i])).join(' ')+' '+xs.slice().reverse().map((v,i)=>X(v)+','+Y(upS[xs.length-1-i])).join(' ')+'" fill="#1f6feb18"/>'
+   +'<polygon points="'+xs.map((v,i)=>X(v)+','+Y(dn[i])).join(' ')+' '+xs.slice().reverse().map((v,i)=>X(v)+','+Y(up[xs.length-1-i])).join(' ')+'" fill="#1f6feb44"/>'
+   +g+'<path d="'+lines(ys)+'" fill="none" stroke="#79c0ff" stroke-width="1.8"/>'
+   +'<text x="'+ml+'" y="15" fill="#e6edf3" font-size="12">'+esc(title)+'</text>'
+   +'<text x="'+ml+'" y="29" fill="#8b949e" font-size="11">蓝线=预测 SPL　深蓝带=逐点 ±'+f(p.spl20_band_per_dim_dB,3)+' dB　浅蓝带=同时 ±'+f(p.band_simultaneous_dB,3)+' dB</text>'
+   // 轴标签（之前缺，用户问「横纵坐标分别是什么」）
+   +'<text x="'+((W+ml-mr)/2)+'" y="'+(H-8)+'" fill="#8b949e" font-size="12" text-anchor="middle">横轴：频率 f (MHz)　5–50 MHz，步长 0.5 MHz，共 91 点</text>'
+   +'<text x="16" y="'+((H-mb+mt)/2)+'" fill="#8b949e" font-size="12" text-anchor="middle" transform="rotate(-90 16 '+((H-mb+mt)/2)+')">纵轴：总声压级 SPL (dB re 20 µPa)</text>'
+   +'</svg>';
+}
+function svgBars(obj,title){
+  const ent=Object.entries(obj); if(!ent.length) return '';
+  const W=560,bh=20,gap=8,H=ent.length*(bh+gap)+22;
+  const mx=Math.max.apply(null,ent.map(e=>e[1]))||1;
+  return '<svg viewBox="0 0 '+W+' '+H+'">'+'<text x="4" y="13" fill="#8b949e" font-size="11">'+esc(title)+'</text>'
+   +ent.map((e,i)=>'<g><rect x="150" y="'+(18+i*(bh+gap))+'" width="'+Math.max(2,e[1]/mx*380)+'" height="'+bh+'" rx="3" fill="#1f6feb"/>'
+     +'<text x="144" y="'+(18+i*(bh+gap)+14)+'" fill="#8b949e" font-size="11" text-anchor="end">'+esc(e[0])+'</text>'
+     +'<text x="'+(156+Math.max(2,e[1]/mx*380))+'" y="'+(18+i*(bh+gap)+14)+'" fill="#e6edf3" font-size="11">'+e[1]+'</text></g>').join('')
+   +'</svg>';
+}
+function svgScatter(rows){
+  if(!rows.length) return '';
+  const W=760,H=320,ml=74,mr=16,mt=34,mb=46;
+  const xs=rows.map(r=>r.x_scale), ys=rows.map(r=>r.spl20_dB);
+  const lo=Math.min.apply(null,ys)-2, hi=Math.max.apply(null,ys)+2;
+  const x0=Math.min.apply(null,xs), x1=Math.max.apply(null,xs);
+  const X=v=>ml+(v-x0)/(x1-x0||1)*(W-ml-mr), Y=v=>H-mb-(v-lo)/(hi-lo||1)*(H-mt-mb);
+  const cols=['#79c0ff','#3fb950','#d29922','#f85149','#a371f7','#39c5cf','#ff7b72'];
+  const n2s=Array.from(new Set(rows.map(r=>r.N_w_te2))).sort((a,b)=>a-b);
+  let g='';
+  for(let k=0;k<=4;k++){const v=lo+(hi-lo)*k/4;g+='<line x1="'+ml+'" y1="'+Y(v)+'" x2="'+(W-mr)+'" y2="'+Y(v)+'" stroke="#1b2026"/>'
+   +'<text x="'+(ml-8)+'" y="'+(Y(v)+4)+'" fill="#586069" font-size="11" text-anchor="end">'+v.toFixed(0)+'</text>';}
+  for(let k=0;k<=8;k++){const v=x0+(x1-x0)*k/8;
+    g+='<line x1="'+X(v).toFixed(1)+'" y1="'+mt+'" x2="'+X(v).toFixed(1)+'" y2="'+(H-mb)+'" stroke="#141a20"/>'
+     +'<text x="'+X(v).toFixed(1)+'" y="'+(H-mb+16)+'" fill="#586069" font-size="10" text-anchor="middle">'+v.toFixed(2)+'</text>';}
+  rows.forEach(r=>{g+='<circle cx="'+X(r.x_scale).toFixed(1)+'" cy="'+Y(r.spl20_dB).toFixed(1)+'" r="2.2" fill="'
+   +cols[(n2s.indexOf(r.N_w_te2))%cols.length]+'"/>';});
+  const legend=n2s.map((n,i)=>'<rect x="'+(ml+i*66)+'" y="'+(H-16)+'" width="8" height="8" fill="'+cols[i%cols.length]+'"/>'
+   +'<text x="'+(ml+i*66+12)+'" y="'+(H-8)+'" fill="#8b949e" font-size="10">N2='+n+'</text>').join('');
+  return '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet">'+g+legend
+   +'<text x="'+ml+'" y="15" fill="#e6edf3" font-size="12">多参数网格：每个点 =(x_scale, N1, N2) 的预测 SPL20</text>'
+   +'<text x="'+ml+'" y="29" fill="#8b949e" font-size="11">颜色 = N_w_te2（层）；同色内不同 N1 混在一起，精确值看下方表与 CSV</text>'
+   +'<text x="'+((W+ml-mr)/2)+'" y="'+(H-8)+'" fill="#8b949e" font-size="12" text-anchor="middle">'
+   +'横轴：x_scale（0.20–1.00 的几何缩放参数）</text>'
+   +'<text x="16" y="'+((H-mb+mt)/2)+'" fill="#8b949e" font-size="12" text-anchor="middle" transform="rotate(-90 16 '+((H-mb+mt)/2)+')">纵轴：预测 SPL20 (dB re 20 µPa) @ 20 MHz</text>'
+   +'</svg>';
+}
+/* ---------------- 各功能区 ---------------- */
+async function loadCard(){
+  const c=await api('/api/surrogate/model');
+  if(c.error){$('#card').innerHTML=pill('error','bad')+' '+esc(c.error);return;}
+  const k=c.model_card||c;
+  $('#pMid').textContent='model_id '+String(k.model_id||'').slice(0,12);
+  $('#pMid').className='pill ok';
+  const cal=(k.conformal_table||[]);
+  $('#card').innerHTML='<div class="card notice">'+mdInline(k.not_a_solver)+'</div>'
+   +'<div class="card"><div class="kv">'
+   +'<div>状态</div><div>'+pill(k.status,'warn')+'　放行权在人，本页没有升级状态的接口</div>'
+   +'<div>model_id</div><div><code>'+esc(k.model_id)+'</code></div>'
+   +'<div>数据版本</div><div><code>'+esc(k.data_version)+'</code>（sha <code>'+esc(String(k.data_version_sha256||'').slice(0,16))+'</code>）</div>'
+   +'<div>产物文件 sha256</div><div><code>'+esc(String((k.artifact||{}).file_sha256||'').slice(0,32))+'…</code></div>'
+   +'<div>内容摘要</div><div><code>'+esc(String((k.artifact||{}).content_sha256||'').slice(0,32))+'…</code>（<b>身份由内容摘要定</b>，与文件字节布局无关）</div>'
+   +'<div>结构</div><div>'+esc((k.structure||{}).in_layer)+'；'+esc((k.structure||{}).n2_extrap)+'</div>'
+   +'<div>可预测 x</div><div>'+esc(JSON.stringify(k.x_predictable))+'（端点在训练集里，属查表，拒绝）</div>'
+   +'<div>已拟合 N2</div><div>'+esc(JSON.stringify(k.n2_fitted))+'　允许外推到 '+esc(k.n2_extrap_allowed_max)+'</div>'
+   +'<div>层数 / 目标</div><div>'+esc(k.n_layers)+' 层；91 点频谱(5–50 MHz) + SPL20 + |p|20</div>'
+   +'<div>隔离组合</div><div>'+esc(JSON.stringify(k.quarantined))+'</div>'
+   +'<div>可用 α</div><div>'+esc(JSON.stringify(k.allowed_alphas))+'（其它取值拒绝，不插值出未校准区间）</div>'
+   +'</div></div>'
+   +'<div class="card"><h2>红线（页面上不得出现相反措辞）</h2><ul>'
+   +(k.red_lines||[]).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>'
+   +(cal.length?('<div class="card"><h2>保形校准（覆盖率来自折外误差对半切实测）</h2>'
+     +'<table><tr><th>模式</th><th>α</th><th>目标</th><th>逐维最差 q (dB)</th><th>|p|20 q (Pa)</th><th>同时 q (dB)</th><th>同时实测覆盖率</th><th>校准点</th></tr>'
+     +cal.map(r=>'<tr><td>'+esc(r.mode)+'</td><td>'+esc(r.alpha)+'</td><td>'+esc(r.target)+'</td><td>'+f(r.q_worst_db,4)
+       +'</td><td>'+f(r.q_p20_Pa,1)+'</td><td><b>'+f(r.q_sim_db,4)+'</b></td><td><b>'+f(r.coverage_sim,4)
+       +'</b></td><td>'+esc(r.n_cal)+'</td></tr>').join('')+'</table></div>'):'');
+}
+async function predict(){
+  const x=Number($('#px').value), n1=Number($('#pn1').value),
+        n2=Number($('#pn2').value), alpha=Number($('#palpha').value);
+  // ★ 前端先校验：把「输入落在适用范围外」与「程序出错」**分开**，并说清允许范围。
+  const bad=[];
+  if(!isFinite(x)||x<0.21||x>0.99) bad.push('x_scale 必须是 0.21–0.99 之间的数（0.20 / 1.00 是训练数据的端点，属查表，不给预测）');
+  if(!isFinite(n1)||n1<1||Math.round(n1)!==n1) bad.push('N_w_te1 必须是 ≥1 的整数');
+  if(!isFinite(n2)||n2<3||Math.round(n2)!==n2) bad.push('N_w_te2 必须是 ≥3 的整数');
+  if(![0.1,0.05,0.01].includes(alpha)) bad.push('α 只能取 0.10 / 0.05 / 0.01（其它取值没有校准记录）');
+  if(bad.length){
+    $('#pred').innerHTML='<div class="card notice"><b>输入不在适用范围（<u>这不是程序错误</u>）</b><ul>'
+      +bad.map(b=>'<li>'+esc(b)+'</li>').join('')+'</ul>'
+      +'<div class="src">当前已拟合：N2 = 5/6/7/8（可外推到 9）；每层 N1 上限 = N2−1；'
+      +'x ∈ [0.21, 0.99]。点上面的示例按钮可以直接跑通。</div></div>';
+    return;
+  }
+  const q={x:x,N1:n1,N2:n2,alpha:alpha};
+  $('#pred').innerHTML='<div class="card">计算中…</div>';
+  const p=await api('/api/surrogate/predict',q);
+  if(p.error){$('#pred').innerHTML='<div class="card notice">'+pill('error','bad')+' '+esc(p.error)+'</div>';return;}
+  if(p.refused){
+    $('#pred').innerHTML='<div class="card notice"><b>已拒答（设计如此，<u>不是程序错误</u>）</b><br>'
+     +'代理<b>不返回任何数字</b>，只说明为什么不适用：<br><code>'+esc(p.reason)+'</code><br><br>'
+     +'动作：'+esc(p.action||'请回退 COMSOL 求解')+'</div>'
+     +'<div class="src">model_id <code>'+esc(p.model_id.slice(0,16))+'</code>　α='+esc(p.alpha)
+     +'　状态 '+esc(p.status)+'</div>';
+    return;
+  }
+  $('#pred').innerHTML='<div class="card"><div class="row">'+pill('done')+'<b>'+esc(p.mode)+'</b>'
+   +'<span class="pill '+(p.certified?'ok':'bad')+'">certified='+esc(p.certified)+'</span>'
+   +'<span class="src">model_id <code>'+esc(p.model_id.slice(0,16))+'</code>　α='+esc(p.alpha)+'</span></div>'
+   +'<table><tr><th>量</th><th>预测</th><th>区间（半宽）</th></tr>'
+   +'<tr><td>SPL20 (dB)</td><td><b>'+f(p.spl20_dB,3)+'</b></td><td>±'+f(p.spl20_band_per_dim_dB,4)+'</td></tr>'
+   +'<tr><td>|p|20 (Pa)</td><td>'+f(p.p20_Pa,1)+'</td><td>±'+f(p.p20_band_per_dim_Pa,1)+'（相对误差不可用，仅作诊断）</td></tr>'
+   +'<tr><td><b>整条曲线（同时）</b></td><td colspan="2"><b>±'+f(p.band_simultaneous_dB,3)+' dB</b>'
+   +' — 要声称「整条曲线都在带内」必须用这个数字，不是逐维那个</td></tr></table>'
+   +svgSpectrum(p)+'</div>'
+   +'<div class="card"><h2>这次预测的校准来源</h2><div class="kv">'
+   +'<div>模式</div><div>'+esc(p.mode)+'</div>'
+   +'<div>区间依据</div><div>'+esc((p.calibration||{}).provenance)+'</div>'
+   +'<div>覆盖率目标</div><div>'+esc((p.calibration||{}).coverage_target)+'（同时实测 '+f((p.calibration||{}).coverage_simultaneous,4)+'）</div>'
+   +'<div>使用规则</div><div>'+esc(p.usage_rule)+'</div></div></div>';
+}
+async function coverage(){
+  $('#cov').innerHTML='<div class="card">普查中…</div>';
+  const c=await api('/api/surrogate/coverage');
+  if(c.error){$('#cov').innerHTML='<div class="card">'+pill('error','bad')+' '+esc(c.error)+'</div>';return;}
+  $('#cov').innerHTML='<div class="card"><div class="row">'+pill('done')
+   +'<b>可答 '+c.n_accepted+' / '+c.n_total+'（'+(100*c.accept_rate).toFixed(1)+'%）</b>'
+   +'<span class="src">x 候选 '+c.x_candidates+' 个　N1 '+esc(JSON.stringify(c.n1_choices))+'　N2 '+esc(JSON.stringify(c.n2_choices))+'</span></div>'
+   +svgBars(c.by_mode,'接受（按引擎）')+'<div style="height:8px"></div>'+svgBars(c.by_reason,'拒绝（按理由）')+'</div>'
+   +'<div class="card"><h2>按 N2 层的接受数</h2><table><tr><th>N2</th><th>接受</th></tr>'
+   +Object.entries(c.accepted_by_n2).map(([k,v])=>'<tr><td>'+esc(k)+'</td><td>'+v+'</td></tr>').join('')+'</table>'
+   +'<div class="src">'+esc(c.semantics)+'</div></div>';
+}
+async function compare(){
+  const b={a:{x:Number($('#ax').value),N1:Number($('#an1').value),N2:Number($('#an2').value)},
+           b:{x:Number($('#bx').value),N1:Number($('#bn1').value),N2:Number($('#bn2').value)}};
+  $('#cmp').innerHTML='<div class="card">比较中…</div>';
+  const r=await api('/api/surrogate/compare',b);
+  if(r.error){$('#cmp').innerHTML='<div class="card">'+pill('error','bad')+' '+esc(r.error)+'</div>';return;}
+  const cls=r.discriminative===true?'ok':(r.discriminative===false?'warn':'bad');
+  $('#cmp').innerHTML='<div class="card"><div class="row">'+pill(r.verdict,cls)+'</div>'
+   +'<div class="src">'+esc(r.reason)+'</div>'
+   +(r.delta_spl20_dB!=null?('<table><tr><th>量</th><th>值</th></tr>'
+     +'<tr><td>|ΔSPL20|</td><td>'+f(r.delta_spl20_dB,3)+' dB</td></tr>'
+     +'<tr><td>同时区间（取较大者）</td><td>±'+f(r.band_simultaneous_dB,3)+' dB</td></tr>'
+     +'<tr><td>有区分度的频点数</td><td>'+r.n_freq_discriminative+' / '+r.n_freq+'（'+(100*r.freq_discriminative_rate).toFixed(1)+'%）</td></tr></table>'):'')
+   +'</div>';
+}
+let LAST_CSV='';
+async function runGrid(){
+  const n2list=($('#dn2list').value||'').split(/[\s,;]+/).filter(s=>s!=='').map(Number);
+  if(!n2list.length||n2list.some(v=>!isFinite(v))){ throw new Error('N2 列表填得不对，应形如 5,6,7,8,9'); }
+  const q={n2_list:n2list, n1_max:Number($('#dn1max').value), x_lo:Number($('#dxlo').value),
+           x_hi:Number($('#dxhi').value), x_step:Number($('#dxstep').value),
+           alpha:Number($('#dalpha').value)};
+  $('#doe').innerHTML='<div class="card">计算中（网格点较多时需几秒）…</div>';
+  const r=await api('/api/surrogate/grid',q);
+  if(r.error){$('#doe').innerHTML='<div class="card notice">'+pill('error','bad')+' '+esc(r.error)+'</div>';return;}
+  LAST_CSV=r.csv||''; $('#bCsv').disabled=!LAST_CSV;
+  const per=Object.entries(r.by_n2||{}).map(([k,v])=>'<tr><td>N2='+esc(k)+'</td><td>'+v.accepted
+    +'</td><td>'+v.refused+'</td></tr>').join('');
+  const top=(r.rows||[]).slice().sort((a,b)=>b.spl20_dB-a.spl20_dB).slice(0,20);
+  $('#doe').innerHTML='<div class="card"><div class="row">'+pill('done')
+   +'<b>网格 '+r.n_points+' 点：可答 '+r.n_accepted+'，拒答 '+r.n_refused+'</b>'
+   +'<span class="src">N2 '+esc(JSON.stringify(r.n2_list))+'　N1 到 '+esc(r.n1_max)
+   +'　x ['+f(r.x_range[0],2)+', '+f(r.x_range[1],2)+'] 步长 '+esc(r.x_step)+'　α='+esc(r.alpha)+'</span></div>'
+   +'<table><tr><th>N2</th><th>可答</th><th>拒答</th></tr>'+per+'</table>'
+   +svgScatter(r.rows||[])
+   +'<div class="src">'+esc(r.semantics)+'</div>'
+   +'<div class="src">'+esc(r.refused_note)+'</div></div>'
+   +'<div class="card"><h2>预测 SPL20 最高的前 20 行（全部 '+r.n_accepted+' 行在 CSV 里）</h2>'
+   +'<table><tr><th>x_scale</th><th>N1</th><th>N2</th><th>预测 SPL20 dB</th><th>逐点区间 ±dB</th><th>同时 ±dB</th><th>引擎</th></tr>'
+   +top.map(t=>'<tr><td>'+f(t.x_scale,2)+'</td><td>'+esc(t.N_w_te1)+'</td><td>'+esc(t.N_w_te2)
+     +'</td><td>'+f(t.spl20_dB,3)+'</td><td>'+f(t.spl20_band_dB,4)+'</td><td>'+f(t.band_simultaneous_dB,3)
+     +'</td><td>'+esc(t.mode)+'</td></tr>').join('')+'</table></div>';
+}
+async function sentinel(){
+  const mode=$('#smode').value;
+  const body={x:Number($('#sx').value),N1:Number($('#sn1').value),N2:Number($('#sn2').value),alpha:0.10};
+  if(mode==='spec'){
+    const v=$('#sspec').value.split(/[\s,;]+/).filter(s=>s!=='').map(Number);
+    if(v.length!==91){$('#sen').innerHTML='<div class="card">'+pill('error','bad')+' 频谱需要 91 个数值，实得 '+v.length+'</div>';return;}
+    body.spectrum_dB=v;
+  } else body.spl20=Number($('#sspl').value);
+  $('#sen').innerHTML='<div class="card">检查中…</div>';
+  const r=await api('/api/surrogate/sentinel',body);
+  if(r.error||r.refused){$('#sen').innerHTML='<div class="card notice">'+esc(r.error||r.reason)+'</div>';return;}
+  $('#sen').innerHTML='<div class="card"><div class="row">'+pill(r.verdict,r.out_of_band?'bad':'ok')+'</div>'
+   +'<div class="kv"><div>区间外频点数</div><div><b>'+r.n_out_of_band+' / '+r.n_freq+'</b></div>'
+   +'<div>最差点</div><div>f='+f(r.worst.freq_MHz,2)+' MHz　实测 '+f(r.worst.observed_dB,3)+'　预测 '+f(r.worst.predicted_dB,3)
+   +'　区间 ±'+f(r.worst.band_dB,4)+'　偏离 '+f(r.worst.deviation_dB,3)+' dB</div></div>'
+   +'<div class="src">'+esc(r.disclaimer)+'</div></div>';
+}
+async function loadData(){
+  $('#data').innerHTML='<div class="card">加载中…</div>';
+  const [v,qq,ds]=await Promise.all([api('/api/data/versions'),api('/api/data/quarantine'),api('/api/data/dataset')]);
+  let h='';
+  if(v.error) h+=pill('error','bad')+' '+esc(v.error);
+  else h+='<div class="card"><h2>不可变数据版本</h2><table><tr><th>版本</th><th>runs</th><th>组合</th><th>网格</th><th>模型</th><th>预注册</th><th>sha256</th></tr>'
+   +v.versions.map(x=>'<tr><td><b>'+esc(x.label)+'</b></td><td>'+x.n_runs+'</td><td>'+x.n_combos+'</td><td>'
+     +esc(x.grid)+'</td><td>'+x.n_models+'</td><td>'+esc(x.prereg||'—')+'</td><td><code>'+esc(String(x.sha256).slice(0,16))+'</code></td></tr>').join('')
+   +'</table><div class="src">'+esc(v.semantics)+'</div></div>';
+  if(!qq.error){
+    h+='<div class="card"><h2>隔离表修订（append-only，'+qq.records.length+' 条）</h2>'
+     +'<table><tr><th>seq</th><th>版本</th><th>组合</th><th>action</th><th>取代</th><th>说明</th></tr>'
+     +qq.records.map(r=>'<tr><td>'+r.seq+'</td><td>'+esc(r.data_version)+'</td><td>x='+esc(r.combo.x_scale)+' N1='+esc(r.combo.N_w_te1)
+       +' N2='+esc(r.combo.N_w_te2)+'</td><td>'+esc(r.action)+'</td><td>'+esc(r.supersedes_seq==null?'—':r.supersedes_seq)
+       +'</td><td class="src">'+esc(String(r.why).slice(0,220))+'…</td></tr>').join('')+'</table>'
+     +'<div class="src">'+esc(qq.semantics)+'</div></div>';
+    if(qq.corner&&qq.corner.dip_rows){
+      h+='<div class="card"><h2>角点异常：凹陷剖面（决定性证据）</h2>'
+       +'<table><tr><th>N2</th><th>邻居直线@0.20</th><th>A 实测</th><th>新批实测</th><th>凹陷(A)</th><th>凹陷(新批)</th><th>两批差</th></tr>'
+       +qq.corner.dip_rows.map(r=>'<tr><td>'+esc(r.N2)+'</td><td>'+f(r.line,3)+'</td><td>'+f(r.a,3)+'</td><td>'+f(r.new,3)
+         +'</td><td><b>'+f(r.dip_a,3)+'</b></td><td><b>'+f(r.dip_new,3)+'</b></td><td>'+f(r.diff,4)+'</td></tr>').join('')+'</table>'
+       +'<div class="src">'+esc(qq.corner.reading)+'</div>'
+       +'<div class="src">'+esc(qq.corner.note)+'</div></div>';
+    }
+  }
+  if(!ds.error){
+    h+='<div class="card"><h2>数据集（当前版本）</h2><div class="kv">'
+     +'<div>组合 / 层</div><div>'+ds.n_combos+' 组合，'+ds.n_layers+' 层</div>'
+     +'<div>每层</div><div>'+ds.layers.map(l=>'N2='+l.N2+' → N1 '+esc(JSON.stringify(l.N1))+'（'+l.n_x+' 个 x）').join('；')+'</div>'
+     +'<div>频率网格</div><div>91 点 / 5–50 MHz（步长 0.5 MHz）</div>'
+     +'<div>可预测性</div><div>x∈['+esc(String(ds.x_predictable))+' ]</div></div></div>';
+  }
+  $('#data').innerHTML=h;
+}
+/* ---------------- 平台任务 ---------------- */
+function bindRuntask(root){
+  (root||document).querySelectorAll('[data-runtask]').forEach(b=>{
+    if(b.dataset.bound)return; b.dataset.bound='1'; b.onclick=()=>runTask(b.dataset.runtask);});
+}
+async function runTask(k){
+  const spec=TASKS[k]; if(!spec) return;
+  if(spec.writes && !confirm('「'+spec.title+'」会写产物，确定运行？')) return;
+  const card=add('bot','<div class="who">任务 · '+esc(spec.title)+'</div>'+pill('running'));
+  show('task'); $('#tasklog').appendChild(card);
+  const j=await api('/api/run',{task:k,args:{confirm:true}});
+  if(j.error){card.innerHTML='<div class="who">'+esc(spec.title)+'</div>'+pill('error','bad')+' '+esc(j.error);return;}
+  const tmo=j.timeout_s||'?';
+  const jid=j.job_id;
+  /* 运行中：显示**已耗时 / 超时额度 / 剩余**，并给「取消」——这就是「超时可见性」。
+     以前只能干等，看不出还要多久、也分不清「还在跑」和「已经超时」。 */
+  const paint=(el,remain)=>'<div class="who">任务 · '+esc(spec.title)+'</div>'
+    +pill('running')+'<span class="src">已耗时 <b>'+esc(String(el==null?'…':el))+'s</b>'
+    +'　超时额度 <b>'+esc(String(tmo))+'s</b>'
+    +(remain==null?'':'　剩余约 <b>'+esc(String(remain))+'s</b>')
+    +'　job <code>'+esc(jid)+'</code></span>'
+    +'<div class="row" style="margin-top:6px"><button class="ghost" id="cancelBtn">取消任务</button></div>';
+  card.innerHTML=paint(null,null);
+  card.querySelector('#cancelBtn').onclick=async()=>{
+    const r=await api('/api/job/'+jid+'/cancel');
+    card.innerHTML+='<div class="src">取消请求：'+esc(JSON.stringify(r))+'</div>';
+  };
+  for(let i=0;i<900;i++){
+    const s=await api('/api/job/'+jid);
+    if(s.status!=='running'){
+      const tl=s.status==='timeout';
+      card.innerHTML='<div class="who">任务 · '+esc(spec.title)+'（'+esc(s.status)+'，'
+       +(s.duration_s||'')+'s / 额度 '+esc(String(s.timeout_s||tmo))+'s）</div>'
+       +(tl?(pill('timeout','bad')+' <b>已超时并被终止</b><br>'+esc(s.error||'')
+             +'<div class="src">终止证据：'+esc(JSON.stringify(s.kill||{}))+'</div>')
+          :(s.error?(pill('error','bad')+' '+esc(s.error)):renderRes(s.result||{})))
+       +(s.stdout?('<pre>'+esc(s.stdout)+'</pre>'):'')
+       +'<div class="src">原始 <code>/api/job/'+esc(s.job_id||jid)+'</code></div>';
+      return;
+    }
+    // 实时额度：从 /api/tasks/active 取「已耗时 / 剩余」，让等待可解释
+    try{
+      const snap=await api('/api/tasks/active');
+      const a=(snap.active||[]).find(x=>x.job_id===jid);
+      if(a) card.innerHTML=paint(a.elapsed_s,a.remaining_s);
+    }catch(_){}
+    await new Promise(r=>setTimeout(r,500));
+  }
+  card.innerHTML+='<div class="src">轮询上限（约 7.5 分钟）已到；任务可能仍在后台，'
+   +'请查 <code>/api/tasks/active</code> 或台账 <code>work/logs/task_runs.jsonl</code>。</div>';
+}
+/* ---------------- 错误可见化（**绝不静默**） ---------------- */
+function showError(where,e){
+  const msg=(e&&(e.stack||e.message))||String(e);
+  // 页面自己的异常也要能送去分析（用户口径里的「页面脚本异常」）；绝不能因为
+  // 登记失败而把原来的错误吞掉 ⇒ 单独 try。
+  try{ incReportPage(msg, e&&e.stack); }catch(_){}
+  try{ const b=$('#errBanner'); b.style.display='block';
+    b.innerHTML='<b>页面捕获到错误</b>　<button class="ghost" style="float:right;padding:2px 8px" '
+      +'onclick="document.getElementById(\'errBanner\').style.display=\'none\'">关闭</button>'
+      +'<pre>'+esc(msg)+'</pre>'; }catch(_){}
+  if(where){ try{ const el=$(where); if(el) el.innerHTML=
+    '<div class="card notice"><b>这一步失败了（已捕获，不再静默）</b><pre>'+esc(String(msg).slice(0,600))+'</pre></div>'; }catch(_){} }
+  console.error('[page]',where||'',e);
+}
+window.addEventListener('error',ev=>showError(null,ev.error||ev.message));
+window.addEventListener('unhandledrejection',ev=>showError(null,ev.reason));
+/** 把处理器包一层：**按钮立刻进入「运行中」** + 任何异常都落到横幅/面板，绝不「点了没反应」。 */
+function wrap(fn,out,btnSel){
+  return async function(){
+    const b=btnSel?$(btnSel):null; const old=b?b.textContent:null;
+    if(b){ b.disabled=true; b.textContent='运行中…'; }
+    try{ return await fn(); }
+    catch(e){ showError(out,e); }
+    finally{ if(b){ b.disabled=false; b.textContent=old; } }
+  };
+}
+/* ---------------- URL 参数（可分享 / 可自动化验证） ---------------- */
+const RUN_TO_NAV={predict:'predict',coverage:'cov',compare:'cmp',screen:'doe',
+  sentinel:'sen',data:'data'};
+const RUN_TO_BTN={predict:'#bPred',coverage:'#bCov',compare:'#bCmp',screen:'#bDoe',
+  sentinel:'#bSen',data:'#bData'};
+async function autorun(){
+  const q=new URLSearchParams(location.search);
+  const set=(k,sel)=>{ if(q.has(k)) $(sel).value=q.get(k); };
+  ['x','N1','N2','alpha'].forEach(k=>set(k,'#'+({x:'px',N1:'pn1',N2:'pn2',alpha:'palpha'})[k]));
+  const run=q.get('run'); const nav=RUN_TO_NAV[run];
+  if(!nav) return;
+  show(nav);
+  // ★ 用**真实 click**，而不是直接调函数 —— 这样走的才是用户点击的同一条路径
+  //（包含 `wrap()` 的按钮置忙与异常捕获），否则自动化会掩盖"绑定的处理器有问题"。
+  const btn=$(RUN_TO_BTN[run]);
+  if(btn){ btn.disabled=false; btn.click(); }
+  await new Promise(r=>setTimeout(r,1500));
+  if(q.get('nolabel')!=='1') add('sys','已按 URL 参数运行：'+esc(location.search));
+}
+/* ---------------- 一阶峰：Pareto + 热力图 ---------------- */
+/* ---------------- 一阶峰：可读性辅助 ---------------- */
+/* 工程记数法：把 1.23e+7 Hz 显示成 12.3 MHz。
+   为什么不预先定标度：定标度就得手写 1e-6/1e-9 之类的因子，写错一位就静默错一个量级；
+   这里只按数量级自动挑前缀，单位名由后端 `metric_units` 给，前端不猜。 */
+function fmtEng(v,unit){
+  if(v==null||!isFinite(v)) return '—';
+  const u=unit||'';
+  if(['—','dB','dB/V',''].includes(u)) return a3(v)+' '+u;
+  const a=Math.abs(v);
+  if(a===0) return '0 '+u;
+  const P=[[1e9,'G'],[1e6,'M'],[1e3,'k'],[1,''],[1e-3,'m'],[1e-6,'µ'],[1e-9,'n'],[1e-12,'p']];
+  for(const [s,p] of P){
+    if(a>=s){ const x=v/s; return (Math.abs(x)>=100?x.toFixed(1):(Math.abs(x)>=10?x.toFixed(2):x.toFixed(3)))+' '+p+u; }
+  }
+  return v.toExponential(2)+' '+u;
+}
+const a3=v=>(v==null||!isFinite(v))?'—':(Math.abs(v)>=1000?v.toFixed(0):(Math.abs(v)>=10?v.toFixed(2):v.toFixed(3)));
+/* 去掉无意义的小数尾巴：8.000 → 8、0.40 → 0.4（N1/N2 是整数，x 是两位小数） */
+const numr=v=>(v==null||!isFinite(v))?'—':String(+(+v).toFixed(4));
+/* 后端 note 里带 markdown 粗体（`**不填 0**`），直接 esc 会漏出字面星号 ⇒ 先转义再把 **x** 变粗体 */
+const mdInline=s=>esc(s==null?'':s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
+/* 组合标签：一眼看清是"哪一组参数" */
+const combo=(r)=>'x='+numr(r.x_scale)+'，N1='+numr(r.N_w_te1)+'，N2='+numr(r.N_w_te2);
+/* 单目标冠军卡：**不做加权总分**（A5 规则），每个目标各说各的 */
+function champCard(title,metric,rows,units){
+  const vals=rows.filter(r=>r[metric]!=null&&isFinite(r[metric]));
+  if(!vals.length) return '<div class="card"><b>'+esc(title)+'</b><div class="src">'
+    +'当前筛选下没有可排名的组合（所以这一个指标没有可比的冠军）——放宽筛选或点「清空筛选」</div></div>';
+  const mx=vals.reduce((p,c)=>c[metric]>p[metric]?c:p);
+  const u=(units||{})[metric];
+  const sorted=[...vals].sort((a,b)=>b[metric]-a[metric]).slice(0,5);
+  return '<div class="card"><div class="row"><b>'+esc(title)+'</b>'
+   +'<span class="pill ok">最大 '+esc(fmtEng(mx[metric],u))+'</span>'
+   +'<span class="src">'+esc(combo(mx))+'　Q='+a3(mx.Q_factor)+'　峰在 '+fmtEng(mx.f_peak_Hz,'Hz')+'</span></div>'
+   +'<table><tr><th>#</th><th>值</th><th>参数组合</th><th>Q</th></tr>'
+   +sorted.map((r,i)=>'<tr><td>'+(i+1)+'</td><td><b>'+esc(fmtEng(r[metric],u))+'</b></td><td>'
+     +esc(combo(r))+'</td><td>'+a3(r.Q_factor)+'</td></tr>').join('')
+   +'</table></div>';
+}
+function svgPareto(res,units){
+  if(!res||res.error) return '<div class="card notice">'+esc((res&&res.error)||'无数据')+'</div>';
+  const [o1,o2]=res.objectives, pts=res.all||[];
+  if(!pts.length){
+    // 池为 0 时**不能只说「没有可排名的组合」**：用户会以为"画不出图/页面坏了"
+    //（实测：用户正是看到空白才问「这样是不是无法绘制图像」）。
+    // 必须点明「是筛选造成的」并给出恢复办法。
+    return '<div class="card notice"><b>这个子集里没有任何可排名的组合，所以没有散点可画。</b><br>'
+      +(res.is_conditional
+        ? '原因：<b>当前筛选</b>把范围收得太窄——筛后剩下的组合里没有「找到一阶峰 + 带宽闭合 + 过 Q 门槛」的。'
+          +'<br>恢复出图：放宽 x / N1 范围，或点上方「<b>清空筛选</b>」回到全局。'
+        : '当前批次内没有可排名的组合（这是数据本身的情况，不是筛选造成的）。')
+      +'<br><span class="src">排除构成见下方一行；这不是程序错误。</span></div>';
+  }
+  const U=k=>(units||{})[k];
+  const W=780,H=430,ml=104,mr=14,mt=44,mb=54;
+  const xs=pts.map(r=>r[o1]), ys=pts.map(r=>r[o2]);
+  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+  const X=v=>ml+(x1===x0?0.5:(v-x0)/(x1-x0))*(W-ml-mr);
+  const Y=v=>H-mb-(y1===y0?0.5:(v-y0)/(y1-y0))*(H-mt-mb);
+  const front=new Set((res.front||[]).map(r=>combo(r)));
+  let g='';
+  for(const r of pts){
+    const on=front.has(combo(r));
+    g+='<circle cx="'+X(r[o1]).toFixed(1)+'" cy="'+Y(r[o2]).toFixed(1)+'" r="'+(on?4:2.4)+'" fill="'
+     +(on?'#3fb950':'#1f6feb')+'" fill-opacity="'+(on?0.95:0.35)+'"><title>'+esc(combo(r))
+     +'　'+esc(res.objective_labels[0])+'='+esc(fmtEng(r[o1],U(o1)))
+     +'　'+esc(res.objective_labels[1])+'='+esc(fmtEng(r[o2],U(o2)))
+     +'　Q='+a3(r.Q_factor)+(on?'　★前沿':'')+'</title></circle>';
+  }
+  // 刻度：用工程值显示，避免 1.2e+7 这种读不出来的标注
+  const tk=(v,isX)=>{ const t=isX?X(v):Y(v);
+    return '<text x="'+(isX?t:ml-6)+'" y="'+(isX?H-mb+14:t+4)+'" fill="#586069" font-size="10"'
+      +' text-anchor="'+(isX?'middle':'end')+'">'+esc(fmtEng(v,isX?U(o1):U(o2)))+'</text>'; };
+  const ticks=[tk(x0,true),tk(x1,true),tk(y0,false),tk(y1,false)].join('');
+  return '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet">'
+   +'<text x="'+ml+'" y="16" fill="#e6edf3" font-size="13">每条「参数组合」按两个指标画成一点：'
+   +'<tspan fill="#3fb950">绿=前沿（没有任何组合在两个指标上都比它好）</tspan>'
+   +'<tspan fill="#8b949e">　蓝=被别的组合全面超过</tspan></text>'
+   +'<text x="'+ml+'" y="32" fill="#8b949e" font-size="11">越靠右上越好（两个指标都是越大越好）；'
+   +'池 '+res.n_pool+' 组 → 前沿 '+res.n_front+' 组。第三指标（'+esc(res.objective_labels[2]||'—')
+   +'）没画在图上，但前沿是按三个指标一起算的</text>'
+   +g+ticks
+   +'<text x="'+((W+ml-mr)/2)+'" y="'+(H-26)+'" fill="#8b949e" font-size="12" text-anchor="middle">横轴：'+esc(res.objective_labels[0])+'　→ 越右越好</text>'
+   +'<text x="16" y="'+((H-mb+mt)/2)+'" fill="#8b949e" font-size="12" text-anchor="middle" transform="rotate(-90 16 '+((H-mb+mt)/2)+')">纵轴：'+esc(res.objective_labels[1])+'　→ 越上越好</text>'
+   +'<text x="'+ml+'" y="'+(H-8)+'" fill="#586069" font-size="10">点上去有提示（参数组合 + 指标值 + Q）</text>'
+   +'</svg>';
+}
+function svgHeatmap(h,units){
+  if(h.error) return '<div class="card notice">'+esc(h.error)+'</div>';
+  const xs=h.xs, n1s=h.n1s, z=h.grid;
+  if(!xs.length||!n1s.length) return '<div class="card notice">该批次在该 N2 下没有可画的格子</div>';
+  const u=(units||{})[h.metric]||'';
+  const cw=Math.max(8,Math.min(26,720/xs.length)), ch=Math.max(16,Math.min(30,300/n1s.length));
+  const W=xs.length*cw+150, H=n1s.length*ch+96;
+  const [lo,hi]=h.value_range; const span=(hi-lo)||1;
+  /* 色标：**浅=小、深=大**，单色调，避免红绿歧义 */
+  const col=v=>{ if(v==null) return '#141a20';
+    const t=Math.max(0,Math.min(1,(v-lo)/span));
+    const r=Math.round(19+30*t), g2=Math.round(60+140*t), b=Math.round(110+130*t);
+    return 'rgb('+r+','+g2+','+b+')'; };
+  let g='';
+  for(let j=0;j<n1s.length;j++) for(let i=0;i<xs.length;i++){
+    const v=z[i][j];
+    const nl=(h.grid_n_layers||[])[i]&&h.grid_n_layers[i][j];
+    const sp=(h.grid_layer_spread||[])[i]&&h.grid_layer_spread[i][j];
+    const extra=(nl>1)?('（'+nl+' 个 N2 层的均值，层间跨度 '+fmtEng(sp,u)+'）'):'';
+    g+='<rect x="'+(118+i*cw)+'" y="'+(62+j*ch)+'" width="'+(cw-1.5)+'" height="'+(ch-1.5)+'" fill="'+col(v)+'" rx="2">'
+      +'<title>'+esc('x='+xs[i]+'，N1='+n1s[j]+' → '+(v==null?'无可用值（该组合没有找到一阶峰）':fmtEng(v,u)+extra))+'</title></rect>';
+  }
+  const ticks=[]; const step=Math.max(1,Math.round(xs.length/8));
+  for(let i=0;i<xs.length;i+=step) ticks.push('<text x="'+(118+i*cw+cw/2)+'" y="'+(62+n1s.length*ch+14)+'" fill="#586069" font-size="9" text-anchor="middle">'+xs[i].toFixed(2)+'</text>');
+  const n1t=n1s.map((v,j)=>'<text x="112" y="'+(62+j*ch+ch/2+4)+'" fill="#8b949e" font-size="10" text-anchor="end">N1='+v+'</text>').join('');
+  /* 图例：三段色块 + 数值，代替"范围 1.16e+6 – 2.23e+7"这种读法 */
+  const lx=118, ly=44, lw=190, lh=11;
+  const leg='<rect x="'+lx+'" y="'+ly+'" width="'+lw+'" height="'+lh+'" fill="url(#hg)" rx="2"></rect>'
+   +'<defs><linearGradient id="hg" x1="0" x2="1"><stop offset="0" stop-color="'+col(lo)+'"/>'
+   +'<stop offset="0.5" stop-color="'+col(lo+span/2)+'"/><stop offset="1" stop-color="'+col(hi)+'"/></linearGradient></defs>'
+   +'<text x="'+lx+'" y="'+(ly+lh+12)+'" fill="#586069" font-size="10">小 '+esc(fmtEng(lo,u))+'</text>'
+   +'<text x="'+(lx+lw)+'" y="'+(ly+lh+12)+'" fill="#586069" font-size="10" text-anchor="end">大 '+esc(fmtEng(hi,u))+'</text>'
+   +'<text x="'+(lx+lw+16)+'" y="'+(ly+9)+'" fill="#8b949e" font-size="10">颜色越亮=该指标越大；'
+   +'<tspan fill="#586069">空格=该 (x,N1) 没有一阶峰（不填 0）'
+   +((h.aggregation==='mean_of_layers')?('；多层取均值（不覆盖）'):'')+'</tspan></text>';
+  return '<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet">'
+   +'<text x="'+lx+'" y="16" fill="#e6edf3" font-size="13">批次 '+esc(h.batch)+'：'+esc(h.metric_label)
+   +(h.n2_filter!=null?('，只看 N2='+h.n2_filter)
+      :('，未限定 N2 ⇒ 每格为各层<b>均值</b>（最多 '+h.max_layers_per_cell+' 层；悬停看层数与跨度）'))
+   +'　有效格 '+h.n_points+' 个</text>'
+   +'<text x="'+lx+'" y="32" fill="#8b949e" font-size="11">每个格子 = 一组 (x, N1)；颜色深浅 = 这个指标的大小。'
+   +'这是敏感性图：颜色变化快的地方，说明该参数最值得调</text>'
+   +leg+g+n1t+ticks.join('')
+   +'<text x="'+(118+xs.length*cw/2)+'" y="'+(H-10)+'" fill="#8b949e" font-size="11" text-anchor="middle">横轴：x_scale（尺寸缩放）</text>'
+   +'</svg>';
+}
+/* 读筛选框 → 查询串。**一份条件喂给所有请求**，避免"图筛了、表没筛"这种不一致。 */
+function peaksFilterQS(){
+  const p=[];
+  for(const [id,key] of [['#kXmin','x_min'],['#kXmax','x_max'],['#kN1min','n1_min'],
+                         ['#kN1max','n1_max'],['#kN2','n2']]){
+    const v=($(id)&&$(id).value||'').trim();
+    if(v!=='') p.push(key+'='+encodeURIComponent(v));
+  }
+  return p.join('&');
+}
+function peaksFilterText(qs){
+  if(!qs) return '无筛选（全部 x、N1、N2）⇒ 这是**全局**口径';
+  const o={}; qs.split('&').forEach(kv=>{const [k,v]=kv.split('='); o[k]=decodeURIComponent(v);});
+  const bits=[];
+  if(o.x_min||o.x_max) bits.push('x ∈ ['+(o.x_min||'−∞')+', '+(o.x_max||'+∞')+']');
+  if(o.n1_min||o.n1_max) bits.push('N1 ∈ ['+(o.n1_min||'−∞')+', '+(o.n1_max||'+∞')+']');
+  if(o.n2) bits.push('N2 = '+o.n2);
+  return '筛选：'+bits.join('，');
+}
+async function loadPeaks(){
+  const b=$('#kBatch').value, m=$('#kMetric').value;
+  const fq=peaksFilterQS();
+  $('#peaks').innerHTML='<div class="card">加载中…</div>';
+  const qs='batch='+encodeURIComponent(b)+'&metric='+encodeURIComponent(m)
+          +(fq?('&'+fq):'');
+  const [s,pa,hm]=await Promise.all([
+    api('/api/peaks/summary'),
+    api('/api/peaks/pareto?batch='+encodeURIComponent(b)+(fq?('&'+fq):'')),
+    api('/api/peaks/heatmap?'+qs)]);
+  if(s.error){$('#peaks').innerHTML='<div class="card notice">'+esc(s.error)+'</div>';return;}
+  const units=s.metric_units||{}, bb=s.by_batch[b]||{};
+  let h='';
+  /* ⓪ 筛选状态：**必须显眼**，否则筛选后的结果会被误读成全局结论 */
+  if(pa&&pa.error){
+    h+='<div class="card notice"><b>筛选条件有问题</b><br>'+esc(pa.error)+'</div>';
+    $('#peaks').innerHTML=h;return;
+  }
+  if(fq){
+    h+='<div class="card notice"><b>已启用筛选</b>：'+mdInline(peaksFilterText(fq))
+     +'<br>下面的冠军表、Pareto、热力图<b>都只在这个子集内</b>计算。'
+     +'<b>筛选后的 Pareto 是「条件前沿」，不等于全局最优</b>——想看全局请点「清空筛选」。</div>';
+  }else{
+    h+='<div class="card"><span class="pill ok">无筛选</span> 当前是<b>全局口径</b>：'
+     +'下面对全部 x、N1、N2 组合计算。</div>';
+  }
+  /* ① 先把"这一页在说什么"用人话说清 */
+  h+='<div class="card"><h2>这一页在说什么</h2><ul style="margin:4px 0 0 18px;font-size:12.5px;line-height:1.7">'
+   +'<li><b>一阶峰</b>＝扫频曲线上<b>最低频的那个共振峰</b>。后面所有指标都是在这一个峰上量的。</li>'
+   +'<li><b>三个目标</b>：① 带宽（−3 dB 有多宽）② 位移幅值（振得多厉害）③ 声压灵敏度（每伏能发出多大声压）。'
+   +'<b>三者要一起看</b>——只把带宽做大会牺牲灵敏度，所以不合成一个总分（裁定：不做加权总分）。</li>'
+   +'<li><b>Q / ζ 不是目标</b>，只是合格门槛（'+esc(bb.n_q_gate_pass!=null?('本批次 '+bb.n_q_gate_pass+' 组过门槛'):'')+'）。'
+   +'功率/应力/能量也只是约束，<b>不参与排名</b>。</li>'
+   +'<li class="src">批次 <b>'+esc(b)+'</b> 的全部数据（<b>不受筛选影响</b>）：共 '+bb.n_rows
+   +' 组参数 → 找到峰 '+bb.n_first_peak+' → 带宽闭合 '+bb.n_bandwidth_closed
+   +' → 可排名 '+bb.n_ranking_eligible+'。下方图表若启用了筛选，池会小于这里的数字。</li>'
+   +'<li class="src">批 A 与批 C 的 x 步长和频段不同，<b>不能混在一起比</b>，所以要按批次分别看。</li></ul></div>';
+  /* ② 结论先行：每个目标各列前 5（**单目标，不合成**） */
+  const pool=(pa&&pa.all)||[];
+  h+='<h2 style="margin:14px 0 0">按单个指标看：最好的几组参数'
+   +(fq?'（<span style="color:#e3b341">仅筛选后子集</span>）':'')+'</h2>';
+  h+=champCard('① 带宽最大',(s.formal_objectives||[])[0],pool,units);
+  h+=champCard('② 位移幅值最大',(s.formal_objectives||[])[1],pool,units);
+  h+=champCard('③ 声压灵敏度最高',(s.formal_objectives||[])[2],pool,units);
+  /* ③ Pareto：为什么"最好"不是唯一一个 */
+  h+='<div class="card'+(pa.is_conditional?' notice':'')+'"><h2>Pareto：哪些组合「谁也不比谁差」</h2>'
+   +'<div class="src" style="color:'+(pa.is_conditional?'#e3b341':'#586069')+'"><b>'
+   +mdInline(pa.filter_label||'')+'</b>｜'+mdInline(pa.front_scope||'')+'</div>'
+   +svgPareto(pa,units);
+  const ex=(pa&&pa.excluded)||{};
+  h+='<div class="src">为什么只有 '+(pa&&pa.n_pool)+' 组参与：该批共 '+ex.batch_total+' 组'
+   +(ex.filtered_out?('，筛选先去掉 '+ex.filtered_out+' 组（余 '+ex.after_filter+'）'):'')
+   +'，再扣掉 没有一阶峰 '+ex.not_first_peak+'、带宽没闭合 '+ex.bandwidth_not_closed
+   +'、Q 没过门槛 '+ex.q_gate_failed+'、指标缺失 '+ex.missing_objective_value+'。</div></div>';
+  /* ④ 敏感性热力图 */
+  h+='<div class="card"><h2>哪个参数最值得调（敏感性）</h2>'
+   +'<div class="src"><b>'+mdInline(hm.filter_label||'')+'</b>｜'
+   +'筛选后 '+hm.n_rows_after_filter+'/'+hm.n_rows_batch+' 组进入热力图</div>'
+   +svgHeatmap(hm,units)
+   +'<div class="src">'+mdInline(hm.note||'')+'</div></div>';
+  /* ⑤ 完备性自检（放最后：它是"体检报告"，不是结论） */
+  const rc=s.ruling_coverage;
+  if(rc){
+    const bad=(rc.gaps||[]).length;
+    h+='<div class="card'+(bad?' notice':'')+'"><h2>附：裁定判据完备性（体检）</h2>'
+     +'<div class="src"><b>'+mdInline(rc.verdict)+'</b>｜共 '+rc.n_rows+' 行（找到峰 '+rc.n_rows_first_peak
+     +'，带宽闭合 '+rc.n_rows_bandwidth_closed+'）</div><table>'
+     +'<tr><th>判据组</th><th>用到的量</th><th>有定义的行上都有值？</th></tr>';
+    for(const [g,v] of Object.entries(rc.groups||{})){
+      const rates=Object.entries(v['有定义行上的填充率']||{});
+      const allFull=rates.every(([,r])=>r>=0.99);
+      h+='<tr><td>'+esc(g)+'</td><td>'+esc((v.metrics||[]).join('、'))+'</td><td>'
+       +(allFull?'<span class="pill ok">齐全 100%</span>':esc(rates.map(([k,r])=>k+' '+(100*r).toFixed(1)+'%').join('，')))+'</td></tr>';
+    }
+    h+='</table><div class="src">'+mdInline(rc.constraint_only_rule)+'</div>';
+    if(bad) h+='<div class="src">缺口：'+esc(rc.gaps.join('；'))+'</div>';
+    h+='</div>';
+  }
+  $('#peaks').innerHTML=h;
+}
+/* ---------------- 多通道一阶峰代理 ---------------- */
+const MC_UNIT={bandwidth_Hz:'Hz',abs_w_m:'m',abs_p_per_V_Pa:'Pa/V',f_peak_Hz:'Hz',
+  abs_p_Pa:'Pa',abs_vz_struct_m3s:'m³/s',peak_SPL_dB:'dB',Q_factor:'—'};
+const mcHW=v=>v==null?'—':'<span title="相对误差约 '+(100*(Math.pow(10,v)-1)).toFixed(1)
+  +'%">'+f(v,4)+'</span>';
+async function mcCard(){
+  $('#mc').innerHTML='<div class="card">加载中…</div>';
+  const c=await api('/api/mc/model');
+  if(c.error){$('#mc').innerHTML='<div class="card notice">'+esc(c.error)+'</div>';return;}
+  const rd=c.refusal_domain||{}, lin=c.lineage||{}, dat=c.data||{}, B=c.bands_preregistered||{};
+  let h='<div class="card"><h2>模型卡：多通道一阶峰代理</h2>'
+   +'<div class="src">这份卡片要能独立回答「这个数能不能用」：血缘 / 结构 / 适用域 / '
+   +'预注册判定带 / 逐通道误差与覆盖率 / 拒答构成 / 已知短板。</div></div>';
+  /* ① 身份与血缘：每个数字要能回溯（红线 1） */
+  h+='<div class="card"><h2>身份与血缘</h2><div class="kv">'
+   +'<div>model_id</div><div><code style="word-break:break-all">'+esc(c.model_id)+'</code></div>'
+   +'<div>版本 / 状态</div><div>'+esc(c.version)+' ｜ '+pill(c.status,'warn')
+   +'　<b>人保留放行权</b>（不得自行晋升）　创建 '+esc(c.created||'—')+'</div>'
+   +'<div>数据来源</div><div><code>'+esc(dat.labels_path||'')+'</code>（批 '+esc(dat.batch||'')
+   +'）<br>标签表 sha256 <code>'+esc(String(dat.labels_sha256||'').slice(0,16))+'</code>'
+   +'　拟合 '+dat.n_rows_fit+' 行　评估用 '+dat.n_rows_used_in_eval+' 行</div>'
+   +'<div>拟合层</div><div>N2 = '+esc((dat.n2_layers_fitted||[]).join(' / '))
+   +'　每通道 22 个 (N2,N1) 层</div>'
+   +'<div>排除组合</div><div>'+((dat.excluded_quarantine||[]).length
+     ? (dat.excluded_quarantine||[]).map(q=>'<code>(x='+q[0]+',N1='+q[1]+',N2='+q[2]+')</code>').join('、')
+     : '无')+'（跨批比对中异常，训练与评估均排除）</div>'
+   +'<div>预注册</div><div>sha256 <code>'+esc(String(lin.prereg||'').slice(0,16))
+   +'</code>　→ <b>改预注册就会与产物不符</b>（有用例锁住）</div>'
+   +'<div>主判定折</div><div>'+mdInline(lin.main_fold||'—')+'</div>'
+   +'<div>评估报告</div><div><code>'+esc(lin.eval_report||'')+'</code></div>'
+   +'<div>部署产物</div><div><code>'+esc(lin.model_json||'')+'</code>　由 <code>'
+   +esc((lin.exporter||'').split('/').pop())+'</code> 用<b>全部数据</b>重拟合</div>'
+   +'</div><div class="src">⚠️ <b>部署口径 ≠ 评测口径</b>：卡片里的误差数字来自<b>折</b>，'
+   +'部署模型用全部数据重拟合 —— 两者混用就是数据泄漏。</div>'
+   +'<div class="card notice" style="margin-top:8px">'+mdInline(c.not_a_solver)+'</div></div>';
+  /* ② 结构与适用域（含拒答条件） */
+  h+='<div class="card"><h2>结构与适用域</h2>'
+   +'<div class="kv"><div>层内</div><div>'+mdInline((c.structure||{}).in_layer)+'</div>'
+   +'<div>N2 方向</div><div>'+mdInline((c.structure||{}).n2_direction)+'</div>'
+   +'<div>空间</div><div>正定量取 log10（误差即相对误差）；dB 量取 identity（误差为绝对 dB）</div>'
+   +'<div>x_scale</div><div>'+esc(JSON.stringify(rd.x))+'</div>'
+   +'<div>N_w_te1</div><div>'+esc(rd.n1)+'</div>'
+   +'<div>N_w_te2</div><div>'+esc(JSON.stringify(rd.n2))+'（超出即拒答）</div>'
+   +'<div>N2 外推</div><div>最多 '+esc(String(rd.n2_extrap_max_steps))+' 步，且相邻两层必须都在同一 x 上有标定值</div>'
+   +'<div>α 可选</div><div>'+esc((rd.alphas||[]).join(' / '))+'（其它取值没有校准记录 ⇒ 拒答）</div>'
+   +'</div><div class="src">拒答条件：x 越界 / N1 非整数或 ≥ N2 / N2 越界 / N2 外推超 1 步 / '
+   +'该 N1 在训练层里不存在或只有一层 / 相邻两层缺同一 x 的标定值。</div></div>';
+  /* ③ 预注册判定带：看不到标准就无法判读 pass/partial */
+  const bw=m=>{const b=B[m]||{};const p=b.pass||{},q=b.partial||{};
+    return 'pass：中位 ≤ '+p.median+' 且 p90 ≤ '+p.p90+' 且 frac(&gt;'+(p.frac_gt||'')
+      +') ≤ '+(100*(p.frac_max||0))+'%　｜　partial：p90 ≤ '+q.p90+'　｜　热点阈值 '+(b.hotspot||'—');};
+  h+='<div class="card"><h2>预注册判定带（<b>先定后看</b>）</h2>'
+   +'<div class="src"><b>层内插值</b>：'+bw('in_layer')+'</div>'
+   +'<div class="src"><b>N2 外推</b>：'+bw('n2_extrap')+'</div>'
+   +'<div class="src">`max` <b>不参与判定</b>，只在超过热点阈值时置 <code>local_hotspot_unclosed</code>。</div></div>';
+  /* ④ 逐通道详表 */
+  h+='<div class="card"><h2>逐通道（8 个）</h2><table>'
+   +'<tr><th>通道</th><th>组</th><th>正式目标</th><th>定义样本</th><th>空间</th>'
+   +'<th>半宽 层内<br>(α=.05 / .01)</th><th>半宽 N2外推<br>(α=.05 / .01)</th>'
+   +'<th>中位</th><th>p90</th><th>max</th><th>覆盖率</th><th>判定</th><th>短板</th></tr>';
+  for(const ch of c.channels||[]){
+    const e=ch.evaluation||{}, hm=ch.half_width_by_mode||{};
+    const il=(hm.in_layer||{}), ne=(hm.n2_extrap||{});
+    h+='<tr><td><code>'+esc(ch.channel)+'</code></td><td>'+esc(ch.group)+'</td><td>'
+     +(ch.is_formal_objective?'<b>是</b>':'否')+'</td><td>'+ch.n_rows_defined+'</td><td><code>'
+     +esc(ch.space)+'</code></td><td>'+mcHW(il['0.05'])+' / '+mcHW(il['0.01'])
+     +'</td><td>'+mcHW(ne['0.05'])+' / '+mcHW(ne['0.01'])
+     +'</td><td>'+mcHW(e.median)+'</td><td>'+mcHW(e.p90)+'</td><td>'+mcHW(e.max)
+     +'</td><td>'+(e.coverage!=null?(100*e.coverage).toFixed(1)+'%':'—')
+     +'</td><td>'+pill(e.verdict||'—',e.verdict==='pass'?'ok':(e.verdict==='fail'?'bad':'warn'))
+     +'</td><td>'+(e.without_lift?'<span class="pill bad">未优于抄相邻层</span>':'')
+     +(e.hotspot?'<span class="pill warn">局部热点</span>':'')+'</td></tr>';
+  }
+  h+='</table><div class="src">半宽是 <b>log10 空间</b>的：鼠标悬停可看折算的相对误差。'
+   +'「未优于抄相邻层」= 精度达标但<b>模型没有增值</b>，工程上直接用相邻层即可。</div>'
+   +'<div class="src">约束量（功率/应力/能量）<b>不在</b>可预测通道里——裁定 §3.4 只作约束、永不排名。</div></div>';
+  /* ⑤ 逐层覆盖：回答"这一层在哪些 x 上标定过"。
+       多个通道的覆盖常常**完全相同**（同属"闭合带宽类"或"首峰类"）⇒ 按签名合并，
+       否则 8 通道 × 4 层 = 32 行重复内容，反而把信息淹掉。 */
+  const covGroups=new Map();
+  for(const ch of c.channels||[]){
+    const cv=ch.coverage_by_n2||{};
+    const sig=JSON.stringify(Object.keys(cv).sort().map(k=>[k,cv[k].n_layers,cv[k].n_points,
+      cv[k].x_min,cv[k].x_max]));
+    if(!covGroups.has(sig)) covGroups.set(sig,{chans:[],cv:cv});
+    covGroups.get(sig).chans.push(ch.channel);
+  }
+  h+='<div class="card"><h2>逐层 x 覆盖（按 N2）</h2><table>'
+   +'<tr><th>通道（覆盖相同的合并显示）</th><th>N2</th><th>N1 层数</th><th>标定点数</th><th>x 范围</th></tr>';
+  for(const g of covGroups.values()){
+    const ks=Object.keys(g.cv).sort();
+    const nm=g.chans.map(x=>'<code>'+esc(x)+'</code>').join('、');
+    ks.forEach((k,i)=>{
+      const d=g.cv[k];
+      h+='<tr>'+(i===0?'<td rowspan="'+ks.length+'">'+nm+'</td>':'')
+       +'<td>N2='+esc(k)+'</td><td>'+d.n_layers+'</td><td>'+d.n_points+'</td><td>'
+       +f(d.x_min,2)+' – '+f(d.x_max,2)+'</td></tr>';
+    });
+  }
+  h+='</table><div class="src">范围窄的层（如 N2=5 从 x=0.31 起）说明低 x 端<b>没有一阶峰</b>，'
+   +'不是缺数据（低 x 端的一阶峰跑到 5 MHz 窗口之外，要靠 Stage-1 扩扫找回）。</div></div>';
+  /* ⑥ 拒答构成 */
+  h+='<div class="card"><h2>主判定折的拒答构成（为什么有约 30% 组合预测不了）</h2><table>'
+   +'<tr><th>通道</th><th>可预测 / 有定义</th><th>拒答原因</th></tr>';
+  for(const ch of c.channels||[]){
+    const e=ch.evaluation||{}, rr=e.refusal_reasons||{};
+    const txt=Object.entries(rr).map(([k,v])=>'<code>'+esc(k)+'</code> '+v).join('，')||'无';
+    h+='<tr><td><code>'+esc(ch.channel)+'</code></td><td>'+e.n_predicted+' / '
+     +(e.n_predicted!=null&&e.coverage?Math.round(e.n_predicted/e.coverage):'—')
+     +'</td><td>'+txt+'</td></tr>';
+  }
+  h+='</table><div class="src">这是<b>结构性拒答</b>，不是 bug：C 的每层 `N1 ≤ N2−1`，'
+   +'所以外推到新层时某些 (N1,x) 根本没有两层可外推。</div></div>';
+  /* ⑦ 结论 + 覆盖率口径 */
+  const es=c.evaluation_summary||{};
+  h+='<div class="card'+(es.channels_without_lift&&es.channels_without_lift.length?' notice':'')
+   +'"><h2>评估结论</h2><div class="src">'+mdInline(es.verdict||'—')+'</div>'
+   +'<div class="src">'+mdInline(c.coverage_rule||'')+'</div>'
+   +'<div class="src">'+mdInline(c.coverage_semantics||'')+'</div></div>';
+  $('#mc').innerHTML=h;
+}
+async function mcPredict(){
+  const q='x='+encodeURIComponent($('#mcX').value)+'&n1='+encodeURIComponent($('#mcN1').value)
+   +'&n2='+encodeURIComponent($('#mcN2').value)+'&alpha='+encodeURIComponent($('#mcAlpha').value);
+  const r=await api('/api/mc/predict?'+q);
+  if(r.error){$('#mc').innerHTML='<div class="card notice">'+esc(r.error)+'</div>';return;}
+  if(r.refused){
+    $('#mc').innerHTML='<div class="card notice"><b>已拒答（设计如此，不是程序错误）</b><br>'
+     +esc(r.reason)+'<br><br>动作：'+esc(r.action||'把参数改回适用域，或改用 COMSOL / 标签表核对')
+     +'</div><div class="card"><b>适用域速查</b><div class="src">x ∈ [0.20, 1.00]；'
+     +'N_w_te1 为整数且 &lt; N_w_te2；N_w_te2 ∈ [5, 9]；N2 外推 ≤ 1 步且相邻两层需在同一 x 上有标定；'
+     +'α 只认 0.10 / 0.05 / 0.01。</div>'
+     +'<div class="src">拒答时<b>不返回任何数字</b>——避免"半个结论"被当成完整结论。</div></div>';
+    return;
+  }
+  const Q=r.query||{};
+  let h='<div class="card"><div class="row">'+pill(r.mode,r.mode==='in_layer'?'ok':'warn')
+   +'<span class="src">查询 x='+esc(String(Q.x_scale))+'，N1='+esc(String(Q.N_w_te1))
+   +'，N2='+esc(String(Q.N_w_te2))+'　α='+esc(String(r.alpha))
+   +'　模式 <b>'+esc(r.mode)+'</b></span></div>'
+   +'<div class="src">模式含义：<b>in_layer</b> = 该层已标定过，沿 x 做形状保持插值（不外推）；'
+   +'<b>n2_extrap</b> = 该层没标定，用相邻两层沿 N2 做<b>一步线性外推</b>——后者的不确定度更大。</div>'
+   +'<div class="kv" style="margin-top:6px"><div>model_id</div>'
+   +'<div><code style="word-break:break-all">'+esc(r.model_id)+'</code></div>'
+   +'<div>状态</div><div>'+pill(r.status,'warn')+'（draft；人保留放行权）</div></div></div>';
+  h+='<div class="card"><h2>预测结果</h2><table>'
+   +'<tr><th>通道</th><th>组</th><th>预测值</th><th>区间（α='+esc(String(r.alpha))+'）</th>'
+   +'<th>区间半宽(log10)</th><th>评估判定</th><th>增值</th></tr>';
+  for(const [k,v] of Object.entries(r.channels)){
+    const u=MC_UNIT[k]||'';
+    const w=(v.interval&&v.value)?Math.log10(v.interval[1]/v.value):null;
+    h+='<tr><td><code>'+esc(k)+'</code>'+(v.is_formal_objective?' <span class="pill ok">正式目标</span>':'')
+     +'</td><td>'+esc(v.group||'')+'</td><td><b>'+esc(fmtEng(v.value,u))+'</b></td><td>'
+     +(v.interval?esc(fmtEng(v.interval[0],u))+' – '+esc(fmtEng(v.interval[1],u)):'—')
+     +'</td><td>'+mcHW(w)+'</td><td>'+mdInline(v.eval_verdict&&v.eval_verdict.verdict||'—')
+     +'</td><td>'+(v.eval_verdict&&v.eval_verdict.without_lift
+        ?'<span class="pill bad">无增值</span>':'有')+'</td></tr>';
+  }
+  h+='</table><div class="src">半宽与判定来自<b>评估折</b>；区间 = 预测值 ± 该通道的保形半宽（log10 空间）。</div>';
+  for(const c of r.caveats||[]) h+='<div class="src">· '+mdInline(c)+'</div>';
+  $('#mc').innerHTML=h+'</div>';
+}
+async function mcScreen(){
+  const q='x_min='+encodeURIComponent($('#scXmin').value)+'&x_max='+encodeURIComponent($('#scXmax').value)
+   +'&x_step='+encodeURIComponent($('#scXstep').value)
+   +'&n1_min='+encodeURIComponent($('#scN1min').value)+'&n1_max='+encodeURIComponent($('#scN1max').value)
+   +'&n2_min='+encodeURIComponent($('#scN2min').value)+'&n2_max='+encodeURIComponent($('#scN2max').value)
+   +'&top='+encodeURIComponent($('#scTop').value)+'&alpha='+encodeURIComponent($('#mcAlpha').value);
+  const r=await api('/api/mc/screen?'+q);
+  if(r.error){$('#mc').innerHTML='<div class="card notice">'+esc(r.error)+'</div>';return;}
+  if(r.refused){
+    $('#mc').innerHTML='<div class="card notice"><b>已拒答（设计如此）</b><br>'+esc(r.reason)
+     +'<br>动作：'+esc(r.action||'')+'</div>';
+    return;
+  }
+  const g=r.grid||{};
+  let h='<div class="card"><div class="row">'+pill('done')
+   +'<span class="src">网格 x ∈ ['+esc(String(g.x[0]))+','+esc(String(g.x[1]))+'] 步长 '+esc(String(g.x[2]))
+   +'　N1 ∈ ['+esc(String(g.n1[0]))+','+esc(String(g.n1[1]))+']　N2 ∈ ['
+   +esc(String(g.n2[0]))+','+esc(String(g.n2[1]))+']　α='+esc(String(r.alpha))+'</span></div>'
+   +'<div class="kv" style="margin-top:6px"><div>网格点数</div><div>'+g.n_points
+   +'</div><div>可预测 / 拒答</div><div><b>'+r.n_predicted+'</b> / '+r.n_refused
+   +'　覆盖率 <b>'+(100*r.coverage).toFixed(1)+'%</b></div>'
+   +'<div>模式分布</div><div>'+esc(JSON.stringify(r.modes||{}))+'</div>'
+   +'<div>拒答原因</div><div>'+esc(JSON.stringify(r.refusal_reasons||{}))+'</div>'
+   +'<div>model_id</div><div><code>'+esc(String(r.model_id).slice(0,24))+'…</code></div></div>'
+   +'<div class="src">'+mdInline(r.no_weighted_total||'')+'</div></div>';
+  const U=MC_UNIT;
+  for(const [chan,d] of Object.entries(r.per_objective||{})){
+    h+='<div class="card"><h2>按「'+esc(chan)+'」排名'
+     +((d.group)?'<span class="src">（'+esc(d.group)+'）</span>':'')+'</h2>';
+    if(!d.top||!d.top.length){ h+='<div class="src">该网格上没有可预测点。</div></div>'; continue; }
+    h+='<table><tr><th>#</th><th>值</th><th>参数组合</th><th>模式</th></tr>';
+    d.top.forEach((p,i)=>{
+      h+='<tr><td>'+(i+1)+'</td><td><b>'+esc(fmtEng(p.value,U[chan]||''))+'</b></td><td>x='
+       +esc(String(p.x_scale))+'，N1='+esc(String(p.N_w_te1))+'，N2='+esc(String(p.N_w_te2))
+       +'</td><td>'+esc(p.mode)+'</td></tr>';
+    });
+    h+='</table><div class="src">该目标可预测点 '+d.n+' 个。</div></div>';
+  }
+  for(const c of r.caveats||[]) h+='<div class="src">· '+mdInline(c)+'</div>';
+  $('#mc').innerHTML=h;
+}
+/* ---------------- 数据字典（只解释，不计算） ---------------- */
+let GLOSS=null;
+async function loadGloss(){
+  $('#gloss').innerHTML='<div class="card">加载中…</div>';
+  const g=await api('/api/glossary');
+  if(g.error){$('#gloss').innerHTML='<div class="card notice">'+esc(g.error)+'</div>';return;}
+  GLOSS=g;
+  const cov=g.coverage||{};
+  const sel=$('#glKind');
+  if(sel.options.length<=1){
+    sel.innerHTML='<option value="">（全部）</option>'
+      + (g.sections||[]).map(s=>'<option value="'+esc(s.kind)+'">'+esc(s.kind)+'（'+s.n+'）</option>').join('');
+  }
+  const bad=(cov.n_missing||0)>0;
+  let h='<div class="card'+(bad?' notice':'')+'"><h2>覆盖自检</h2>'
+   +'<div class="src"><b>'+mdInline(cov.verdict||'')+'</b></div>'
+   +'<div class="kv" style="margin-top:4px"><div>真实表里的去重列名</div><div>'+(cov.n_distinct_column_names||0)+'</div>'
+   +'<div>解释条目 / 别名</div><div>'+(cov.n_canonical_entries||0)+' 条 / '+(cov.n_aliases||0)+' 个别名</div>'
+   +'<div>逐表覆盖</div><div>'+Object.entries(cov.per_table||{}).map(([t,d])=>
+      esc(t)+' '+d.n_explained+'/'+d.n_columns+(d.unexplained.length?(' <span class="pill bad">缺 '+esc(d.unexplained.join(','))+'</span>'):''))
+      .join('　｜　')+'</div>'
+   +'<div>口径未书面确认</div><div>'+((cov.unconfirmed_entries||[]).length
+      ? esc(cov.unconfirmed_entries.join('、')) : '无')+'</div></div>'
+   +'<div class="src">'+mdInline(g.no_computation||'')+'</div></div>';
+  h+='<div id="glBody"></div>';
+  $('#gloss').innerHTML=h;
+  renderGloss();
+}
+function renderGloss(){
+  if(!GLOSS) return;
+  const q=$('#glQ').value.trim().toLowerCase(), kind=$('#glKind').value,
+        onlyRank=$('#glOnlyRank').checked;
+  let n=0;
+  let h='';
+  for(const sec of GLOSS.sections||[]){
+    if(kind && sec.kind!==kind) continue;
+    const items=(sec.items||[]).filter(it=>{
+      if(onlyRank && it.ranking!=='formal') return false;
+      if(!q) return true;
+      const hay=[it.name,it.zh,it.what,it.how,it.caveat,it.unit,it.where,
+                 (it.alias_in_tables||[]).join(' ')].join(' ').toLowerCase();
+      return hay.indexOf(q)>=0;
+    });
+    if(!items.length) continue;
+    n+=items.length;
+    h+='<div class="card"><h2>'+esc(sec.kind)+'<span class="src">　'+items.length+' 条</span></h2><table>'
+     +'<tr><th style="width:16%">名字</th><th style="width:13%">中文 / 单位</th>'
+     +'<th style="width:30%">它是什么</th><th style="width:22%">口径 / 来源</th>'
+     +'<th style="width:19%">方向与排名 · 坑</th></tr>';
+    for(const it of items){
+      const rankCls=it.ranking==='formal'?'ok':(it.ranking==='constraint'?'bad':'');
+      const dirTxt={max:'越大越好',min:'越小越好',none:'不作方向'}[it.direction]||'';
+      h+='<tr><td><code>'+esc(it.name)+'</code>'
+       +((it.alias_in_tables&&it.alias_in_tables.length)
+          ?('<div class="src">表里也叫：'+it.alias_in_tables.map(a=>esc(a)).join('、')+'</div>'):'')
+       +'</td><td>'+esc(it.zh)+'<div class="src">'+esc(it.unit)
+       +(it.confirmed?'':' <span class="pill warn">口径未书面确认</span>')+'</div></td>'
+       +'<td>'+mdInline(it.what)+'</td><td>'+mdInline(it.how)
+       +'<div class="src">出处：'+mdInline(it.where||'—')+'</div></td>'
+       +'<td><span class="pill '+(it.ranking==='formal'?'ok':'')+'">'+esc(it.ranking_label||'')+'</span>'
+       +(dirTxt?(' <span class="src">'+esc(dirTxt)+'</span>'):'')
+       +(it.caveat?('<div class="src">⚠️ '+mdInline(it.caveat)+'</div>'):'')
+       +'</td></tr>';
+    }
+    h+='</table></div>';
+  }
+  $('#glBody').innerHTML=h||'<div class="card notice">没有匹配的条目（试试清空搜索）。</div>';
+  $('#glCount').textContent='显示 '+n+' 条 / 共 '+((GLOSS.coverage||{}).n_canonical_entries||0)+' 条解释';
+}
+/* ---------------- 失败通道（不能完成 → 分析包；**不外发**） ----------------
+   为什么要有"队列"：控制台没在跑时，页面**发不出**任何登记（这正是"服务不可用"这一面）。
+   所以先存 localStorage，等连上了再补登记；补登记用的 `api(...,true)` 关掉再入队，
+   否则"发不出去 → 入队 → 再发"会自我繁殖。 */
+const INCQ='mems_inc_queue_v1';
+let INC=null, INC_SEEN=new Set(), INC_POSTED=0;
+function incQueueGet(){ try{ return JSON.parse(localStorage.getItem(INCQ)||'[]'); }catch(_){ return []; } }
+function incQueueSet(q){ try{ localStorage.setItem(INCQ, JSON.stringify((q||[]).slice(-20))); }catch(_){} }
+function incEnqueue(rec){ const q=incQueueGet(); q.push(rec); incQueueSet(q); incQueueShow(); }
+function incQueueShow(){ const n=incQueueGet().length; const el=$('#incQueue');
+  if(el) el.textContent=n?('本地暂存待补登记：'+n+' 条（连上服务后自动补）'):''; }
+async function incFlush(){
+  const q=incQueueGet(); if(!q.length) return;
+  const keep=[];
+  for(const r of q){ const res=await api('/api/incidents/record', r, true); if(res&&res.error) keep.push(r); }
+  incQueueSet(keep); incQueueShow();
+}
+/** 页面自己的异常也要能送出去（用户口径里的「页面脚本异常」）。同一消息只报一次，且有上限。 */
+function incReportPage(msg,stack){
+  try{
+    if(DIAG_MODE) return;               // 探针自己抛的异常，不登记
+    const key=String(msg).slice(0,200);
+    if(INC_SEEN.has(key)||INC_POSTED>=10) return;
+    INC_SEEN.add(key); INC_POSTED++;
+    const rec={kind:'page_error',symptom:'页面脚本异常：'+key,stack:String(stack||'').slice(0,4000),
+      source:'page',endpoint:location.pathname||'/'};
+    if(CONN&&CONN.ok){
+      api('/api/incidents/record',rec,true).then(r=>{
+        if(r&&r.error){ incEnqueue(rec); popFailure(rec); }
+        else popFailure({...rec, incident_id:(r&&r.incident_id)||''});
+      });
+    } else { incEnqueue(rec); popFailure(rec); }
+  }catch(_){}
+}
+async function loadInc(){
+  $('#incList').innerHTML='<div class="card">加载中…</div>';
+  await incFlush();
+  const r=await api('/api/incidents?limit=50');
+  if(r.error){ $('#incList').innerHTML='<div class="card notice">'+esc(r.error)+'</div>'; return; }
+  INC=r;
+  $('#incCount').textContent='共 '+r.n_total+' 条'+(r.n_bad_lines?('（坏行 '+r.n_bad_lines+'）'):'')
+    +'　台账 '+r.ledger;
+  const by=r.counts&&r.counts.by_kind||{};
+  const kinds=Object.keys(by).sort((a,b)=>by[b]-by[a]);
+  let h='<div class="card"><h2>已登记 '+r.n_total+' 条</h2>'
+   +'<div class="src">'+mdInline(r.no_send||'')+'</div>'
+   +'<div class="kv" style="margin-top:4px">'+(kinds.length?kinds.map(k=>
+      '<div>'+esc((r.what_is_collected||{})[k]||k)+'</div><div>'+by[k]+' 条</div>').join('')
+      :'<div>（还没有）</div><div>—</div>')+'</div></div>';
+  if(!r.items||!r.items.length){
+    h+='<div class="card notice">还没有登记过任何失败。这一格空着是好消息 —— '
+     +'它说明任务、代理、页面都没出过问题。</div>';
+  }else{
+    h+='<div class="card"><h2>最近 '+r.items.length+' 条</h2><table>'
+     +'<tr><th style="width:16%">类别</th><th style="width:14%">时间</th>'
+     +'<th style="width:44%">现象</th><th style="width:26%">操作</th></tr>';
+    for(const it of r.items){
+      h+='<tr><td>'+pill(String(it.kind_zh||it.kind||'').replace(/\*\*/g,''),it.kind==='refusal'?'warn':'bad')
+       +'<div class="src"><code>'+esc(it.incident_id||'')+'</code></div></td>'
+       +'<td class="src">'+esc(it.ts||'')+'<div>'+esc(it.source||'')+'</div></td>'
+       +'<td>'+mdInline(String(it.symptom||'').slice(0,300))
+       +(it.task?('<div class="src">任务 <code>'+esc(it.task)+'</code></div>'):'')
+       +(it.endpoint?('<div class="src">'+esc((it.method||'')+' '+it.endpoint)+'</div>'):'')
+       +((it.redacted_hits)?('<div class="src">已脱敏 '+it.redacted_hits+' 处</div>'):'')
+       +'</td>'
+       +'<td><button class="b" data-pkg="'+esc(it.incident_id||'')+'">生成分析包</button> '
+       +'<button class="b" data-dsh="'+esc(it.incident_id||'')+'">上报给 DSH 分析</button></td></tr>';
+    }
+    h+='</table></div>';
+  }
+  $('#incList').innerHTML=h;
+  $('#incList').querySelectorAll('[data-pkg]').forEach(b=>{
+    b.onclick=wrap(()=>incPackage(b.dataset.pkg),'#incPkg',null);});
+  $('#incList').querySelectorAll('[data-dsh]').forEach(b=>{
+    b.onclick=wrap(()=>incDsh(b.dataset.dsh),'#incPkg',null);});
+}
+/** 上报给 DSH：**只读分析**、**只有人点了才发生**、**离线模式被服务端拒绝**。 */
+async function incDsh(id){
+  const yes=(typeof confirm!=='function')?true
+    :confirm('上报给 DSH 会在本机启动一次 headless DSH 做只读分析（会消耗 token，可能几分钟）。继续？');
+  if(!yes) return;
+  $('#incPkg').innerHTML='<div class="card">正在上报（启动 headless DSH）…</div>';
+  const r=await api('/api/incidents/report_to_dsh',{incident_id:id,confirm:true});
+  if(r.error){
+    $('#incPkg').innerHTML='<div class="card notice"><b>没能上报</b>'
+     +'<div>'+mdInline(r.error)+'</div>'
+     +(r.hint?('<div class="src">'+esc(r.hint)+'</div>'):'')
+     +'<div class="src">离线模式请先切到右上角的 DeepSeek 模式。</div></div>';
+    return;
+  }
+  renderDsh({...r,status:'running'});
+  incPollDsh(id);
+}
+async function incPollDsh(id){
+  for(let i=0;i<120;i++){
+    await new Promise(res=>setTimeout(res,5000));
+    const g=await api('/api/incidents/dsh_reports?incident_id='+encodeURIComponent(id));
+    if(g.error){ renderDsh({error:g.error}); return; }
+    const it=(g.items||[])[0]||{status:'unknown'};
+    renderDsh({...it,dsh_available:g.dsh_available,how:g.dsh_how,rules:g.rules,
+               boundary:g.boundary,mode:g.mode});
+    if(it.status!=='running') return;
+  }
+}
+function renderDsh(s){
+  if(s.error){ $('#incPkg').innerHTML='<div class="card notice">'+esc(s.error)+'</div>'; return; }
+  const cls=s.status==='done'?'ok':(s.status==='running'?'warn':'bad');
+  let h='<div class="card"><h2>上报给 DSH：'+pill(String(s.status||''),cls)+'</h2>'
+   +'<div class="kv"><div>上报 id</div><div><code>'+esc(s.report_id||'')+'</code></div>'
+   +'<div>方式</div><div>'+esc(s.cmd||'')+'</div>'
+   +'<div>产物目录</div><div><code>'+esc(s.dir||'')+'</code></div>'
+   +(s.exit_code!=null?('<div>退出码 / 耗时</div><div>'+esc(String(s.exit_code))+' ｜ '
+       +esc(String(s.duration_s||''))+' s</div>'):'')
+   +(s.analysis_path?('<div>它写的分析</div><div><code>'+esc(s.analysis_path)+'</code></div>'):'')
+   +'</div>';
+  if(s.boundary) h+='<div class="src">'+mdInline(s.boundary)+'</div>';
+  if(s.rules&&s.rules.length){
+    h+='<div class="src">约束：'+s.rules.map(r=>'· '+mdInline(r)).join('　')+'</div>';
+  }
+  const tail=s.tail||'';
+  h+=(s.status==='running')
+    ? '<div class="src">正在跑…它读的是那份包；结果出来后会自动显示（最多等 10 分钟，之后点「刷新列表」看台账）。</div>'
+    : ('<div class="src">模型给的分析（原文，未做任何加工）：</div>'
+       +'<pre style="max-height:420px;overflow:auto">'+esc(tail||'（没有任何输出：可能它失败了，看 stdout.txt）')+'</pre>');
+  h+='</div>';
+  $('#incPkg').innerHTML=h;
+}
+async function incPackage(id){
+  $('#incPkg').innerHTML='<div class="card">正在生成…</div>';
+  const r=await api('/api/incidents/package',{incident_id:id,write:true});
+  if(r.error){ $('#incPkg').innerHTML='<div class="card notice">'+esc(r.error)+'</div>'; return; }
+  window.LAST_INC={md:r.md,json:JSON.stringify(r.json,null,1)};
+  const pct=Math.round((r.md.length/Math.max(1,r.md_bytes))*100);
+  $('#incPkg').innerHTML='<div class="card"><h2>分析包已生成：'+esc(r.incident_id)+'</h2>'
+   +'<div class="kv"><div>写入</div><div><code>'+esc(r.md_path||'')+'</code> ｜ <code>'+esc(r.json_path||'')+'</code></div>'
+   +'<div>大小 / sha256</div><div>'+r.md_bytes+' B ｜ <code>'+esc(String(r.md_sha256||'').slice(0,16))+'</code></div>'
+   +'<div>发送</div><div>'+mdInline(r.not_sent||'')+'</div></div>'
+   +'<div class="row"><button class="b" id="bIncCopyMd">复制 markdown</button>'
+   +'<button class="ghost" id="bIncCopyJs">复制 json</button>'
+   +'<span class="src" id="incCopyMsg"></span></div>'
+   +'<div class="src">下面是包全文（可以直接全选复制）：</div>'
+   +'<pre style="max-height:420px;overflow:auto">'+esc(r.md)+'</pre></div>';
+  $('#bIncCopyMd').onclick=()=>incCopy(window.LAST_INC.md,'#incCopyMsg');
+  $('#bIncCopyJs').onclick=()=>incCopy(window.LAST_INC.json,'#incCopyMsg');
+}
+function incCopy(text,msgSel){
+  const done=()=>{ const el=$(msgSel); if(el) el.textContent='已复制'; };
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done,done); return; }
+  }catch(_){}
+  try{
+    const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done();
+  }catch(e){ showError(null,e); }
+}
+async function incUpload(){
+  const sym=$('#incSym').value.trim();
+  if(!sym){ $('#incPkg').innerHTML='<div class="card notice">现象是必填的：写清"我做了什么 → 期待什么 → 实际看到什么"。</div>'; return; }
+  let params=null; const raw=$('#incParams').value.trim();
+  if(raw){ try{ params=JSON.parse(raw); }catch(_){ params={_raw:raw}; } }
+  const rec={kind:$('#incKind').value,symptom:sym,source:'page',
+    endpoint:$('#incEndpoint').value.trim(),params:params,
+    repro:$('#incRepro').value.trim()};
+  const r=await api('/api/incidents/record',rec);
+  if(r.error){ $('#incPkg').innerHTML='<div class="card notice">上报失败：'+esc(r.error)+'</div>'; return; }
+  const pk=await api('/api/incidents/package',{incident_id:r.incident_id,write:true});
+  $('#incPkg').innerHTML=(pk.error?('<div class="card notice">已登记，但生成包失败：'+esc(pk.error)+'</div>')
+    :'<div class="card"><b>已登记并生成分析包</b>：<code>'+esc(r.incident_id)+'</code>'
+     +(r.redacted_hits?('　<span class="pill warn">已脱敏 '+r.redacted_hits+' 处</span>'):'')
+     +'<div class="src">写入 <code>'+esc(pk.md_path||'')+'</code></div>'
+     +'<pre style="max-height:360px;overflow:auto">'+esc(pk.md||'')+'</pre></div>');
+  $('#incSym').value=''; $('#incParams').value=''; $('#incRepro').value='';
+  await loadInc();
+}
+/* ---------------- 失败：自动弹上报按钮（不占分区） ----------------
+   用户口径（2026-09-30）：「失败的时候界面可以弹出错误上报按钮，不要单独的失败通道……
+   我选择是否进行上报」。⇒ 三条设计约束：
+   ① **不占侧栏分区**，失败发生时自己冒出来；
+   ② 弹窗里**不自动上报**，只给按钮，报不报由人点；
+   ③ 服务端侧发生的失败（任务失败/超时/取消、接口异常）页面看不见 ⇒ 用一个**轻量轮询**
+      把新登记的事件捞回来弹窗，而不是让用户自己去某个页面翻。 */
+const POP_MAX=4;
+function openIncDlg(){ $('#incDlg').classList.add('on'); loadInc(); }
+function closeIncDlg(){ $('#incDlg').classList.remove('on'); }
+function errBadge(n){
+  const b=$('#errBadge'); if(!b) return;
+  if(n>0){ b.style.display=''; b.textContent='错误 '+n; } else { b.style.display='none'; }
+}
+function popFailure(rec){
+  try{
+    const id=String((rec&&rec.incident_id)||'');
+    if(id&&INC_SEEN.has('pop:'+id)) return;      // 同一条只弹一次
+    if(id) INC_SEEN.add('pop:'+id);
+    const box=$('#popups'); if(!box) return;
+    while(box.children.length>=POP_MAX) box.removeChild(box.firstChild);
+    const d=document.createElement('div'); d.className='pop';
+    const kind=(rec&&(rec.kind_zh||rec.kind))||'失败';
+    d.innerHTML='<b>这一步没做成：'+esc(String(kind).replace(/\*\*/g,''))+'</b>'
+      +'<div style="margin-top:4px">'+mdInline(String((rec&&rec.symptom)||'').slice(0,300))+'</div>'
+      +(id?('<div class="src"><code>'+esc(id)+'</code></div>'):'')
+      +'<div class="row">'
+      +(id?('<button class="b" data-act="dsh">上报给 DSH 分析</button>'
+           +'<button class="ghost" data-act="pkg">只生成分析包</button>')
+          :'<button class="b" data-act="retry">重新登记</button>')
+      +'<button class="ghost" data-act="close">忽略</button></div>'
+      +'<div class="src">'+mdInline('上报与否**由你决定** —— 这里不会自动上报。')+'</div>';
+    d.querySelectorAll('[data-act]').forEach(b=>{
+      b.onclick=()=>{
+        const act=b.dataset.act;
+        if(act==='close'){ d.remove(); return; }
+        if(act==='retry'){ incUploadLocal(rec); d.remove(); return; }
+        openIncDlg();
+        if(act==='dsh') incDsh(id); else incPackage(id);
+      };
+    });
+    box.appendChild(d);
+  }catch(e){ /* 弹窗自己出问题不能反过来炸页面 */ }
+}
+/** 服务端侧失败（任务/接口/拒答）→ 轮询捞回来弹窗；已弹过的不会再弹。 */
+let INC_POLL_T=null, INC_LAST_N=null;
+async function pollIncidents(){
+  try{
+    const r=await api('/api/incidents?limit=20');
+    if(r.error||!r.items) return;
+    errBadge(Number(r.n_total||0));
+    if(INC_LAST_N===null){ INC_LAST_N=Number(r.n_total||0); return; }   // 首次只记基线
+    if(Number(r.n_total||0)<=INC_LAST_N) return;
+    INC_LAST_N=Number(r.n_total||0);
+    // 最新的在前：只弹"这一轮新出现的"
+    for(const it of r.items.slice(0,3)) if(!INC_SEEN.has('pop:'+it.incident_id)) popFailure(it);
+  }catch(_){}
+}
+function startIncPoll(){ if(INC_POLL_T) return; pollIncidents(); INC_POLL_T=setInterval(pollIncidents,12000); }
+/** 连不上服务时攒在本地的那条：等能连上了再登记，然后弹窗问要不要上报。 */
+async function incUploadLocal(rec){
+  const r=await api('/api/incidents/record',rec);
+  if(r&&r.error){ incEnqueue(rec); return; }
+  popFailure({...rec,incident_id:r.incident_id});
+}
+/** 诊断钩子（**唯一**暴露给运行时探针的东西）：探针需要直接触发一次弹窗来验证"上报按钮
+    真的弹出来"。为什么不走真实异常路径：诊断模式下那条路被有意关掉（否则探针会往生产
+    台账写记录）。别的一律不暴露。 */
+try{ if(typeof window!=='undefined') window.__memsPop=popFailure; }catch(_){}
+/* ---------------- 子智能体（离线点名） ---------------- */async function loadAgents(){
+  $('#agents').innerHTML='<div class="card">加载中…</div>';
+  const a=await api('/api/agents/list');
+  if(a.error){$('#agents').innerHTML='<div class="card notice">'+esc(a.error)+'</div>';return;}
+  let h='<div class="card"><h2>'+a.n_roles+' 个角色</h2><table>'
+   +'<tr><th>角色</th><th>名称</th><th>类型</th><th>状态</th><th>一句话</th></tr>';
+  for(const r of a.roles||[]){
+    h+='<tr><td><code>'+esc(r.key)+'</code></td><td>'+esc(r.name)+'</td><td>'+esc(r.kind)
+     +'</td><td>'+pill(String(r.status||'').replace(/\*\*/g,''))+'</td><td>'+mdInline(r.one_liner)+'</td></tr>';
+  }
+  h+='</table><div class="src">'+mdInline(a.offline_capability||'')+'</div>'
+   +'<div class="src"><b>'+mdInline(a.boundary||'')+'</b></div></div>';
+  $('#agents').innerHTML=h;
+  $('#agRole').innerHTML=(a.roles||[]).map(r=>'<option value="'+esc(r.key)+'">'+esc(r.role_id||r.key)
+    +' — '+esc(r.name)+'</option>').join('');
+  const L=await api('/api/agents/ledger?tail=10');
+  if(!L.error){
+    $('#agLedger').innerHTML='<div class="card"><h2>点名牌账（append-only）</h2>'
+     +'<div class="src">共 '+L.n_total+' 行 ｜ <code>'+esc(L.path||'')+'</code></div>'
+     +((L.tail||[]).length?('<table><tr><th>spawn_id</th><th>角色</th><th>时间</th></tr>'
+        +L.tail.map(t=>'<tr><td><code>'+esc(String(t.spawn_id||'').slice(0,28))+'</code></td><td>'
+        +esc(t.role_id||'')+'</td><td>'+esc(t.created||'')+'</td></tr>').join('')+'</table>')
+       :'<div class="src">'+esc(L.note||'（空）')+'</div>')+'</div>';
+  }
+}
+async function buildAgentPayload(){
+  const role=$('#agRole').value, task=$('#agTask').value;
+  if(!task.trim()){ $('#agOut').innerHTML='<div class="card notice">请先写任务文本（空任务会被拒）。</div>'; return; }
+  const body={role:role,task:task};
+  const oR=($('#agOutRoot')||{}).value, lP=($('#agLedgerPath')||{}).value;
+  if(oR) body.out_root=oR;
+  if(lP) body.ledger_path=lP;
+  const r=await api('/api/agents/payload',body);
+  if(r.error){$('#agOut').innerHTML='<div class="card notice">'+esc(r.error)+'</div>';return;}
+  $('#agOut').innerHTML='<div class="card"><div class="row">'+pill('done')
+   +'<span class="src">spawn_id <code>'+esc(r.spawn_id)+'</code>　契约 sha <code>'
+   +esc(String(r.contract_sha256).slice(0,12))+'</code>　载荷 sha <code>'
+   +esc(String(r.payload_sha256).slice(0,12))+'</code></span></div>'
+   +'<div class="notice card" style="margin:6px 0"><b>'+mdInline(r.not_spawned||'')+'</b></div>'
+   +'<div class="row"><button class="b" id="bAgCopy">复制 prompt</button>'
+   +'<span class="src">台账：'+esc(JSON.stringify(r.ledger||{}))+'　涉及 LLM：'
+   +esc(String(r.is_llm_involved))+'</span></div>'
+   +'<pre id="agPrompt" style="max-height:320px"></pre></div>';
+  $('#agPrompt').textContent=r.prompt||'';
+  $('#bAgCopy').onclick=async()=>{
+    try{ await navigator.clipboard.writeText(r.prompt||''); $('#bAgCopy').textContent='已复制'; }
+    catch(e){ $('#bAgCopy').textContent='复制失败（请手动全选）'; }
+  };
+}
+/* ---------------- 启动 ---------------- */
+function bindAll(){
+  $('#bOff').onclick=async()=>{
+    const r=await api('/api/mode',{mode:'offline'});
+    if(r&&r.error) showError(null,new Error(r.error));
+    await refreshMode();
+  };
+  $('#bOn').onclick=async()=>{
+    const r=await api('/api/mode',{mode:'deepseek'});
+    if(r&&r.error){ showError(null,new Error(r.error)); }
+    await refreshMode();
+  };
+  $('#bSend').onclick=()=>send();
+  $('#bClear').onclick=()=>{$('#log').innerHTML='';HIST=[];greet();};
+  $('#inp').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
+  $('#bPred').onclick=wrap(predict,'#pred','#bPred');
+  $('#bCov').onclick=wrap(coverage,'#cov','#bCov');
+  $('#bCmp').onclick=wrap(compare,'#cmp','#bCmp');
+  $('#bDoe').onclick=wrap(runGrid,'#doe','#bDoe');
+  $('#bSen').onclick=wrap(sentinel,'#sen','#bSen');
+  $('#bData').onclick=wrap(loadData,'#data','#bData');
+  $('#bCsv').onclick=()=>{const a=document.createElement('a');
+    a.href='data:text/csv;charset=utf-8,'+encodeURIComponent('\ufeff'+LAST_CSV);
+    a.download='doe_screen.csv';a.click();};
+  $('#bPeaks').onclick=wrap(loadPeaks,'#peaks','#bPeaks');
+  $('#bMc').onclick=wrap(mcPredict,'#mc','#bMc');
+  $('#bGloss').onclick=wrap(loadGloss,'#gloss','#bGloss');
+  $('#bInc').onclick=wrap(loadInc,'#incList','#bInc');
+  $('#bIncUp').onclick=wrap(incUpload,'#incPkg','#bIncUp');
+  // 失败不再占分区：顶栏「错误与上报」按需开对话框；Esc 关闭
+  $('#bIncOpen').onclick=()=>openIncDlg();
+  $('#bIncClose').onclick=()=>closeIncDlg();
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeIncDlg(); });
+  // 搜索/筛选即时生效（字典是纯本地数据，不需要再请求）
+  $('#glQ').oninput=renderGloss;
+  $('#glKind').onchange=renderGloss;
+  $('#glOnlyRank').onchange=renderGloss;
+  $('#bMcScreen').onclick=wrap(mcScreen,'#mc','#bMcScreen');
+  $('#bMcCard').onclick=wrap(mcCard,'#mc','#bMcCard');
+  $('#bAgents').onclick=wrap(loadAgents,'#agents','#bAgents');
+  $('#bAgBuild').onclick=wrap(buildAgentPayload,'#agOut','#bAgBuild');
+  // 清空筛选：x/N1/N2 全部留空 ⇒ 回到全局口径（N2 的默认值就是"空"，不是某个层）
+  $('#bPeaksReset').onclick=()=>{
+    for(const id of ['#kXmin','#kXmax','#kN1min','#kN1max','#kN2']) if($(id)) $(id).value='';
+    wrap(loadPeaks,'#peaks','#bPeaks')();
+  };
+  // 指标下拉：从摘要里的 metrics 填充（启动后异步填）。
+  // 标出 ★=三个正式目标（按 ·=不参与排名，只作门槛/报告），避免用户误以为"都能拿来排名"。
+  (async()=>{ try{ const s=await api('/api/peaks/summary');
+      if(!s||!s.metrics) return;
+      const dirs=s.metric_directions||{}, objs=s.formal_objectives||[];
+      $('#kMetric').innerHTML=Object.entries(s.metrics).map(([k,v])=>{
+        const mark=objs.includes(k)?'★ ':(dirs[k]==='none'?'· ':'');
+        // `<option>` 里不解析 HTML ⇒ 必须**去掉**标签里的 markdown 星号，否则显示成字面 `**仅门槛/报告**`
+        const label=String(v).replace(/\*\*/g,'');
+        return '<option value="'+esc(k)+'"'+(k==='bandwidth_Hz'?' selected':'')+'>'
+          +esc(mark+label)+'</option>';}).join('');
+    }catch(e){} })();
+  const sm=$('#smode');
+  sm.onchange=()=>{const spec=sm.value==='spec';
+    $('#sspec').style.display=spec?'block':'none'; $('#sspl').style.display=spec?'none':'inline-block';};
+  sm.onchange();
+  // 示例按钮：一键填入参数并**立即跑**（用户不用猜哪些参数能跑通）
+  document.querySelectorAll('[data-ex]').forEach(b=>{
+    b.onclick=()=>{const [x,n1,n2]=b.dataset.ex.split(',');
+      $('#px').value=x; $('#pn1').value=n1; $('#pn2').value=n2;
+      if(b.dataset.ex) $('#bPred').click();};});
+}
+async function boot(){
+  buildNav(); show('chat');
+  bindAll();                       // ★ 先绑定：后面任何 await 失败都不会让按钮失灵
+  greet();
+  const conn=await connect();      // ★ 先探测 API 基址（页面可能被非 8877 来源打开）
+  if(!conn){
+    // 连不上时仍把模型卡/任务的失败**说清楚**，不去猜
+    $('#card').innerHTML='<div class="card notice">未连接到本地服务，模型卡不可用。'
+      +'请按页面顶部横幅的提示直接打开 <code>http://127.0.0.1:8877/</code>。</div>';
+    incQueueShow();               // 连不上时**照样**能看到"本地暂存了几条"
+    return;
+  }
+  try{ await incFlush(); incQueueShow(); }catch(_){}   // 连上了就把离线期间攒的补登记掉
+  startIncPoll();               // 服务端侧失败（任务/接口/拒答）靠它捞回来弹窗
+  try{
+    const j=await api('/api/jobs'); TASKS=(j&&j.tasks)||{};
+    const g={}; Object.entries(TASKS).forEach(([k,v])=>{(g[v.group]=g[v.group]||[]).push([k,v]);});
+    $('#tasks').innerHTML=Object.keys(g).map(grp=>'<div class="grp">'+esc(grp)+'</div>'
+      +g[grp].map(([k,v])=>'<button class="ghost" style="display:block;width:100%;text-align:left;margin:2px 0"'
+      +' data-runtask="'+esc(k)+'"><b>'+esc(v.title)+'</b> <span class="src">'
+      +(v.writes?'写产物（会确认）':'只读')+'　超时 '+esc(String(v.timeout_s||'?'))+'s</span></button>').join('')).join('')
+      ||'<div class="src">（无可运行任务）</div>';
+    bindRuntask(document);
+  }catch(e){ showError(null,e); }
+  try{ await refreshMode(); }catch(e){ showError(null,e); }
+  try{ await loadCard(); }catch(e){ showError('#card',e); }
+  try{ await autorun(); }catch(e){ showError(null,e); }
+}
+boot();
+</script></body></html>

@@ -1,0 +1,57 @@
+{
+ "role_id": "A5",
+ "slug": "sweep-analysis-optimization",
+ "name": "扫描分析与优化",
+ "kind": "llm",
+ "kind_label": "LLM 角色（判断/撰写）",
+ "status": "**已实现并验证**（本会话：分指标排名 + Pareto + 选点）",
+ "one_liner": "把合格数据变成**分指标的排名 + Pareto + 下一批点建议**；绝不合成一个总分。",
+ "inputs": [
+  "A4 的合格数据集（带族标签）",
+  "A1 的口径定义与预算",
+  "A8 的放行裁定"
+ ],
+ "outputs": [
+  "`scan_analysis.json`（逐指标排名 + 口径 + 未闭合/失败单列）",
+  "`next_batch.json`",
+  "人类可读报告片段"
+ ],
+ "entrypoints": [
+  "scripts/run_sweep_analysis.py",
+  "src/memsharness/sweep_analysis.py"
+ ],
+ "schemas": [
+  "schemas/scan_analysis.schema.json",
+  "schemas/next_batch.schema.json"
+ ],
+ "tests": [
+  "tests/test_sweep_analysis_offline.py",
+  "tests/test_report.py"
+ ],
+ "gaps": [
+  "预检产物（几何/选择集分类）尚未接入 ⇒ 排名目前自动降级为**临时**",
+  "主动学习（DOE/LHS/贝叶斯）只实现了「有依据的选点」，未实现采集函数比较"
+ ],
+ "concurrency": {
+  "can": [
+   "不同指标可并行"
+  ],
+  "cannot": [
+   "不得直接触发求解（交给 A3）"
+  ]
+ },
+ "forbidden": [
+  "不得用单一总分掩盖目标冲突",
+  "不得跨族合并统计",
+  "不得把未通过质量门的点混进排名",
+  "不得用无依据的插值/外推选点"
+ ],
+ "stop_conditions": [
+  "有效点不足",
+  "质量门失败率过高",
+  "口径未定（A1 未批准）"
+ ],
+ "contract": "AGENT.md",
+ "spawn_prompt": "prompts/spawn.md",
+ "generated_by": "scripts/gen_agent_collections.py"
+}

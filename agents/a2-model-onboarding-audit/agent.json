@@ -1,0 +1,55 @@
+{
+ "role_id": "A2",
+ "slug": "model-onboarding-audit",
+ "name": "模型接入与审计",
+ "kind": "hybrid",
+ "kind_label": "混合（代码读/算 + LLM 判断）",
+ "status": "契约版（工具已在，输出契约缺）",
+ "one_liner": "把生产模型**只读**接进来，运行态读取 + `.m` 静态交叉验证，产出**可修改参数白名单**。",
+ "inputs": [
+  "生产 `.mph`（只读引用）",
+  "既有 probe 产物",
+  "参数台账"
+ ],
+ "outputs": [
+  "`model_reading.json`",
+  "`parameter_ledger.csv`（含 last-wins 行号）",
+  "`whitelist.json`（可改参数 + 单位 + 范围 + 风险）",
+  "`audit_report.json`"
+ ],
+ "entrypoints": [
+  "src/memsharness/onboard.py",
+  "src/memsharness/modelio.py",
+  "scripts/audit_parameters.py",
+  "scripts/geometry_selection_precheck.py"
+ ],
+ "schemas": [],
+ "tests": [],
+ "gaps": [
+  "审计输出契约（`audit_report` schema）",
+  "仍有未效验参数（如 `term1_active`）"
+ ],
+ "concurrency": {
+  "can": [
+   "非求解部分可并行",
+   "与文献/资料整理并行"
+  ],
+  "cannot": [
+   "不得并行启动 COMSOL 求解"
+  ]
+ },
+ "forbidden": [
+  "不得改生产原件或别人的 run 目录",
+  "不得猜测 `.mph` 内部（读不到就说读不到，红线 §3）",
+  "不得把**未效验**参数放进白名单",
+  "读 `.m` 一律取**最后一次赋值**（文件头的值已失效）"
+ ],
+ "stop_conditions": [
+  "选择集与几何不符（`selection_mismatch` / `boundary_coincident`）",
+  "`.m` 与运行态取值冲突",
+  "白名单为空或全部未效验"
+ ],
+ "contract": "AGENT.md",
+ "spawn_prompt": "prompts/spawn.md",
+ "generated_by": "scripts/gen_agent_collections.py"
+}

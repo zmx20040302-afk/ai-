@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memsharness.local/schemas/evidence.schema.json",
+  "title": "MEMS Harness 证据契约（evidence）",
+  "description": "literature 来源数值的唯一合法出处。红线 1：文献值必须带**页码定位**与**原文摘录**；只有转述没有摘录的，不算证据。对应 DuckDB 表 evidence。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "evidence_id", "kind", "citation", "locator", "quote", "retrieved_at"],
+  "properties": {
+    "contract_version": { "const": "1.0.0" },
+    "evidence_id": {
+      "type": "string", "minLength": 1, "maxLength": 120,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "kind": {
+      "enum": ["literature", "doc", "case"],
+      "description": "literature 为期刊/会议/专著；doc 为手册/标准/数据表；case 为项目内案例记录"
+    },
+    "citation": {
+      "type": "string", "minLength": 8,
+      "description": "完整引文（作者/标题/出处/年份/DOI 或 URL）；只有标题不足以复核"
+    },
+    "locator": {
+      "type": "string", "minLength": 1,
+      "description": "定位串：页码/章节/表号/行号。例：`p.4 Table 2, row 3` 或 `§3.2 第 2 段`"
+    },
+    "page": {
+      "type": ["string", "integer", "null"],
+      "description": "kind=literature 时必填：页码（含页码范围）"
+    },
+    "quote": {
+      "type": "string", "minLength": 10,
+      "description": "**原文摘录**（逐字）或原文数值表述；不得写「文中提到……」这类转述"
+    },
+    "quote_language": { "type": ["string", "null"], "description": "原文语言（如 en / zh）" },
+    "quote_type": {
+      "enum": ["verbatim", "translated", null],
+      "description": "verbatim 逐字；translated 为译文（此时必须保留 quote_language 与译者说明）"
+    },
+    "claim": {
+      "type": ["string", "null"],
+      "description": "本证据支撑的断言（中文）；必须与原文明示的结论一致，不得外推"
+    },
+    "values": {
+      "type": ["array", "null"],
+      "description": "从该摘录中抽取的数值（原单位 + SI 换算），供 literature 样本引用",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "value", "unit"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "value": { "type": ["number", "null"] },
+          "unit": { "type": "string", "minLength": 1 },
+          "si_value": { "type": ["number", "null"] },
+          "si_unit": { "type": ["string", "null"] },
+          "factor": { "type": ["number", "null"] },
+          "uncertainty": { "type": ["string", "null"], "description": "原文给出的误差棒/区间（原文没给就写 null 并说明）" }
+        }
+      }
+    },
+    "source_file": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "bytes": { "type": ["integer", "null"], "minimum": 0 }
+      },
+      "description": "证据载体（PDF/文本）。**PDF 必须记哈希**，否则无法证明后续引用的是同一份"
+    },
+    "confidence": {
+      "enum": ["high", "medium", "low", "unknown", null],
+      "description": "证据等级（不写 unknown 的默认假设）"
+    },
+    "reproduced_by_run_id": {
+      "type": ["string", "null"],
+      "description": "若该文献值已被本平台仿真复现，填对应 run_id（复现后才可升级为训练标签）"
+    },
+    "retrieved_by": { "type": ["string", "null"] },
+    "retrieved_at": { "type": "string", "minLength": 1, "description": "ISO8601（UTC）" },
+    "source_note": { "type": ["string", "null"], "description": "本记录的实测出处（库表/文件/行号）" },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  },
+  "allOf": [
+    {
+      "description": "红线 1：文献必须有页码 + 原文摘录 + 摘录类型",
+      "if": { "properties": { "kind": { "const": "literature" } }, "required": ["kind"] },
+      "then": { "required": ["page", "quote_type"], "properties": { "page": { "type": ["string", "integer"] } } }
+    },
+    {
+      "description": "translated 摘录必须声明原文语言（否则无法核对译文）",
+      "if": { "properties": { "quote_type": { "const": "translated" } }, "required": ["quote_type"] },
+      "then": { "required": ["quote_language"], "properties": { "quote_language": { "type": "string", "minLength": 1 } } }
+    },
+    {
+      "description": "doc/case 也必须有定位（章节或文件行号）",
+      "if": { "properties": { "kind": { "enum": ["doc", "case"] } }, "required": ["kind"] },
+      "then": { "properties": { "locator": { "type": "string", "minLength": 1 } } }
+    }
+  ]
+}

@@ -9,9 +9,9 @@
   路线 E：**Interp 数据集**（按坐标文件插值）——它是"解派生"数据集，Eval 应能接受；
           这条路线最贴合 POD：坐标文件固定 → 每次求值都落在同一批点上
 
-用法（经 ASCII 交汇点）：
-    C:\\Users\\18161\\memsharness_work\\repo\\work\\.venv\\Scripts\\python.exe -u ^
-      C:\\Users\\18161\\memsharness_work\\repo\\scripts\\p1_route_converge.py
+用法（在仓库根下执行）：
+    work\\.venv\\Scripts\\python.exe -u ^
+      scripts\\p1_route_converge.py
 """
 
 from __future__ import annotations

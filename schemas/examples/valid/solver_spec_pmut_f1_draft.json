@@ -1,0 +1,49 @@
+{
+  "solver_id": "pmut-f1",
+  "method": "pod",
+  "model_id": "pod-0000000000000000",
+  "base_model_id": null,
+  "fields": [
+    { "name": "u", "unit": "m", "note": "结构位移场" },
+    { "name": "p", "unit": "Pa", "note": "声压场" }
+  ],
+  "point_set": {
+    "spec": { "x": { "start": 0.0, "stop": 1.0, "n": 21 }, "z": { "start": -1e-05, "stop": 0.0, "n": 9 } },
+    "points_file": "share/pod_points.txt",
+    "mask_policy": "common_mask_all_finite"
+  },
+  "applicability": {
+    "geometry_family": "pmut-f1",
+    "param_bounds": {
+      "N_w_te1": [1, 7],
+      "N_w_te2": [5, 8],
+      "x_scale": [0.2, 1.0]
+    },
+    "frequency_range_MHz": [5.0, 50.0],
+    "extrapolation": { "allowed_steps": 1, "policy": "超过一步的外推一律拒答并回退 COMSOL" }
+  },
+  "thresholds": {
+    "S0_limit_rel_err_max": 0.01,
+    "S1_key_region_rel_L2_max": 0.02,
+    "S1_global_rel_L2_max": 0.05,
+    "S2_engineering_rel_err_max": 0.03,
+    "S3_conservation_residual_max": 0.005,
+    "S3_bc_residual_max": 0.01,
+    "S4_mesh_diff_max": 0.02,
+    "S5_coverage_min": 0.85,
+    "S5_coverage_max": 0.95
+  },
+  "state": "draft",
+  "stamps": {
+    "source_type": "ai_solver",
+    "model_id": "pod-0000000000000000",
+    "uncertainty": "field_level_relative_L2_conformal",
+    "verification_level": "draft",
+    "applicability_hit": false
+  },
+  "recheck": { "every_n_solves": 200, "every_hours": 168, "action_on_drift": "suspended" },
+  "release": { "state": "draft", "history": [] },
+  "schedule": "按 §6.4：定期抽样用 COMSOL 复检；命中漂移 → suspended",
+  "note": "**样例夹具**（schema 示例，不是证据、不是真实标定结果）：用于机器校验 solver_spec.schema.json；其中的 model_id 与点集规格均为占位。",
+  "not_a_solver": "本配置用于 AI 求解器；未获放行前不得出现场解，不得声称等价于 COMSOL、不得用于工程绝对值。"
+}

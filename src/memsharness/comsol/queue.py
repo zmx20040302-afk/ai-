@@ -519,6 +519,12 @@ class JobQueue:
             job = _json_load(run_dir / "job.json") or {}
             if status_in and str(status.get("status")) not in status_in:
                 continue
+            # ⚠️ 历史 run 的 `diagnostic` 有两种形态：**新形态是 dict**（取 `code`），
+            #    旧形态是**裸字符串**（实测 `probe-20260911T150820Z-e3599a99` 写成 `"unknown"`）。
+            #    直接 `.get("code")` 会让**整个列表查询**抛 `'str' object has no attribute 'get'`
+            #    ⇒ `sim_status`（无 run_id 的列表模式）**全线不可用**。
+            #    修法：只把读取变宽容，**不改写任何历史 status.json**（append-only）。
+            diag = status.get("diagnostic")
             rows.append(
                 {
                     "run_id": run_dir.name,
@@ -528,7 +534,7 @@ class JobQueue:
                     "finished_at": status.get("finished_at"),
                     "wall_seconds": status.get("wall_seconds"),
                     "exit_code": status.get("exit_code"),
-                    "diagnostic": (status.get("diagnostic") or {}).get("code"),
+                    "diagnostic": (diag.get("code") if isinstance(diag, dict) else diag),
                     "template": job.get("template"),
                     "params": job.get("params"),
                     "sweep_id": job.get("sweep_id"),

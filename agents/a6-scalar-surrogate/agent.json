@@ -1,0 +1,51 @@
+{
+ "role_id": "A6",
+ "slug": "scalar-surrogate",
+ "name": "标量代理模型",
+ "kind": "hybrid",
+ "kind_label": "混合（代码读/算 + LLM 判断）",
+ "status": "契约版（训练骨架已有；本会话标量通道首轮 fail）",
+ "one_liner": "对阵内标量做**可核验**的快速预测（含不确定度）；未过门槛只谈趋势，不给工程绝对值。",
+ "inputs": [
+  "A4 的标量样本（带族标签与口径）",
+  "预注册文件",
+  "基线定义"
+ ],
+ "outputs": [
+  "代理模型 + 元数据（训练集版本/族/切分）",
+  "留出指标（max/中位/分位）与基线对照",
+  "适用范围与拒答规则"
+ ],
+ "entrypoints": [
+  "src/memsharness/ml/surrogate.py"
+ ],
+ "schemas": [],
+ "tests": [
+  "tests/test_ml_pipeline.py"
+ ],
+ "gaps": [
+  "PMUT 专用放行门槛（当前四族全 fail）",
+  "共振参数（f0/Q/峰值）作为目标量的下一轮"
+ ],
+ "concurrency": {
+  "can": [
+   "可与报告/验证并行"
+  ],
+  "cannot": [
+   "不得把 AI 解与 COMSOL 解混为同一来源（红线 §8）"
+  ]
+ },
+ "forbidden": [
+  "未过门槛不得给工程绝对值（只能谈趋势/排名）",
+  "不得跨族训练",
+  "不得在看到留出指标后改切分/阈值（要改则新开一轮并并列旧结果）"
+ ],
+ "stop_conditions": [
+  "留出超标（如工程量 >3%）",
+  "校准点不足（认证失败）",
+  "族数不足（不能声称跨族）"
+ ],
+ "contract": "AGENT.md",
+ "spawn_prompt": "prompts/spawn.md",
+ "generated_by": "scripts/gen_agent_collections.py"
+}

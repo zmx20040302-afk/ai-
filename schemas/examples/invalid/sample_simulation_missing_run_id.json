@@ -1,0 +1,25 @@
+{
+  "contract_version": "1.0.0",
+  "sample_id": "fixture-invalid-missing-run-id",
+  "source_type": "simulation",
+  "fidelity": "F2",
+  "extractor": { "name": "fixture", "version": "0" },
+  "design": {
+    "design_id": "fixture-design",
+    "geometry_family": "GF-fixture",
+    "parameters": { "Lx": 0.01 },
+    "parameter_units": { "Lx": "m" }
+  },
+  "frequency_set": { "kind": "steady_state", "unit": null, "values": [], "not_applicable_reason": "非数据夹具：仅用于触发校验拒绝" },
+  "metrics": {
+    "T_max_K": {
+      "value": 300.0,
+      "unit_si": "K",
+      "uncertainty": {
+        "method": "fixture",
+        "components": { "numerical_discretization": { "value": null, "reason": "fixture" } }
+      }
+    }
+  },
+  "units": { "system": "SI", "original_values": [] }
+}

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memsharness.local/schemas/run.schema.json",
+  "title": "MEMS Harness 运行契约（run）",
+  "description": "一次求解尝试 = 可复现单元（红线 1 的「run_id」这一支）。对应 DuckDB 表 run。原则：**缺什么就声明什么**——时间/哈希/诊断缺失时必须写进 provenance_gaps，不允许静默为空。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "run_id", "backend", "pathway", "status", "run_dir"],
+  "properties": {
+    "contract_version": { "const": "1.0.0" },
+    "run_id": {
+      "type": "string", "minLength": 1, "maxLength": 120,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "description": "必须同时通过 MCP 侧 validate_run_id()（无路径分隔符、无 '..'、非空、首尾无空白、≤120 字符），否则产物会落到 work\\runs\\ 之外"
+    },
+    "design_id": { "type": ["string", "null"] },
+    "owner": { "type": ["string", "null"], "description": "多人使用预留：谁提交的" },
+    "backend": { "enum": ["local", "remote"] },
+    "pathway": {
+      "enum": ["livelink", "comsolbatch", "comsol-gui-batch", "template"],
+      "description": "实测存量数据中出现过 comsol-gui-batch（COMSOL GUI Batch），故必须列入"
+    },
+    "model_path": { "type": ["string", "null"], "description": "被求解的模型副本（生产 .mph 只读引用，不原地改写）" },
+    "model_sha256": {
+      "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$",
+      "description": "被求解对象的哈希。注意口径：模板通路填**生成的 Java 源码**哈希，GUI 通路填 .mph 哈希——必须在 settings 里声明口径"
+    },
+    "software": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "description": "软件事实：COMSOL 版本/路径、mphserver 端口、是否用 MATLAB、环境快照时间",
+      "properties": {
+        "comsol_version": { "type": ["string", "null"] },
+        "comsol_home": { "type": ["string", "null"] },
+        "mphserver_host": { "type": ["string", "null"] },
+        "mphserver_port": { "type": ["integer", "null"] },
+        "matlab_used": { "type": ["boolean", "null"] },
+        "extractor": { "type": ["string", "null"] }
+      }
+    },
+    "settings": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "description": "求解设置快照：物理场、研究、网格、边界选择、参数 SI 值、频率列表等"
+    },
+    "status": { "enum": ["queued", "running", "succeeded", "failed", "cancelled"] },
+    "exit_code": { "type": ["integer", "null"] },
+    "diagnostic": {
+      "type": ["string", "null"],
+      "description": "失败分类码（失败/取消必须有，否则失败原因不可复核）"
+    },
+    "wall_seconds": { "type": ["number", "null"], "minimum": 0 },
+    "run_dir": {
+      "type": "string", "minLength": 1,
+      "description": "该 run 的独立目录：输入/命令/日志/输出全在这一个目录下（一次运行一个目录）"
+    },
+    "started_at": { "type": ["string", "null"] },
+    "finished_at": { "type": ["string", "null"] },
+    "artifacts": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "sha256", "path"],
+        "properties": {
+          "kind": { "enum": ["mph", "java", "csv", "json", "fig", "log", "other"] },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "path": { "type": "string", "minLength": 1 },
+          "bytes": { "type": ["integer", "null"], "minimum": 0 }
+        }
+      }
+    },
+    "provenance_gaps": {
+      "type": ["array", "null"],
+      "items": { "type": "string" },
+      "description": "**必填的诚实位**：本次运行缺失的溯源项（如「未捕获编译日志」「时间戳未记录」）。语义检查 R1 会把「字段为空但未声明」判为失败"
+    },
+    "source_note": { "type": ["string", "null"], "description": "本记录的实测出处（库表/文件/行号）" },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  },
+  "allOf": [
+    {
+      "description": "成功运行必须 exit_code=0（其它值说明不是「成功」）",
+      "if": { "properties": { "status": { "const": "succeeded" } }, "required": ["status"] },
+      "then": { "properties": { "exit_code": { "const": 0 } }, "required": ["exit_code"] }
+    },
+    {
+      "description": "失败或取消必须给出诊断分类（不得留空）",
+      "if": { "properties": { "status": { "enum": ["failed", "cancelled"] } }, "required": ["status"] },
+      "then": { "required": ["diagnostic"], "properties": { "diagnostic": { "type": "string", "minLength": 1 } } }
+    }
+  ]
+}

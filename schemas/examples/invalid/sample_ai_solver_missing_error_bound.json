@@ -1,0 +1,37 @@
+{
+  "contract_version": "1.0.0",
+  "sample_id": "fixture-invalid-ai-solver-no-error-bound",
+  "source_type": "ai_solver",
+  "fidelity": "F2",
+  "extractor": { "name": "fixture-surrogate", "version": "0" },
+  "design": {
+    "design_id": "fixture-design-ai",
+    "geometry_family": "GF-fixture",
+    "parameters": { "Lx": 0.01 },
+    "parameter_units": { "Lx": "m" }
+  },
+  "frequency_set": { "kind": "discrete_list", "unit": "Hz", "values": [5000000.0] },
+  "metrics": {
+    "Vave_m_s": {
+      "value": 0.001,
+      "unit_si": "m/s",
+      "uncertainty": null,
+      "uncertainty_reason": "夹具：故意不给误差界"
+    }
+  },
+  "units": { "system": "SI", "original_values": [] },
+  "model_id": "model-fixture-0001",
+  "model_state": "approved_for_use",
+  "ai_solver": {
+    "validation_level": "S1",
+    "field_error_bound": {
+      "metric": "field_relative_l2",
+      "value": 0.04,
+      "unit": "1",
+      "n_points": 713,
+      "mask_policy": "域外点 NaN",
+      "reference_run_id": null
+    },
+    "applicability": { "in_scope": true, "scope_id": "scope-fixture-v1", "checked_against": "model.scope" }
+  }
+}

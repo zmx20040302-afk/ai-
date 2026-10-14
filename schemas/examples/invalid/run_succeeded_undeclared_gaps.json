@@ -1,0 +1,14 @@
+{
+  "contract_version": "1.0.0",
+  "run_id": "fixture-invalid-succeeded-undeclared-gap",
+  "backend": "local",
+  "pathway": "comsolbatch",
+  "status": "succeeded",
+  "exit_code": 0,
+  "diagnostic": null,
+  "wall_seconds": null,
+  "started_at": null,
+  "finished_at": null,
+  "run_dir": "work/runs/fixture-invalid-succeeded-undeclared-gap",
+  "provenance_gaps": []
+}

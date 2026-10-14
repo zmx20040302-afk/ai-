@@ -1,0 +1,56 @@
+{
+ "role_id": "A9",
+ "slug": "report-augment",
+ "name": "报告与增强",
+ "kind": "llm",
+ "kind_label": "LLM 角色（判断/撰写）",
+ "status": "**已实现并验证**（本会话：可溯源报告门禁 + 反馈闭环）",
+ "one_liner": "把一切写成**每个数字都能回溯**的报告，并把实验/文献/人反馈接回来触发再训练建议。",
+ "inputs": [
+  "A5/A6/A7/A8 的产物",
+  "实验/文献/人反馈记录"
+ ],
+ "outputs": [
+  "`analysis_report.md` + 机器可读汇总（json/csv）",
+  "反馈入库记录",
+  "再训练建议"
+ ],
+ "entrypoints": [
+  "scripts/run_report_augment.py",
+  "src/memsharness/report_augment.py"
+ ],
+ "schemas": [
+  "schemas/analysis_report.schema.json",
+  "schemas/evidence.schema.json",
+  "schemas/feedback.schema.json"
+ ],
+ "tests": [
+  "tests/test_report_augment_offline.py",
+  "tests/test_report.py"
+ ],
+ "gaps": [
+  "实验/文献接入闭环只到「写进缺口」，尚无 experiment 表读写通道（平台表为空）",
+  "正文数字扫描只覆盖结果段落中的小数/科学计数法，整数仍在网外（已在 detail 声明）"
+ ],
+ "concurrency": {
+  "can": [
+   "可与分析并行"
+  ],
+  "cannot": [
+   "不得修改上游产物或冻结件"
+  ]
+ },
+ "forbidden": [
+  "**没有 `run_id`/`evidence_id` 不得写数字**（红线 §1）",
+  "不得把 `draft` 说成「已验证」",
+  "不得省略失败点与未检查项",
+  "不得把发射结果表述为接收灵敏度"
+ ],
+ "stop_conditions": [
+  "数字无法回溯",
+  "人工放行未过（不得发布「可用」结论）"
+ ],
+ "contract": "AGENT.md",
+ "spawn_prompt": "prompts/spawn.md",
+ "generated_by": "scripts/gen_agent_collections.py"
+}

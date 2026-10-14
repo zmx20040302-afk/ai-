@@ -12,13 +12,20 @@ dependencies = [
   "scipy",
   "pandas",
   "scikit-learn",
+  "joblib",
   "pint",
   "duckdb",
   "pyarrow",
   "pyyaml",
   "jsonschema",
   "fastmcp",
+  "matplotlib",
 ]
+
+[project.optional-dependencies]
+# COMSOL Python 接入（MPh 经 JPype 起 JVM）。缺省不装：只跑测试/解析工厂/训练/报告
+# 不需要它；需要读写 .mph 时再装：pip install -e ".[comsol]"
+comsol = ["mph", "JPype1"]
 
 [project.scripts]
 mems-env = "memsharness.env:main"
@@ -32,3 +39,29 @@ packages = ["src/memsharness"]
 # 并关闭会写仓库根的 cacheprovider。
 testpaths = ["tests"]
 addopts = "-p no:cacheprovider"
+
+# ---------------------------------------------------------------------------------------
+# sklearn/scipy 原生扩展（_radius_neighbors 等）在本机 venv 下的历史故障说明（2026-09-14 实测更新）
+#
+# 历史（2026-09-13，见 docs/TO_CODEX_progress-20260913-LT0-kickoff.md §3）：
+#   pytest -q 在 tests/test_ml_pipeline.py、tests/test_pod.py 上**采集期失败**：
+#   ImportError: DLL load failed while importing _radius_neighbors:
+#                应用程序无法启动，因为并行配置不正确（Windows SxS）
+#
+# 现状（2026-09-14 实测）：**故障已不复现**，`pytest -q` 全绿（240 passed, 4 skipped）。
+#   诊断结论：属 venv **基解释器（缓存运行时）** 问题，不是缺 VC runtime，也不是 sklearn wheel 损坏。
+#   证据：venv 基解释器 C:\Users\zmx\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\
+#         下全部文件（python.exe / python312.dll / vcruntime140.dll …）的 CreationTime = 2026-09-13 21:46:33
+#         （即故障记录之后被重新落盘）；而 System32 的 msvcp140/vcruntime140（14.50.35719.0）自
+#         2025-11-21 起未变、scikit-learn 1.9.1 亦自 2026-09-11 20:49 起未重装。
+#   复核命令（任选其一）：
+#     work\.venv\Scripts\python.exe -c "import sklearn.metrics._pairwise_distances_reduction._radius_neighbors as m; print(m.__file__)"
+#     work\.venv\Scripts\python.exe -m pytest -q tests/test_ml_pipeline.py tests/test_pod.py
+#   完整记录：docs/TO_USER-platform-mainline-20260914.md §2
+#
+# 若该 DLL 故障**再次出现**：先用上面两条命令确认，再按「恢复条件」处理
+#   （优先排查缓存运行时是否被刷新/移动；其次才考虑 pip install --force-reinstall scikit-learn，
+#    注意本机网络限制：官方 PyPI 读超时、阿里云会截断大 wheel，见 AGENTS.md §3）。
+# 只有在**确认无法修复**时才启用下面的显式隔离开关——它的作用是让「这两个文件没有跑」这件事
+# 以配置形式**可见**（而不是静默跳过），并在报告中如实标注 pytest_regression 降级。
+# collect_ignore = ["tests/test_ml_pipeline.py", "tests/test_pod.py"]

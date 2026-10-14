@@ -3598,8 +3598,17 @@ def parse_matlab_export(source: str | Path, *, validate_enums: bool = True) -> d
         blocks.setdefault(current, []).append((lineno, stmt))
     result["parsed"] = True
 
-    # ---- 参数表（parameters 与 main 两个块都收，但如实标注块名） ----------------
-    for block in ("parameters", "main"):
+    # ---- 参数表（**所有块**都要扫，不能只扫 parameters/main） --------------------
+    # ⚠️ 实测缺陷（2026-09-12）：这里原本只遍历 ``("parameters", "main")`` 两个块，
+    # 而 COMSOL 导出时**函数名跟随文件名**——``File > Save As`` 存成 ``foo.m`` 时导出的是
+    # ``function out = foo``，既不叫 ``model`` 也不叫 ``model_parameters``，于是参数块被
+    # 整段漏掉、``parameters`` 变成空表（只留一句提示），下游 cross_check 会把所有参数记成
+    # ``missing_in_spec``。其它各段早就用 ``all_rows``（全部块），唯独参数表漏了。
+    # 现在按「parameters → main → 其余块（按名排序）」扫全部块，块名仍如实记录。
+    block_names = ["parameters", "main"] + sorted(
+        name for name in blocks if name not in ("parameters", "main")
+    )
+    for block in block_names:
         for lineno, stmt in blocks.get(block, []):
             for target, args in _iter_calls(stmt, "set"):
                 if not re.search(r"(^|\.)param$", target) and not target.endswith("model.param"):

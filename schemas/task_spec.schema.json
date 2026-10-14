@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memsharness.local/schemas/task_spec.schema.json",
+  "title": "MEMS Harness 任务合同契约（task_spec，**器件无关**）",
+  "description": "人唯一必填的输入（WORKING_PLAN §4.7.2）：目标/约束/可改参数/预算/停止条件/审批节奏。**器件无关**：参数与目标只能引用 device_spec 里已声明的名字（语义检查 T1/T2），内核不得出现器件分支。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version", "task_id", "device_spec_ref", "objective",
+    "constraints", "parameters", "budget", "stop", "automation", "deliverables"
+  ],
+  "properties": {
+    "contract_version": { "const": "1.0.0" },
+    "task_id": {
+      "type": "string", "minLength": 1, "maxLength": 120,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "device_spec_ref": {
+      "type": "string", "minLength": 1,
+      "description": "被引用的 device_spec.spec_id（语义检查 T1/T2/T5 用它解析参数与目标的合法集合）"
+    },
+    "objective": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "goals"],
+      "properties": {
+        "mode": { "enum": ["single", "multi"], "description": "multi ⇒ 输出 Pareto 前沿" },
+        "goals": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "kind", "weight"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1, "description": "必须是 device_spec.targets.scalar_goals 里的名字" },
+              "kind": { "enum": ["maximize", "minimize", "target"] },
+              "value": { "type": ["number", "null"], "description": "kind=target 时必填（SI）" },
+              "unit_si": { "type": ["string", "null"] },
+              "weight": { "type": "number", "minimum": 0 },
+              "tolerance": { "type": ["number", "null"], "minimum": 0, "description": "kind=target 时的容差（SI）" }
+            },
+            "allOf": [
+              {
+                "if": { "properties": { "kind": { "const": "target" } }, "required": ["kind"] },
+                "then": { "required": ["value"], "properties": { "value": { "type": "number" } } }
+              }
+            ]
+          }
+        },
+        "note": { "type": ["string", "null"] }
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "description": "硬约束（可为空数组，但**不可省字段**：省略意味着没人检查约束）",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "expr"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "expr": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "parameters": {
+      "type": "array",
+      "minItems": 1,
+      "description": "★ 只允许改这里声明的参数（防误改）。名字必须存在于 device_spec.parameters（语义检查 T1）",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "type"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "type": { "enum": ["continuous", "discrete"] },
+          "unit_si": { "type": ["string", "null"] },
+          "range": { "type": ["array", "null"], "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+          "values": { "type": ["array", "null"], "items": { "type": "number" } }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "type": { "const": "continuous" } }, "required": ["type"] },
+            "then": { "required": ["range"], "properties": { "range": { "type": "array" } } }
+          },
+          {
+            "if": { "properties": { "type": { "const": "discrete" } }, "required": ["type"] },
+            "then": { "required": ["values"], "properties": { "values": { "type": "array", "minItems": 1 } } }
+          }
+        ]
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_comsol_points", "max_wall_hours", "batch_size"],
+      "description": "**硬预算不可省**（防无人值守跑飞）；求解必须单实例串行",
+      "properties": {
+        "max_comsol_points": { "type": "integer", "minimum": 1 },
+        "max_wall_hours": { "type": "number", "exclusiveMinimum": 0 },
+        "batch_size": { "type": "integer", "minimum": 1, "description": "每轮审批的批大小（建议 20–24）" }
+      }
+    },
+    "stop": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_rounds", "no_improve_rounds"],
+      "properties": {
+        "max_rounds": { "type": "integer", "minimum": 1 },
+        "no_improve_rounds": { "type": "integer", "minimum": 1 },
+        "tolerance": {
+          "type": ["object", "null"],
+          "additionalProperties": { "type": "number" },
+          "description": "逐目标的收敛容差（SI），如 {f_r: 100000.0}（0.1 MHz）"
+        }
+      }
+    },
+    "automation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "model_write", "allow_ai_solver"],
+      "properties": {
+        "level": { "enum": ["supervised", "autonomous"] },
+        "model_write": {
+          "enum": ["copy_only", "save_new"],
+          "description": "生产 .mph 永不原地改写；save_new 需要显式人工授权（schema 强制）"
+        },
+        "save_new_authorized_by": { "type": ["string", "null"], "description": "model_write=save_new 时必填：授权人" },
+        "allow_ai_solver": { "type": "boolean", "description": "是否允许 AI 求解器做内部预筛（仅限已放行范围）" },
+        "paused": { "type": ["boolean", "null"] }
+      },
+      "allOf": [
+        {
+          "description": "红线：生产模型永不原地改写。save_new 必须有人工授权记录",
+          "if": { "properties": { "model_write": { "const": "save_new" } }, "required": ["model_write"] },
+          "then": { "required": ["save_new_authorized_by"], "properties": { "save_new_authorized_by": { "type": "string", "minLength": 1 } } }
+        }
+      ]
+    },
+    "structure_variants": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "description": "预先批准的结构变体白名单：范围内自主搜索，越界必须请示",
+      "required": ["approved", "max_changes_per_round"],
+      "properties": {
+        "approved": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "desc"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 },
+              "desc": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "max_changes_per_round": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "target_caliber": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["id"],
+      "description": "目标口径版本（必须与 device_spec.targets.caliber_id 一致，语义检查 T4）",
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "note": { "type": ["string", "null"] },
+        "confirmed_by": { "type": ["string", "null"] }
+      }
+    },
+    "field_targets": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["expr", "unit_si"],
+        "properties": {
+          "expr": { "type": "string", "minLength": 1 },
+          "unit_si": { "type": "string", "minLength": 1 },
+          "note": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "public_point_set": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["mask_policy"],
+      "properties": {
+        "definition": { "type": ["string", "null"] },
+        "mask_policy": { "type": "string", "minLength": 4 }
+      }
+    },
+    "deliverables": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind"],
+        "properties": {
+          "kind": {
+            "enum": [
+              "pareto_plot", "spectrum_cmp", "field_cmp",
+              "evidence_report", "round_report_card", "dataset_card", "other"
+            ]
+          },
+          "desc": { "type": ["string", "null"] }
+        }
+      },
+      "description": "要产出的报告/图。`evidence_report` = 每个数值带 run_id/evidence_id/experiment_id/feedback_id 回溯的报告"
+    },
+    "placeholders": {
+      "type": ["array", "null"],
+      "description": "★ 本合同中**尚未确认的草稿值**（逐条列出）。红线 1：草稿值不得被下游当既定事实使用",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "why"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1, "description": "JSON 指针式路径，如 /budget/max_comsol_points" },
+          "why": { "type": "string", "minLength": 1 },
+          "needs": { "type": ["string", "null"], "description": "需要谁/什么来确认" }
+        }
+      }
+    },
+    "pending_human": { "type": ["array", "null"], "items": { "type": "string" } },
+    "source_note": { "type": ["string", "null"], "description": "本合同的取值出处（哪一条是实测/哪一条是草稿占位）" },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}

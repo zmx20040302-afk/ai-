@@ -107,6 +107,10 @@ SCHEMA_SQL: tuple[str, ...] = (
         uncertainty  VARCHAR,            -- JSON: 各输出的不确定度
         extractor    VARCHAR,            -- 抽取器名称+版本
         quality      VARCHAR,            -- JSON: 校验标记
+        contract_status VARCHAR,         -- 契约状态：NULL | 'legacy_pre_contract'
+                                         --   'legacy_pre_contract' = 该样本写于 schemas/ 契约生效（2026-09-14）之前，
+                                         --   其 uncertainty **按缺失处理**（不得当 0、不得据此给误差界）。
+                                         --   只加列不改数值；修正只能新增记录（append-only）。
         created_at   TIMESTAMP
     )
     """,
@@ -227,6 +231,10 @@ MIGRATIONS: tuple[str, ...] = (
     "ALTER TABLE sample ADD COLUMN IF NOT EXISTS feedback_id VARCHAR",
     # A4：第六来源 ai_solver 的溯源列
     "ALTER TABLE sample ADD COLUMN IF NOT EXISTS model_id VARCHAR",
+    # 契约状态（2026-09-14）：给契约生效前的存量样本打 'legacy_pre_contract'。
+    # 缺此迁移会让「存量已标记」这件事在**新建库/迁移**时静默消失（不报错、但事实已变），
+    # 因此与其它列一样：SCHEMA_SQL 建新库 + MIGRATIONS 补旧库，两处都要有。
+    "ALTER TABLE sample ADD COLUMN IF NOT EXISTS contract_status VARCHAR",
     # A4：多人使用预留字段（事后补会断掉历史归属，故第一天就加）
     "ALTER TABLE run ADD COLUMN IF NOT EXISTS owner VARCHAR",
     "ALTER TABLE dataset ADD COLUMN IF NOT EXISTS created_by VARCHAR",

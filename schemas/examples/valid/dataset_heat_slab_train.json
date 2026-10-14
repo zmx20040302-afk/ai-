@@ -1,0 +1,70 @@
+{
+  "contract_version": "1.0.0",
+  "dataset_id": "ds-20260911T014216Z-42bf22",
+  "version": "2026.09.11.014216",
+  "purpose": "train",
+  "split": {
+    "strategy": "grouped_by_family",
+    "n_samples": 10,
+    "n_families": 1,
+    "families": ["GF-heat-slab-2d"],
+    "train_families": ["GF-heat-slab-2d"],
+    "holdout_families": [],
+    "train_sample_ids": [
+      "smpl-run-20260911T013401Z-7708b95e-sim",
+      "smpl-run-20260911T013426Z-aa429e6e-sim",
+      "smpl-run-20260911T013524Z-80f89728-sim",
+      "smpl-run-20260911T013525Z-9ea2736b-sim",
+      "smpl-run-20260911T013525Z-a51a38b9-sim",
+      "smpl-run-20260911T013525Z-b9021498-sim",
+      "smpl-run-20260911T013525Z-da850c2c-sim",
+      "smpl-run-20260911T013525Z-7a6f45ea-sim",
+      "smpl-run-20260911T013525Z-04905ea9-sim",
+      "smpl-run-20260911T013525Z-a59081cf-sim"
+    ],
+    "holdout_sample_ids": [],
+    "cross_family_holdout": false,
+    "holdout_is_unseen_family": false,
+    "leak_check_passed": true,
+    "leak_overlap_families": [],
+    "degraded_reason": "只有 1 个几何族，无法把整族分到不同侧：本数据集**无法检验跨族泛化**，任何指标都只反映族内插值",
+    "holdout_frac": 0.25,
+    "seed": 0
+  },
+  "sample_ids": [
+    "smpl-run-20260911T013401Z-7708b95e-sim",
+    "smpl-run-20260911T013426Z-aa429e6e-sim",
+    "smpl-run-20260911T013524Z-80f89728-sim",
+    "smpl-run-20260911T013525Z-9ea2736b-sim",
+    "smpl-run-20260911T013525Z-a51a38b9-sim",
+    "smpl-run-20260911T013525Z-b9021498-sim",
+    "smpl-run-20260911T013525Z-da850c2c-sim",
+    "smpl-run-20260911T013525Z-7a6f45ea-sim",
+    "smpl-run-20260911T013525Z-04905ea9-sim",
+    "smpl-run-20260911T013525Z-a59081cf-sim"
+  ],
+  "filters": {
+    "fidelity": ["F2"],
+    "source_types": ["simulation"],
+    "holdout_frac": 0.25,
+    "seed": 0
+  },
+  "report": {
+    "source_counts": { "simulation": 10 },
+    "fidelity_counts": { "F2": 10 },
+    "excluded_samples": [],
+    "excluded_counts": {},
+    "warning": "本数据集不含跨族留出：指标只反映族内插值，不得用于声称跨族泛化能力",
+    "created_by": "bootstrap",
+    "created_at": "2026-09-11T01:42:16.381161",
+    "note": "冻结后不原地修改；修正需新建版本（append-only）"
+  },
+  "created_at": "2026-09-11T01:42:16.381161",
+  "supersedes": null,
+  "source_note": "实测存量记录：work/store/mems.duckdb 表 dataset 唯一一行 dataset_id=ds-20260911T014216Z-42bf22（sample_ids/filters/report 原样取用，report 内的 split 提升到契约的 split 字段）",
+  "notes": [
+    "本数据集**未通过跨族留出检验**（n_families=1）⇒ cross_family_holdout=false + degraded_reason + warning 三者齐备，符合「不得静默当成有效留出集」。",
+    "本数据集只含 simulation 一种来源（source_counts 明示），因此其指标不得被描述为「多来源融合精度」；反之若将来混入 analytic，必须更新 source_counts 并重新声明权重（红线 4）。",
+    "契约化改写点：report.split 与顶层 split 是同一份内容（库中嵌套在 report 里）；此处两处都写，便于校验器独立核对——没有新增数据。"
+  ]
+}

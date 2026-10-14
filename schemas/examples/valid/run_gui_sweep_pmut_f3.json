@@ -1,0 +1,56 @@
+{
+  "contract_version": "1.0.0",
+  "run_id": "gui-sweep-20260912T113936Z-bd387a56",
+  "design_id": null,
+  "owner": null,
+  "backend": "local",
+  "pathway": "comsol-gui-batch",
+  "model_path": "C:\\Users\\zmx\\Desktop\\b_GE_task3_2-newyizu.mph",
+  "model_sha256": "a9a177ad775c12a53c3b7b6e444a77d87f99ebcb8cd7b8d0ff02485c6db2e44f",
+  "software": {
+    "comsol_version": "COMSOL 6.4.0.293",
+    "comsol_home": "D:\\COMSOL64\\Multiphysics",
+    "mphserver_host": null,
+    "mphserver_port": null,
+    "matlab_used": false,
+    "extractor": "comsol-gui-batch-csv@v1+memsharness.ingest_gui_sweep@0.1.0",
+    "version_source": "原始 run 行 software.comsol 字段（本批次经 GUI Batch 提交，未走 mphserver 常驻端口）"
+  },
+  "settings": {
+    "pathway_detail": "COMSOL GUI Batch (model.batch('p1'))",
+    "csv_sha256": "0a49d5a1f0fbe5e2f4e2f9844bf90f3fa0436f5d524b0283a8030ba5d7eca50b",
+    "xlsx_sha256": "c42bc14434e780d2a405fa533bcaa782b72f4f2c05484773f614cc63b7062f3c",
+    "m_file_sha256": "c13447094ead60aa93762f06f294203d9ad59021e93ad3fbede10a422637b22a",
+    "batch_node": {
+      "pname": ["x_scale", "N_w_te1"],
+      "plistarr": ["range(0.1,0.1,1)", "range(1,1,8)"],
+      "sweeptype": "filled"
+    },
+    "n_combos": 70,
+    "n_rows": 490,
+    "frequencies_MHz": [5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 35.0],
+    "geometry_family": "GF-pmut-ge-task3-oval",
+    "fidelity": "F3",
+    "model_sha256_note": "model_sha256 口径 = **.mph 文件哈希**（与本平台 java_model 模板通路的「生成的 Java 源码哈希」不同，必须在 settings 里声明口径）"
+  },
+  "status": "succeeded",
+  "exit_code": 0,
+  "diagnostic": null,
+  "wall_seconds": null,
+  "run_dir": "C:\\Users\\zmx\\Desktop\\memsharness\\work\\runs\\gui-sweep-20260912T113936Z-bd387a56",
+  "started_at": null,
+  "finished_at": null,
+  "artifacts": [],
+  "provenance_gaps": [
+    "wall_seconds 未记录：原始 run 行为 NaN（GUI Batch 通路未回填耗时）",
+    "started_at / finished_at 未记录：原始 run 行为 NaT",
+    "artifact 表无该 run 的任何产物行；文件级哈希（csv/xlsx/m 文件）只存在于 settings 内，未登记为 artifact",
+    "model_path 入库值曾写成 `C:\\Users\\zmx\\Desktop\\换能器\\b_GE_task3_2newyizu.mph`（该路径不存在），已纠正为 `C:\\Users\\zmx\\Desktop\\b_GE_task3_2-newyizu.mph`；纠正依据：导出表元信息 `% Model,b_GE_task3_2-newyizu.mph` + 冻结哈希记录 freeze_inputs.json",
+    "design_id 为空：本 run 由 GUI Batch 直接提交，未挂 design 记录（样本经 design-gui-sweep-... 间接关联）"
+  ],
+  "source_note": "实测存量记录：work/store/mems.duckdb 表 run 行 run_id=gui-sweep-20260912T113936Z-bd387a56（backend/pathway/status/exit_code/run_dir 原样；settings 原样取用其 JSON 键；model_path 用其 settings 内记录的纠正值）",
+  "notes": [
+    "契约化改写点：原 run 行 model_sha256 列为 NULL，而真实 .mph 哈希在 settings.model_mph_sha256 内 ⇒ 提到顶层 model_sha256 并保留口径说明；未新增数值。",
+    "本行是「缺什么就声明什么」的正面例子：5 项缺失全部写进 provenance_gaps，而不是静默留空。"
+  ]
+}

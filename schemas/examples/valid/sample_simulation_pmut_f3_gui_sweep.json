@@ -1,0 +1,153 @@
+{
+  "contract_version": "1.0.0",
+  "sample_id": "smpl-gui-sweep-20260912T113936Z-bd387a56-0001",
+  "source_type": "simulation",
+  "fidelity": "F3",
+  "extractor": {
+    "name": "comsol-gui-batch-csv+memsharness.ingest_gui_sweep",
+    "version": "v1+0.1.0",
+    "code_sha256": null,
+    "note": "原始 extractor 串：comsol-gui-batch-csv@v1+memsharness.ingest_gui_sweep@0.1.0（两级抽取：COMSOL GUI Batch 导出表 + 平台入库脚本）；契约要求 name/version 分列，此处按 '+' 拆开，未改动任何数值"
+  },
+  "design": {
+    "design_id": "design-gui-sweep-20260912T113936Z-bd387a56-x0.1-n1",
+    "geometry_family": "GF-pmut-ge-task3-oval",
+    "structure_variant": null,
+    "parameters": {
+      "x_scale": 0.1,
+      "N_w_te1": 1.0
+    },
+    "parameter_units": {
+      "x_scale": "1",
+      "N_w_te1": "1"
+    }
+  },
+  "frequency_set": {
+    "kind": "discrete_list",
+    "unit": "Hz",
+    "values": [5000000.0],
+    "n_points": 1,
+    "grid_note": "本样本覆盖单一频点；该批扫描的频点为 5/10/15/20/25/30/35 MHz（run.settings.frequencies_MHz），频率步长 5 MHz 属粗网格，quality.flags 已标 frequency_grid_5MHz_coarse",
+    "not_applicable_reason": null
+  },
+  "metrics": {
+    "Ptot_W": {
+      "value": 2.53274306311762e-13,
+      "unit_si": "W",
+      "definition": "声学域总声功率（COMSOL 全局求值）",
+      "uncertainty": {
+        "method": "本批为线性频域扫描，未做网格收敛（L1），数值离散误差未量化；参数效验实测该模型求解器为确定性（同参数复算逐位一致，噪声地板 0），故未把数值噪声计入不确定度",
+        "type": "numeric_experiment",
+        "components": {
+          "numerical_discretization": {
+            "value": null,
+            "reason": "未做 L1 网格收敛（原始记录 components.numerical_discretization = null）"
+          },
+          "mesh_dependency": {
+            "value": null,
+            "reason": "同上：未做网格无关性验证（quality.flags 含 no_mesh_convergence_L1）"
+          },
+          "model_form": {
+            "value": null,
+            "reason": "模型形式误差（几何简化/材料常数）本批未量化"
+          },
+          "parameter": {
+            "value": null,
+            "reason": "本批为参数扫描点，未对材料/几何公差做不确定度传播"
+          },
+          "measurement": {
+            "value": null,
+            "reason": "不适用：本样本为仿真而非测量"
+          }
+        },
+        "interval": null
+      },
+      "raw": null
+    },
+    "Vave_m_s": {
+      "value": 0.000124828672769941,
+      "unit_si": "m/s",
+      "definition": "平均法向振速幅值",
+      "uncertainty": null,
+      "uncertainty_reason": "原始记录仅给出批次级说明（_note），未逐指标量化；与 Ptot_W 同批同口径",
+      "raw": null
+    },
+    "V_center_m_s": {
+      "value": 0.00035436807721525305,
+      "unit_si": "m/s",
+      "definition": "中心点法向振速幅值",
+      "uncertainty": null,
+      "uncertainty_reason": "同上（批次级说明，未逐指标量化）",
+      "raw": null
+    },
+    "V_center_phase_rad": {
+      "value": -1.5707848577662114,
+      "unit_si": "rad",
+      "definition": "中心点法向振速相位",
+      "uncertainty": null,
+      "uncertainty_reason": "同上（批次级说明，未逐指标量化）",
+      "raw": null
+    },
+    "Zin1_R_ohm": {
+      "value": -0.04821924020065731,
+      "unit_si": "ohm",
+      "definition": "端口 1 输入阻抗实部。⚠️ 本批 quality.flags 含 zin2_equals_zin1_known_defect：Zin2 与 Zin1 完全相等是已知缺陷（导出通道问题），因此本指标**不得**用于电学结论",
+      "uncertainty": null,
+      "uncertainty_reason": "同上（批次级说明，未逐指标量化）",
+      "raw": null
+    },
+    "Zin1_X_ohm": {
+      "value": 407663.98154922726,
+      "unit_si": "ohm",
+      "definition": "端口 1 输入阻抗虚部。⚠️ 同 Zin1_R_ohm 的已知缺陷说明",
+      "uncertainty": null,
+      "uncertainty_reason": "同上（批次级说明，未逐指标量化）",
+      "raw": null
+    }
+  },
+  "units": {
+    "system": "SI",
+    "pint_checked": true,
+    "original_values": [],
+    "note": "原始记录的键名自带单位后缀（_W/_ohm/_m_s/_rad），数值本身即 SI；quality.units_note 原文：「输出键名含单位；复数量拆为幅值+相位（相位来自 COMSOL 复数字符串）」"
+  },
+  "uncertainty": null,
+  "quality": {
+    "l0_analytic_check": null,
+    "l1_mesh_convergence": null,
+    "l1_not_done_reason": "本批未做网格收敛（L1）；原始记录 quality.flags = [no_mesh_convergence_L1]",
+    "l2_conservation": null,
+    "l2_conservation_reason": "未做 L2 守恒检查：本样本来自 GUI 批处理导出表，未含守恒积分量",
+    "si_normalized": true,
+    "unit_check": null,
+    "flags": [
+      "zin2_equals_zin1_known_defect",
+      "frequency_grid_5MHz_coarse",
+      "no_mesh_convergence_L1",
+      "combo_peak_at_upper_frequency_boundary"
+    ],
+    "source_table": "COMSOL global evaluation table",
+    "csv_row_index": 1,
+    "uncertainty_not_quantified_reason": "批次级说明见 metrics.Ptot_W.uncertainty.method（原样取用原始 _note）；逐指标分量未量化是原始事实，不补 0"
+  },
+  "negative_sample": false,
+  "run_id": "gui-sweep-20260912T113936Z-bd387a56",
+  "evidence_id": null,
+  "experiment_id": null,
+  "feedback_id": null,
+  "model_id": null,
+  "related_run_id": null,
+  "split": {
+    "group_key": "GF-pmut-ge-task3-oval",
+    "group_role": "unassigned",
+    "dataset_id": null,
+    "leak_check": null
+  },
+  "created_at": null,
+  "source_note": "实测存量记录：work/store/mems.duckdb 表 sample 行 sample_id=smpl-gui-sweep-20260912T113936Z-bd387a56-0001（inputs/outputs/uncertainty/quality/extractor 原样取用）；design 行 design-gui-sweep-20260912T113936Z-bd387a56-x0.1-n1；run 行 gui-sweep-20260912T113936Z-bd387a56",
+  "notes": [
+    "契约化改写点（未新增任何数值）：(1) 原始 uncertainty 的 5 个分量在库中均为 null，仅有一个批次级 _note；此处把 _note 原文放进 method，并把「未做/不适用」的原因逐分量写明——文字是原因说明，不是新数值；(2) 原始 quality 平铺在 outputs 之外，此处按契约字段归位（flags/source_table/csv_row_index 原样）；(3) extractor 串按 '+' 拆分；(4) 原始 sample.inputs 含 freq_Hz=5000000.0，按契约归入 frequency_set.values（设计点只保留 x_scale / N_w_te1，与 design 行一致）。",
+    "split.group_role=unassigned：该样本尚未进入任何数据集（已核实 dataset 表唯一一行只含 heat_slab 的 10 条样本），因此不得当作已切分数据使用。",
+    "Zin* 指标带已知缺陷标记，按红线 1/2 只能谈趋势，不得输出电学结论。"
+  ]
+}

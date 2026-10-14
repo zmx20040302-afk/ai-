@@ -2,8 +2,8 @@
 
 用法（**必须经 ASCII 交汇点启动**，否则 JPype 因中文路径报 UnsatisfiedLinkError）：
 
-    C:\\Users\\18161\\memsharness_work\\repo\\work\\.venv\\Scripts\\python.exe -u ^
-      C:\\Users\\18161\\memsharness_work\\repo\\scripts\\onboard_model.py ^
+    work\\.venv\\Scripts\\python.exe -u ^
+      scripts\\onboard_model.py ^
       --model "D:\\path\\to\\model.mph" ^
       --device pmut-3d ^
       --targets "abs(p)" "u"

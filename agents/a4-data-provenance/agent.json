@@ -1,0 +1,60 @@
+{
+ "role_id": "A4",
+ "slug": "data-provenance",
+ "name": "数据与溯源",
+ "kind": "executor",
+ "kind_label": "确定性执行体（代码 + MCP）",
+ "status": "已实现（基础能力）",
+ "one_liner": "只让**带来源、带单位、带口径标签**的数字进库；历史只追加不覆盖。",
+ "inputs": [
+  "A3 的 run 产物",
+  "A8 的裁定（未放行 ⇒ 只能进隔离集）",
+  "8 个 JSON Schema"
+ ],
+ "outputs": [
+  "`sample`/`run`/`artifact` 记录",
+  "数据集版本与切分记录",
+  "质量清单（作废/降级点）"
+ ],
+ "entrypoints": [
+  "src/memsharness/store.py",
+  "src/memsharness/dataset.py",
+  "scripts/validate_schemas.py"
+ ],
+ "schemas": [
+  "schemas/sample.schema.json",
+  "schemas/dataset.schema.json",
+  "schemas/run.schema.json"
+ ],
+ "tests": [
+  "tests/test_dataset.py",
+  "tests/test_p0_foundation.py"
+ ],
+ "gaps": [
+  "口径标签（族/驱动/判据）的强制字段",
+  "标量通道与场通道的统一入口"
+ ],
+ "concurrency": {
+  "can": [
+   "可在求解落盘后运行",
+   "可与报告撰写并行"
+  ],
+  "cannot": [
+   "不得修改 A3 的原始产物"
+  ]
+ },
+ "forbidden": [
+  "不得混合来源做统计或训练（红线 §4）",
+  "不得覆盖历史记录（append-only，红线 §6）",
+  "不得把不可知的不确定度写成 0",
+  "不得跨族合并保存为同一数据集"
+ ],
+ "stop_conditions": [
+  "schema 校验失败",
+  "整族切分出现泄漏（train/holdout 共享族）",
+  "来源混同"
+ ],
+ "contract": "AGENT.md",
+ "spawn_prompt": "prompts/spawn.md",
+ "generated_by": "scripts/gen_agent_collections.py"
+}

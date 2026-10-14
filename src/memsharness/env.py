@@ -23,7 +23,31 @@ from .paths import ensure_work_tree, work_root
 
 # ---- 默认值（可用环境变量或参数覆盖）------------------------------------------
 DEFAULT_COMSOL_HOME = os.environ.get("MEMS_COMSOL_HOME", r"D:\COMSOL64\Multiphysics")
-DEFAULT_MATLAB_EXE = os.environ.get("MEMS_MATLAB_EXE", r"D:\MATLAB2025\bin\matlab.exe")
+
+# MATLAB 路径**不写死**：不同机器装在不同目录（本机实测 `D:\matlab\bin\matlab.exe` = R2023b，
+# 旧机是 `D:\MATLAB2025\bin\matlab.exe` = R2025b）。按候选列表取第一个存在者；
+# 都没装则回落到第一个候选——存在性由探测结果如实报告，不猜测版本。
+_MATLAB_CANDIDATES = (
+    r"D:\matlab\bin\matlab.exe",
+    r"D:\MATLAB2025\bin\matlab.exe",
+    r"D:\Matlab2023b\bin\matlab.exe",
+    r"C:\Program Files\MATLAB\R2025b\bin\matlab.exe",
+    r"C:\Program Files\MATLAB\R2023b\bin\matlab.exe",
+    r"C:\Program Files\MATLAB\R2022b\bin\matlab.exe",
+)
+
+
+def _default_matlab_exe() -> str:
+    override = os.environ.get("MEMS_MATLAB_EXE")
+    if override:
+        return override
+    for candidate in _MATLAB_CANDIDATES:
+        if Path(candidate).is_file():
+            return candidate
+    return _MATLAB_CANDIDATES[0]
+
+
+DEFAULT_MATLAB_EXE = _default_matlab_exe()
 DEFAULT_MPH_PORT = int(os.environ.get("MEMS_MPH_PORT", "2036"))
 
 EXPECTED_EXES = (

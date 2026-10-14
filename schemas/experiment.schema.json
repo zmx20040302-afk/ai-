@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memsharness.local/schemas/experiment.schema.json",
+  "title": "MEMS Harness 实验契约（experiment）",
+  "description": "真实测量记录。experiment 来源样本的唯一合法出处（红线 1）。对应 DuckDB 表 experiment。当前库中 experiment 表 0 行 ⇒ 暂无合法样例（见 README §7）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version", "experiment_id", "device", "conditions",
+    "data_path", "uncertainty", "operator", "measured_at"
+  ],
+  "properties": {
+    "contract_version": { "const": "1.0.0" },
+    "experiment_id": {
+      "type": "string", "minLength": 1, "maxLength": 120,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device_id", "spec_ref"],
+      "description": "被测器件：必须能对应到 device_spec（否则实验与仿真无法同口径比较）",
+      "properties": {
+        "device_id": { "type": "string", "minLength": 1, "description": "实物编号/样品号（不是文件名）" },
+        "spec_ref": { "type": "string", "minLength": 1, "description": "device_spec 的 spec_id" },
+        "fabrication_lot": { "type": ["string", "null"] },
+        "geometry_family": { "type": "string", "minLength": 1, "description": "与 design.geometry_family 同口径，用于跨来源分组" }
+      }
+    },
+    "conditions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["parameters", "parameter_units"],
+      "description": "实验条件：环境（温度/压强）+ 激励（幅值/频率）+ 夹持方式",
+      "properties": {
+        "parameters": { "type": "object", "minProperties": 1, "additionalProperties": { "type": "number" } },
+        "parameter_units": { "type": "object", "additionalProperties": { "type": "string" } },
+        "environment": { "type": ["object", "null"], "additionalProperties": true },
+        "excitation": { "type": ["object", "null"], "additionalProperties": true }
+      }
+    },
+    "frequency_set": {
+      "type": ["object", "null"],
+      "description": "实测频率点（SI Hz）；与样本的 frequency_set 同口径",
+      "properties": {
+        "unit": { "const": "Hz" },
+        "values": { "type": "array", "items": { "type": "number", "minimum": 0 } }
+      }
+    },
+    "data_path": { "type": "string", "minLength": 1, "description": "原始数据文件路径（work\\ 下副本；生产数据只读引用）" },
+    "data_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "uncertainty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "components"],
+      "description": "测量不确定度（类型 A/B 分量、仪器分辨率、重复性）。**实验值不带不确定度不得入库**",
+      "properties": {
+        "method": { "type": "string", "minLength": 1 },
+        "components": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["value", "reason"],
+            "properties": {
+              "value": { "type": ["number", "null"], "minimum": 0 },
+              "unit": { "type": ["string", "null"] },
+              "source": { "type": ["string", "null"] },
+              "reason": { "type": ["string", "null"] },
+              "zero_is_known": { "type": "boolean" }
+            },
+            "allOf": [
+              {
+                "if": { "properties": { "value": { "type": "null" } }, "required": ["value"] },
+                "then": { "properties": { "reason": { "type": "string", "minLength": 1 } } }
+              },
+              {
+                "if": { "properties": { "value": { "const": 0 } }, "required": ["value"] },
+                "then": { "required": ["zero_is_known"], "properties": { "zero_is_known": { "const": true } } }
+              }
+            ]
+          }
+        },
+        "n_repeats": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    },
+    "operator": { "type": "string", "minLength": 1, "description": "操作人（谁做的、谁负责）" },
+    "measured_at": { "type": "string", "minLength": 1, "description": "ISO8601（UTC）" },
+    "instruments": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "model", "calibration_due"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "model": { "type": "string", "minLength": 1 },
+          "serial": { "type": ["string", "null"] },
+          "calibration_due": { "type": ["string", "null"], "description": "校准有效期；过期仪器的数据必须降级标注" }
+        }
+      }
+    },
+    "comparison": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "description": "与仿真/预测的偏差：**必须声明比对基准**（哪个 run_id / 哪个预测），不得只写「吻合良好」",
+      "properties": {
+        "reference_kind": { "enum": ["run_id", "prediction_id", null] },
+        "reference_id": { "type": ["string", "null"] },
+        "relative_deviation": { "type": ["object", "null"], "additionalProperties": { "type": ["number", "null"] } },
+        "tolerance": { "type": ["object", "null"], "additionalProperties": true }
+      }
+    },
+    "notes": { "type": "array", "items": { "type": "string" } },
+    "source_note": { "type": ["string", "null"], "description": "本记录的实测出处（库表/文件/行号）" }
+  }
+}

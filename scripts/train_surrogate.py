@@ -42,6 +42,12 @@ from memsharness.store import connect  # noqa: E402
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="训练代理模型并写模型卡（状态 draft）")
     parser.add_argument("--fidelity", nargs="*", default=None, help="只使用指定保真度，如 F0 F1 F2")
+    parser.add_argument(
+        "--family",
+        default=None,
+        help="只使用指定 geometry_family（如 GF-heat-slab-2d）。"
+        "样本表混有多个器件族时**必须**指定，否则参数键不齐会导致有效样本归零。",
+    )
     parser.add_argument("--test-frac", type=float, default=0.25, help="测试集比例（按几何族分组切分）")
     parser.add_argument("--members", type=int, default=5, help="深度集成成员数（用于不确定度）")
     parser.add_argument("--seed", type=int, default=0)
@@ -56,6 +62,27 @@ def main(argv: list[str] | None = None) -> int:
         print("元数据库中没有可用样本：先跑一次参数扫描（scripts/run_sweep.py）", file=sys.stderr)
         return 2
 
+    families = (
+        sorted(frame["geometry_family"].dropna().unique().tolist())
+        if "geometry_family" in frame.columns
+        else []
+    )
+
+    # ---- 按器件族过滤（多族数据入库后必须做，否则下游 dropna 归零）----
+    if args.family:
+        frame = frame[frame["geometry_family"] == args.family].copy()
+        if frame.empty:
+            print(f"族 {args.family} 没有样本；库中现有族：{families}", file=sys.stderr)
+            return 2
+        # ``load_samples`` 展开的是**全表 JSON 键的并集**：按行过滤族之后，其它族的列仍在，
+        # 且在本族内整列全 NaN。不先丢掉它们，discover_columns 会把它们当成自变量/目标，
+        # dropna 会把本族样本全部删光（实测：F2 族 17 条 -> 有效样本 0 条）。
+        n_cols_before = len(frame.columns)
+        frame = frame.dropna(axis=1, how="all")
+        dropped_cols = n_cols_before - len(frame.columns)
+        if dropped_cols:
+            print(f"[提示] 丢弃整列全空的跨族列 {dropped_cols} 个")
+
     inputs, outputs = discover_columns(frame)
     if not inputs or not outputs:
         print(f"样本列不足：inputs={inputs} outputs={outputs}", file=sys.stderr)
@@ -63,10 +90,13 @@ def main(argv: list[str] | None = None) -> int:
 
     frame = frame.dropna(subset=inputs + outputs)
     if len(frame) < MIN_ROWS_FOR_TRAINING:
-        print(
-            f"有效样本 {len(frame)} 条，低于最小训练量 {MIN_ROWS_FOR_TRAINING}；拒绝训练",
-            file=sys.stderr,
-        )
+        message = f"有效样本 {len(frame)} 条，低于最小训练量 {MIN_ROWS_FOR_TRAINING}；拒绝训练"
+        if args.family is None and len(families) > 1:
+            message += (
+                f"\n提示：库中有多个器件族 {families}，各族参数键不同，混在一起列不齐、"
+                f"dropna 后必然归零。请用 --family <族名> 指定单族后重跑。"
+            )
+        print(message, file=sys.stderr)
         return 3
 
     # ---- 剔除恒定输入列（零方差会导致标准化除零）----
@@ -97,6 +127,7 @@ def main(argv: list[str] | None = None) -> int:
             "dropped_constant_inputs": dropped_inputs,
             "outputs": outputs,
             "fidelity_filter": args.fidelity,
+            "geometry_family_filter": args.family,
             "source_types": sorted(frame["source_type"].dropna().unique().tolist()),
             "model_dir": str(model_dir),
         },

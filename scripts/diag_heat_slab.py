@@ -8,9 +8,9 @@
 - 热点在某个角点附近 → 二维扩散（热流与低温边不在对边）→ T_max 低于一维估计
 - 热点在 y=Ly 边上 → 一维沿 y 导热 → 期望 300 + q·Ly/k = 308 K
 
-用法（经 ASCII 交汇点）：
-    C:\\Users\\18161\\memsharness_work\\repo\\work\\.venv\\Scripts\\python.exe -u ^
-      C:\\Users\\18161\\memsharness_work\\repo\\scripts\\diag_heat_slab.py [--run <run_id>]
+用法（在仓库根下执行）：
+    work\\.venv\\Scripts\\python.exe -u ^
+      scripts\\diag_heat_slab.py [--run <run_id>]
 """
 
 from __future__ import annotations

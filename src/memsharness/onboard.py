@@ -17,8 +17,8 @@
 
 用法（**必须经 ASCII 交汇点启动**，否则 JPype 因中文路径报 UnsatisfiedLinkError）：
 
-    C:\\Users\\18161\\memsharness_work\\repo\\work\\.venv\\Scripts\\python.exe -u ^
-      C:\\Users\\18161\\memsharness_work\\repo\\scripts\\onboard_model.py ^
+    work\\.venv\\Scripts\\python.exe -u ^
+      scripts\\onboard_model.py ^
       --model "D:\\path\\to\\model.mph" --device pmut-3d --targets "abs(p)"
 """
 
@@ -177,10 +177,14 @@ def inspect_device(model, java) -> dict:
 # ---------------------------------------------------------------- 测量与审计（第 3、4 步）
 
 
-def measure(model, java, comp_tag: str, geom_tag: str) -> dict:
-    """测量一次状态：包围盒、节点数、几何实体数、物理场选择集计数。
+def measure(model, java, comp_tag: str, geom_tag: str, mesh_tag: str | None = None) -> dict:
+    """测量一次状态：包围盒、节点数、几何实体数、物理场选择集计数、**网格规模**。
 
-    包围盒由**节点坐标**求得（比实体计数更能反映几何变化：矩形改尺寸时实体数不变）。
+    包围盒由 ``evaluate('x'/'y'/'z')`` 求得。⚠️ **实测教训（2026-09-12，b_GE_task3_2-new）**：
+    在已被网格化/求解过的模型上，该表达式取的是**固定数据集**，几何重建后长度与包围盒
+    **都不变**（`N_mem` 10→20：`mesh.getNumElem` 136,250→151,945，而 `evaluate('x')` 长度
+    恒为 234,108）。因此包围盒**不能单独当几何判据**，必须同时看 Java mesh API 的网格规模
+    （``mesh_stats`` / :func:`_mesh_shift`），否则会把所有几何类参数误判成「不影响几何」。
     """
     xs = eval_vector(model, "x")
     ys = eval_vector(model, "y")
@@ -198,6 +202,15 @@ def measure(model, java, comp_tag: str, geom_tag: str) -> dict:
     for tag in phys_tags:
         selection_counts[tag] = _safe(lambda t=tag: int(comp.physics(t).selection().entities().length))
 
+    mesh_stats = None
+    if mesh_tag:
+        mesh_obj = _safe(lambda: comp.mesh(mesh_tag))
+        if mesh_obj is not None:
+            mesh_stats = {
+                "num_elem": _safe(lambda: int(mesh_obj.getNumElem())),
+                "num_vertex": _safe(lambda: int(mesh_obj.getNumVertex())),
+            }
+
     return {
         "bbox": {"x": bbox(xs), "y": bbox(ys), "z": bbox(zs)} if xs else None,
         "n_nodes": len(xs) if xs else None,
@@ -206,6 +219,7 @@ def measure(model, java, comp_tag: str, geom_tag: str) -> dict:
             for key in ("getNVertices", "getNEdges", "getNBoundaries", "getNDomains")
         } if geom is not None else None,
         "selection_counts": selection_counts,
+        "mesh_stats": mesh_stats,
     }
 
 
@@ -222,6 +236,23 @@ def _bbox_shift(a: dict | None, b: dict | None) -> float | None:
         span = max(abs(hi_a - lo_a), 1e-12)
         worst = max(worst, abs(lo_b - lo_a) / span, abs(hi_b - hi_a) / span)
     return worst
+
+
+def _mesh_shift(a: dict | None, b: dict | None) -> float | None:
+    """网格规模（单元数）的相对变化 —— **几何变化的敏感判据**。
+
+    为什么必须看它：``measure()`` 里的 ``evaluate('x')`` 在被网格化/求解过的模型上
+    取固定数据集，几何重建后长度与包围盒都不变（实测：``N_mem`` 10→20 时
+    ``mesh.getNumElem`` 136,250→151,945，而 ``evaluate('x')`` 长度恒为 234,108）。
+    只看包围盒会把所有几何类参数误判成「不影响几何」。
+    """
+    if not a or not b:
+        return None
+    elem_a = (a.get("mesh_stats") or {}).get("num_elem")
+    elem_b = (b.get("mesh_stats") or {}).get("num_elem")
+    if not elem_a or elem_b is None:
+        return None
+    return abs(elem_b - elem_a) / float(elem_a)
 
 
 def relative_shift(base: dict[str, float] | None, now: dict[str, float] | None) -> float | None:
@@ -262,13 +293,15 @@ def classify_parameter(
     topology_intact: bool,
     bbox_shift: float | None,
     target_shift: float | None,
+    mesh_shift: float | None = None,
 ) -> str:
     """参数分类（纯函数，便于回归测试）。顺序即优先级。
 
     - ``broken``：几何/网格重建就失败
     - ``solve_failed``：重建成功但求解失败
     - ``selection_risk``：选择集或拓扑计数变化（几何变了但物理场可能静默绑错）
-    - ``geometry``：包围盒偏移超阈值 → 影响几何
+    - ``geometry``：**网格规模**或包围盒偏移超阈值 → 影响几何
+      （``mesh_shift`` 为主判据：包围盒在被网格化/求解过的模型上可能完全不敏感，见 :func:`measure`）
     - ``unknown_no_target``：没有任何可用目标量，无法判定有效性（**不冒充无效**）
     - ``material_or_load``：几何不变但目标量有可测变化
     - ``no_measured_effect``：几何不变且目标量变化低于噪声阈值（≠ 物理上无效）
@@ -279,6 +312,8 @@ def classify_parameter(
         return "solve_failed"
     if not (selection_intact and topology_intact):
         return "selection_risk"
+    if mesh_shift is not None and mesh_shift > GEOMETRY_TOL:
+        return "geometry"
     if bbox_shift is not None and bbox_shift > GEOMETRY_TOL:
         return "geometry"
     if target_shift is None:
@@ -319,7 +354,7 @@ def audit_parameters(
     except Exception as exc:
         log(f"[audit] ⚠️ 基线归一化失败（将按现有状态测量）: {type(exc).__name__}: {str(exc)[:120]}")
 
-    baseline_measure = measure(model, java, comp_tag, geom_tag)
+    baseline_measure = measure(model, java, comp_tag, geom_tag, mesh_tag)
     baseline_targets = targets
 
     results: list[dict] = []
@@ -366,8 +401,11 @@ def audit_parameters(
 
         entry["solve_ok"] = solve_ok
         entry["solve_seconds"] = solve_seconds
-        state = measure(model, java, comp_tag, geom_tag)
+        state = measure(model, java, comp_tag, geom_tag, mesh_tag)
         entry["bbox_relative_shift"] = _bbox_shift(baseline_measure, state)
+        entry["mesh_relative_shift"] = _mesh_shift(baseline_measure, state)
+        entry["mesh_num_elem_baseline"] = (baseline_measure.get("mesh_stats") or {}).get("num_elem")
+        entry["mesh_num_elem_after"] = (state.get("mesh_stats") or {}).get("num_elem")
         entry["n_nodes_before"] = baseline_measure.get("n_nodes")
         entry["n_nodes_after"] = state.get("n_nodes")
         entry["entity_counts_after"] = state.get("entity_counts")
@@ -391,11 +429,13 @@ def audit_parameters(
             topology_intact=bool(entry["topology_intact"]),
             bbox_shift=entry["bbox_relative_shift"],
             target_shift=entry["target_relative_shift"],
+            mesh_shift=entry["mesh_relative_shift"],
         )
         entry["classification"] = classification
         entry["whitelist_ok"] = classification in ("geometry", "material_or_load")
         results.append(entry)
-        log(f"[audit]   → {classification}（几何偏移={entry['bbox_relative_shift']}，"
+        log(f"[audit]   → {classification}（网格规模变化={entry['mesh_relative_shift']}，"
+            f"几何偏移={entry['bbox_relative_shift']}，"
             f"选择集完整={entry['selection_intact']}，拓扑完整={entry['topology_intact']}，"
             f"目标变化={entry['target_relative_shift']}）")
 
@@ -417,6 +457,7 @@ def audit_parameters(
             "classification": item["classification"],
             "evidence": {
                 "bbox_relative_shift": item["bbox_relative_shift"],
+                "mesh_relative_shift": item.get("mesh_relative_shift"),
                 "selection_intact": item["selection_intact"],
                 "target_relative_shift": item["target_relative_shift"],
                 "solve_seconds": item["solve_seconds"],

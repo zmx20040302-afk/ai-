@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memsharness.local/schemas/device_spec.schema.json",
+  "title": "MEMS Harness 器件规格契约（device_spec，**器件无关**）",
+  "description": "把「一个器件」描述成声明式配置，供器件无关内核读取（WORKING_PLAN D1/D13）。**硬约束（本 schema 的机器表达）**：顶层 additionalProperties=false ⇒ 任何把具体器件（如 PMUT 的层结构、具体几何字段）硬编码进 spec 的写法都会校验失败；器件专有内容只能放进 extensions，而内核**不得**读取 extensions。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version", "spec_id", "device_class", "source_model",
+    "space_dim", "parameters", "targets", "fidelity_levels", "pending_human"
+  ],
+  "properties": {
+    "contract_version": { "const": "1.0.0" },
+    "spec_id": {
+      "type": "string", "minLength": 1, "maxLength": 120,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "description": "器件规格 ID（task_spec.device_spec_ref 引用它）"
+    },
+    "device_class": {
+      "type": "string", "minLength": 1,
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "器件类别（器件无关枚举位）：如 pmut / acoustic_cavity / heat_slab / cantilever。**类别只用于选择解析模型与验证阈值，不得作为内核对具体器件的分支依据**"
+    },
+    "device_label": { "type": ["string", "null"], "description": "人类可读名称（不参与内核逻辑）" },
+    "source_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "role"],
+      "description": "被接入的模型：只读引用（生产模型不进仓库）",
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "完整 SHA256。**拿不到就写 null 并列入 pending_human**（语义检查 D3），禁止填截断值或推测值"
+        },
+        "bytes": { "type": ["integer", "null"], "minimum": 0 },
+        "role": { "enum": ["production_readonly", "run_copy", "scan_variant", "synthetic_template"] },
+        "provenance": { "type": ["string", "null"], "description": "该哈希的出处（probe 报告 / 冻结记录）" }
+      }
+    },
+    "space_dim": { "enum": [1, 2, 3], "description": "几何维度（2 为轴对称也算 2，需在 notes 说明）" },
+    "physics": {
+      "type": ["array", "null"],
+      "description": "物理场清单（器件无关的通用字段）",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["tag", "type"],
+        "properties": {
+          "tag": { "type": "string", "minLength": 1 },
+          "type": { "type": "string", "minLength": 1 },
+          "selection_count": { "type": ["integer", "null"], "minimum": 0 }
+        }
+      }
+    },
+    "studies": { "type": ["array", "null"], "items": { "type": "string" } },
+    "parameters": {
+      "type": "array",
+      "minItems": 1,
+      "description": "参数空间。**范围必须由人确认**：没有确认过的范围不得进入自动寻优（range_source=pending 的参数只能出现在 pending_human 里）",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "unit_si", "type", "auto_adjust_ok"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+          "unit_si": { "type": "string", "minLength": 1, "description": "SI 单位；无量纲写 \"1\"" },
+          "original_expression": {
+            "type": ["string", "null"],
+            "description": "模型中的原始表达式/数值（如 `35[MHz]`、`c_air/(6*120[Hz])`）"
+          },
+          "type": {
+            "enum": ["continuous", "discrete", "derived_or_manual"],
+            "description": "derived_or_manual = 派生表达式或需手工改，不参与自动改参"
+          },
+          "range": {
+            "type": ["array", "null"],
+            "items": { "type": "number" },
+            "minItems": 2, "maxItems": 2,
+            "description": "SI 上下界 [lo, hi]；未确认时必须为 null"
+          },
+          "values": {
+            "type": ["array", "null"],
+            "items": { "type": "number" },
+            "description": "离散档位（工艺档位）；type=discrete 时必填"
+          },
+          "auto_adjust_ok": { "type": "boolean", "description": "是否在白名单内可自动改参（来自参数效验实测）" },
+          "range_source": {
+            "enum": ["human_confirmed", "derived_from_expression", "pending", null],
+            "description": "范围依据。range 非 null 时必须给依据；pending 表示**尚未确认**"
+          },
+          "confirmed_by": { "type": ["string", "null"], "description": "range_source=human_confirmed 时必填：谁确认的" },
+          "derivation_ref": { "type": ["string", "null"], "description": "range_source=derived_from_expression 时必填：推导出处" },
+          "evidence": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "description": "该参数可通过自动改参的实测依据（微扰后几何是否真变、选择集是否完整、能否求解）",
+            "properties": {
+              "source": { "type": ["string", "null"] },
+              "ref": { "type": ["string", "null"], "description": "feedback_id / evidence_id / run_id / 报告路径" },
+              "bbox_relative_shift": { "type": ["number", "null"] },
+              "selection_intact": { "type": ["boolean", "null"] },
+              "target_relative_shift": { "type": ["number", "null"] },
+              "solve_seconds": { "type": ["number", "null"] }
+            }
+          },
+          "reason": { "type": ["string", "null"], "description": "derived_or_manual 不参与自动改参的原因" },
+          "note": { "type": ["string", "null"] }
+        },
+        "allOf": [
+          {
+            "description": "离散参数必须给出档位列表",
+            "if": { "properties": { "type": { "const": "discrete" } }, "required": ["type"] },
+            "then": { "required": ["values"], "properties": { "values": { "minItems": 1 } } }
+          },
+          {
+            "description": "范围有值 ⇒ 必须有依据，且依据为「人确认」时要写明确认人",
+            "if": { "properties": { "range": { "type": "array" } }, "required": ["range"] },
+            "then": {
+              "required": ["range_source"],
+              "properties": { "range_source": { "enum": ["human_confirmed", "derived_from_expression"] } },
+              "allOf": [
+                {
+                  "if": { "properties": { "range_source": { "const": "human_confirmed" } }, "required": ["range_source"] },
+                  "then": { "required": ["confirmed_by"], "properties": { "confirmed_by": { "type": "string", "minLength": 1 } } }
+                },
+                {
+                  "if": { "properties": { "range_source": { "const": "derived_from_expression" } }, "required": ["range_source"] },
+                  "then": { "required": ["derivation_ref"], "properties": { "derivation_ref": { "type": "string", "minLength": 1 } } }
+                }
+              ]
+            }
+          },
+          {
+            "description": "范围为空 ⇒ 必须显式标为 pending（未确认），并由语义检查 D2 要求进入 pending_human",
+            "if": { "properties": { "range": { "type": "null" } }, "required": ["range"] },
+            "then": { "required": ["range_source"], "properties": { "range_source": { "const": "pending" } } }
+          }
+        ]
+      }
+    },
+    "targets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scalar_goals", "caliber_id"],
+      "description": "性能指标（优化目标）与**口径版本**。口径未钉死不得开跑大规模扫描（口径错则整批点白跑）",
+      "properties": {
+        "caliber_id": {
+          "type": ["string", "null"],
+          "description": "目标口径版本号；未确认时写 null，且语义检查 D1 要求列入 pending_human"
+        },
+        "caliber_note": { "type": ["string", "null"], "description": "口径定义（f_r 取峰还是过零、k_eff² 用哪条公式、Q 带宽定义）" },
+        "scalar_goals": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "kind", "unit_si"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "kind": {
+                "enum": ["maximize", "minimize", "target", "measure_only"],
+                "description": "measure_only = 本阶段只作为**观测量**记录，未确认为优化目标（不得被寻优闭环当作目标使用）"
+              },
+              "unit_si": { "type": "string", "minLength": 1 },
+              "target_value": { "type": ["number", "null"] },
+              "definition": { "type": ["string", "null"], "description": "逐目标的口径（与 caliber_id 绑定）" },
+              "expression": { "type": ["string", "null"], "description": "COMSOL 导出表达式（口径必须绑到具体表达式，避免口径漂移）" }
+            },
+            "allOf": [
+              {
+                "if": { "properties": { "kind": { "const": "target" } }, "required": ["kind"] },
+                "then": { "required": ["target_value"], "properties": { "target_value": { "type": "number" } } }
+              }
+            ]
+          }
+        },
+        "field_targets": {
+          "type": ["array", "null"],
+          "description": "场级目标（POD / AI 求解器训练用）；标量目标与场级目标分开声明",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["expr", "unit_si"],
+            "properties": {
+              "expr": { "type": "string", "minLength": 1 },
+              "unit_si": { "type": "string", "minLength": 1 },
+              "note": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    "constraints": {
+      "type": ["array", "null"],
+      "description": "硬约束：违反即判「不可行」，不进入目标函数",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "expr"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "expr": { "type": "string", "minLength": 1 },
+          "source": { "type": ["string", "null"], "description": "约束出处（工艺 / 用户 / 文献）" }
+        }
+      }
+    },
+    "fidelity_levels": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "enum": ["F0", "F1", "F2", "F3"] },
+      "description": "本器件允许出现的保真度；多保真融合必须写明各自成本量级"
+    },
+    "public_point_set": {
+      "type": ["object", "null"],
+      "description": "场级比较与 POD 的公共点集 + 掩膜策略（场级误差必须声明在哪个点集、哪些点被掩膜）",
+      "additionalProperties": false,
+      "required": ["mask_policy"],
+      "properties": {
+        "definition_kind": { "enum": ["bbox_grid", "file", "mesh_nodes", null] },
+        "axes": { "type": ["object", "null"], "additionalProperties": true },
+        "grid_points": { "type": ["integer", "null"], "minimum": 1 },
+        "bbox": { "type": ["object", "null"], "additionalProperties": true },
+        "points_file": { "type": ["string", "null"] },
+        "points_file_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "mask_policy": { "type": "string", "minLength": 4, "description": "如「域外点记 NaN；POD 与误差统计只在掩膜点集上进行」" }
+      }
+    },
+    "uncertainty_policy": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "description": "该器件的默认不确定度口径（网格收敛判据、测量不确定度来源、代理模型误差界方法）"
+    },
+    "extensions": {
+      "type": ["object", "null"],
+      "description": "★ 器件专有内容的**唯一**允许落点（如 PMUT 层结构、电极拓扑）。内核与通用校验**不得**读取本字段；读取它即意味着器件被硬编码进内核"
+    },
+    "pending_human": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" },
+      "description": "**未确认项清单**（必填、非空）：范围、口径、结构变体白名单等。平台不得替人猜这些值"
+    },
+    "created_from": {
+      "type": ["object", "null"],
+      "additionalProperties": true,
+      "description": "生成该 spec 的来源（onboard 报告路径、probe run_id、feedback_id 列表）"
+    },
+    "notes": { "type": "array", "items": { "type": "string" } },
+    "source_note": { "type": ["string", "null"], "description": "本 spec 每个字段的实测出处（报告路径 / 表行 / feedback_id）" }
+  }
+}

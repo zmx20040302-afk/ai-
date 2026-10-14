@@ -1,0 +1,27 @@
+{
+  "contract_version": "1.0.0",
+  "feedback_id": "fb-20260912T023045Z-ef2ad6aa",
+  "target_kind": "parameter",
+  "target_id": "b_GE_task3_2-new.mph:fmax",
+  "verdict": "accept",
+  "correction": "fmax = 35[MHz] 为当前设计口径（.m 历史值 20/30/35，末次 35 生效，运行态印证 35）",
+  "previous_value": "20[MHz] / 30[MHz]（.m 文件前部出现过的历史值，均已被末次覆盖）",
+  "reason": "用户 2026-09-12 确认。注意 fmax 同时驱动 lamda→网格 hmax 与频率上限，改它=同时改网格与研究",
+  "author": "user:zmx",
+  "created_at": "2026-09-12T02:30:45.288975",
+  "evidence_refs": [
+    "work/tools 内的 .m 末次 param.set 行号核对（AGENTS.md §4：一律取最后一次 param.set）",
+    "用户 2026-09-12 答复"
+  ],
+  "applies_to": {
+    "device_spec_ref": "device-ge-task3-oval-draft-v0",
+    "model_sha256": null,
+    "scope_note": "仅适用于 b_GE_task3_2-new 系列模型的 fmax 口径；换模型需重新确认"
+  },
+  "supersedes": null,
+  "source_note": "实测存量记录：work/store/mems.duckdb 表 feedback 行 feedback_id=fb-20260912T023045Z-ef2ad6aa（target_kind/target_id/verdict/correction/reason/author/created_at 原样取用）",
+  "notes": [
+    "previous_value 是从 correction 原文中读出的历史值（「.m 历史值 20/30/35，末次 35 生效」），不是新测量；若需逐行证据应引用 .m 行号。",
+    "applies_to.model_sha256 = null：确认发生在 sha256 未留痕的模型副本上（库中无该文件的完整哈希），按红线 1 留空而不是填一个推测值。"
+  ]
+}

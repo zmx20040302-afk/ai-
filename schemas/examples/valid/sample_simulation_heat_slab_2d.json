@@ -1,0 +1,148 @@
+{
+  "contract_version": "1.0.0",
+  "sample_id": "smpl-run-20260911T013401Z-7708b95e-sim",
+  "source_type": "simulation",
+  "fidelity": "F2",
+  "extractor": {
+    "name": "memsharness.comsol.java_model",
+    "version": "0.1.0",
+    "code_sha256": null,
+    "note": "原始记录 extractor 串：memsharness.comsol.java_model@0.1.0（契约拆成 name/version 两字段，未改动数值）"
+  },
+  "design": {
+    "design_id": "design-run-20260911T013401Z-7708b95e",
+    "geometry_family": "GF-heat-slab-2d",
+    "structure_variant": null,
+    "parameters": {
+      "q_in": 1000.0,
+      "Lx": 0.01,
+      "Ly": 0.008,
+      "k_cond": 1.0,
+      "rho_mat": 1000.0,
+      "Cp_mat": 1000.0,
+      "T0": 300.0,
+      "hmax_mesh": 0.0005,
+      "bnd_t": 4.0,
+      "bnd_q": 1.0
+    },
+    "parameter_units": {
+      "q_in": "W/m^2",
+      "Lx": "m",
+      "Ly": "m",
+      "k_cond": "W/(m*K)",
+      "rho_mat": "kg/m^3",
+      "Cp_mat": "J/(kg*K)",
+      "T0": "K",
+      "hmax_mesh": "m",
+      "bnd_t": "1",
+      "bnd_q": "1"
+    }
+  },
+  "frequency_set": {
+    "kind": "steady_state",
+    "unit": null,
+    "values": [],
+    "n_points": null,
+    "grid_note": null,
+    "not_applicable_reason": "本样本为二维稳态热传导（COMSOL Stationary），物理上无频率维度；原始记录中不存在任何频率字段"
+  },
+  "metrics": {
+    "T_max_K": {
+      "value": 310.0,
+      "unit_si": "K",
+      "definition": "域内最高温度（COMSOL 全局求值 max(T)）",
+      "uncertainty": {
+        "method": "L1 网格收敛检查（3 组网格 hmax = 2e-3 / 1e-3 / 5e-4 m）增量；model-form 与参数分量未量化（见各分量 reason）",
+        "type": "numeric_experiment",
+        "components": {
+          "numerical_discretization": {
+            "value": 1.3158999990992015e-05,
+            "unit": "K",
+            "source": "L1 网格收敛检查（3 组网格）",
+            "reason": null
+          },
+          "model_form": {
+            "value": null,
+            "reason": "模板是线性一维精确解的同构离散化，model-form 误差未独立量化（不写 0 冒充已知）"
+          },
+          "parameter": {
+            "value": null,
+            "reason": "本批为数值实验，未对 k/T0/几何公差做抽样传播"
+          }
+        },
+        "interval": null
+      },
+      "raw": null
+    },
+    "T_min_K": {
+      "value": 300.0,
+      "unit_si": "K",
+      "definition": "域内最低温度（COMSOL 全局求值 min(T)）",
+      "uncertainty": null,
+      "uncertainty_reason": "原始记录 samples.uncertainty 只给了 T_max_K 的分量；T_min_K 未量化，不得用 0 冒充「已知」",
+      "raw": null
+    }
+  },
+  "units": {
+    "system": "SI",
+    "pint_checked": true,
+    "original_values": [],
+    "note": "原始记录 quality.unit_check 显示 10 个参数的 declared_unit 与 SI 一致、conversion_factor 全为 1.0，因此无换算记录（不虚构换算过程）"
+  },
+  "uncertainty": null,
+  "quality": {
+    "l0_analytic_check": {
+      "passed": true,
+      "reference": "闭式解 T_max = T0 + q_in*Lx/k（见 java_model.py 模板说明）",
+      "tolerance_rtol": 0.03,
+      "detail": {
+        "T_max_K": { "analytic": 310.0, "simulation": 310.0, "abs_error": 0.0, "rel_error": 0.0, "passed": true },
+        "T_min_K": { "analytic": 300.0, "simulation": 300.0, "abs_error": 0.0, "rel_error": 0.0, "passed": true }
+      }
+    },
+    "l1_mesh_convergence": {
+      "passed": true,
+      "max_rel_diff": 4.2606099131096235e-08,
+      "levels": [
+        { "hmax_mesh_m": 0.002, "T_max_K": 308.852507505 },
+        { "hmax_mesh_m": 0.001, "T_max_K": 308.852494346 },
+        { "hmax_mesh_m": 0.0005, "T_max_K": 308.852492041 }
+      ],
+      "report_path": "work/reports/mesh_convergence_heat_slab_2d.json"
+    },
+    "l2_conservation": null,
+    "l2_conservation_reason": "本模板为线性稳态导热，尚未做通量守恒积分检查（未实现）",
+    "si_normalized": true,
+    "unit_check": {
+      "pint_available": true,
+      "errors": []
+    },
+    "flags": ["pathway_validation_numerical_experiment"],
+    "uncertainty_not_quantified_reason": "样本级不重复声明：T_max_K 的分量已在 metrics.T_max_K.uncertainty 给出；T_min_K 未量化（见其 uncertainty_reason）"
+  },
+  "negative_sample": false,
+  "run_id": "run-20260911T013401Z-7708b95e",
+  "evidence_id": null,
+  "experiment_id": null,
+  "feedback_id": null,
+  "model_id": null,
+  "related_run_id": null,
+  "split": {
+    "group_key": "GF-heat-slab-2d",
+    "group_role": "train",
+    "dataset_id": "ds-20260911T014216Z-42bf22",
+    "leak_check": {
+      "train_families": ["GF-heat-slab-2d"],
+      "holdout_families": [],
+      "overlap": [],
+      "checked_at": "2026-09-11T01:42:16.381161"
+    }
+  },
+  "created_at": null,
+  "source_note": "实测存量记录：work/store/mems.duckdb 表 sample 行 sample_id=smpl-run-20260911T013401Z-7708b95e-sim（inputs/outputs/uncertainty/quality/extractor 原样取用）；design 行 design-run-20260911T013401Z-7708b95e（params/units/geometry_family）；分组归属取自 dataset 行 ds-20260911T014216Z-42bf22 的 split.train_sample_ids",
+  "notes": [
+    "契约化改写点（未新增任何数值）：(1) extractor 串 'name@version' 拆为 name/version；(2) 原 uncertainty 是按指标键控的 JSON（仅 T_max_K），此处落到 metrics.T_max_K.uncertainty，并给 T_min_K 补 uncertainty_reason；(3) 原 quality 中 unit_check.entries 被压缩为 pint_available+errors 摘要，逐参数条目见原始 DB 行（未删改原文，只是本样例不再重复粘贴 10 条）；(4) created_at 原始为 NULL，故为 null。",
+    "frequency_set 必填但本工况无频率维度 ⇒ kind=steady_state + 空白数组 + 原因，符合「没有真实数据的字段留空并说明」。",
+    "本样本是通路验证用的数值实验（heat_slab_2d 模板），不得当作器件物理结论（AGENTS §7）。"
+  ]
+}

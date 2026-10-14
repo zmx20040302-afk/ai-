@@ -1,0 +1,353 @@
+{
+  "kind": "taskdoc_audit",
+  "title": "外部任务书对账分析：《给 DeepSeek Harness 的 PeakGuard 模型修改完善任务书》",
+  "audit_date": "2026-10-09",
+  "analyzer": "deepseek-harness (subagent, read-only audit)",
+  "subject": {
+    "path": "C:\\Users\\zmx\\.dsh\\attachments\\v1\\files\\a5\\a5af81d1d2eca913c9ebd2e6ea2531f021279080296d2c84ac18162ecca491f4\\TO_DEEPSEEK_HARNESS_PeakGuard模型修改完善任务书_20261009.md",
+    "bytes": 21126,
+    "sha256": "a5af81d1d2eca913c9ebd2e6ea2531f021279080296d2c84ac18162ecca491f4",
+    "hash_verified": true,
+    "modified": false
+  },
+  "scope": {
+    "read_only": true,
+    "code_modified": false,
+    "artifacts_modified": false,
+    "paper_modified": false,
+    "comsol_run": false,
+    "pytest_run": false,
+    "network_used": false,
+    "status_promoted": false,
+    "state_snapshot_after": {
+      "work/runs/solver/pmut-f1/solver_spec.json": {
+        "state": "draft",
+        "sha256_expected": "21315173fd2732c7384c4a3d437bb7f7c297d5c3047b5ff01094ca3553b6bd3f"
+      },
+      "work/runs/multichannel-surrogate-20260929/multichannel_model.json": {
+        "status": "draft",
+        "sha256_expected": "0d872fb14bb9093a1a486327e3e24298af81290e58756ed9a70b8b2b3ef444b1"
+      }
+    }
+  },
+
+  "what_it_asks_for": "把「PCHIP + 一步线性外推原型」升级为 PeakGuard v2：①窗口语义层（canonical_window_id + censored/unknown，区分「窗内未观测到峰」与「物理无谐振」）；②层级状态模型 B1/B2/B3（峰可观测性→带宽闭合性→未闭合方向）+ 行政状态不入物理分类器；③条件多目标回归（仅标签有效时预测 abs_w_m / bandwidth_Hz / abs_p_per_V_Pa，允许目标级缺失掩码）；④独立不确定性校准（分类概率 Platt/isotonic/temperature + 回归 split conformal，in_layer 与 cross_layer 分别校准）；⑤fail-closed 硬/软拒答（软门禁含 P(valid_closed)、区间宽度、模型分歧、到训练样本距离、低密度、物理一致性，阈值冻结在 calibration 集）；⑥固定预算闭环 DSE（统一 DOE/候选域/COMSOL 预算，acquisition = EHVI × P(valid_closed) × P(pass_Q_and_safety) × uncertainty_gate，候选经 COMSOL 回算才计 Pareto）；⑦强基线（persistence/分层线性/PCHIP/RBF/GP/XGBoost-CatBoost/MLP/标准 BO）+ 9 项消融 × ≥5 种子；⑧交付 work/runs/peakguard-v2-YYYYMMDD/ 下 24 件具名产物（非空、有 schema/version、有 SHA-256、可从冻结输入重建、不覆盖既有冻结结果）。执行顺序 P0（离线）→ P1（需新增 COMSOL）→ P2（主论文后）。",
+
+  "verdict_summary": {
+    "peakguard_in_code_hits": 0,
+    "peakguard_is": "论文方法名（docs/PMUT_DAC2027_初稿_v2..v6_20261009.md 等），非代码对象",
+    "already_repeated": ["C2", "C4部分判定", "C6", "C8(同物异名)", "C10", "C17", "C18", "C19部分"],
+    "conflicts_with_rulings": ["C1", "C3", "C4", "C7", "C5"],
+    "unexecutable_or_unverifiable": 11,
+    "ambiguous_terms": 10,
+    "user_decisions_required": 8,
+    "priority_mismatch": true,
+    "recommended_path": "只做零求解/只读/只追加的离线增量，落到新 run 目录且不覆盖任何冻结哈希；改判定语义、新建并行事实源、新增 COMSOL 预算、新阈值体系、场级取舍五类事项挂起等用户拍板。"
+  },
+
+  "items": [
+    {
+      "id": "C1",
+      "claim": "任务书 §3.2 引入状态名 valid_closed / no_internal_peak / open_left / open_right / isolated 作为 v2 新架构（B1/B2/B3 与行政状态），§5.3 使用 P(valid_closed)。",
+      "location": "任务书 §3.2「B1: peak_observed_in_window = 1/0」「B2: bandwidth_closed = 1/0」「B3: open_left；open_right；open_both/insufficient_grid」；§5.3「P(valid_closed) 低于校准阈值」",
+      "evidence": "docs/PAPER_REVIEW_DAC2027_20261009.md N69：valid_closed/no_internal_peak/open_left/open_right/isolated 在 src/memsharness/*.py 与 scripts/*.py 中出现次数均为 0 ⇒「无来源（自造分类）」；docs/PAPER_REVISION_LOG_20261009.md D-03 已把这五个名字从论文 §3.2 替换为真实字段表；docs/PMUT_DAC2027_初稿_v6_20261009.md L116 原文：「v1 稿中的五个状态名 … 在仓库源码与表列中检索为 0 次，故本节改为真实字段」；真实列见 multichannel_labels.csv（64 列）与 labels_two_batch_dupkind_refined.csv（31 列）；C 批不闭合实测口径 = §70.2「89 例右截止超 50 MHz」⇒ 只有 open_right 方向有数",
+      "verdict": "conflict_with_ruling (回退已删除的自造状态名)；open_left 无数据"
+    },
+    {
+      "id": "C2",
+      "claim": "任务书 §2-M4 称「各通道仅有经验残差区间 / 区间可能欠覆盖 / 需独立校准集 + split conformal」。",
+      "location": "任务书 §2 M4 行；§5.2 六条 conformal 协议",
+      "evidence": "work/runs/multichannel-surrogate-20260929/PREREG_multichannel_surrogate.md §7 原文：「n2_extrap 模式：用标尺折（L-N2ex 5/6/7）的残差作保形校准集…；in-layer 模式：用 S-D(h=0.02) 的测试点按 seed=0 对半切——一半作校准、一半作评估，两半不重叠」「α ∈ {0.10, 0.05, 0.01}」；multichannel_model.json 的 conformal 块实测含 in_layer 与 n2_extrap 两模式、8 通道 × 3 α 全部有半宽（例 in_layer.bandwidth_Hz = {0.1: 0.02057210719391043, 0.05: 0.0354362568065496, 0.01: 0.09537168290965362}）",
+      "verdict": "already_implemented (重复)；§5.2 第 1–5 条已满足，仅第 6 条联合覆盖未做且论文按 A5 明确不得宣称严格 conformal guarantee"
+    },
+    {
+      "id": "C3",
+      "claim": "任务书 §2-M6 称「缺少冻结的 train/cal/test ⇒ 需按完整设计组合冻结三分法和哈希」。",
+      "location": "任务书 §2 M6 行；§4.4 冻结数据分割",
+      "evidence": "PREREG_multichannel_surrogate.md 在看任何留出集指标之前写定折与判定带，其 sha256 被结果 JSON 记录并被用例断言「当前哈希 == 记录哈希」；INDEX §113.1 已落地防泄漏整组切分：组键 (round(x_scale,6), N_w_te1, N_w_te2)、1926 组、train 1578 / holdout 677（seed 0）、train∩holdout 组合键 = 0（字面/repr/round-6 三口径同时为 0，seed 0–4 全成立），产物 grouped_split_assignments.csv sha256 30f75893640f267ac2094afdcadf569b5ad73d623d0b4819a7ffd3cf273a3a8f；INDEX §113.6 第 5 条明写「未做分层切分」",
+      "verdict": "partially_already_implemented (预注册冻结 + 整组防泄漏切分 + 哈希锁 + 5 种子已做)；真正缺的是单一冻结的 train/cal/test 三分清单（cal 集当前是从各折残差临时取）"
+    },
+    {
+      "id": "C4",
+      "claim": "任务书 §2-M3 要求「默认禁止外推；单独建立跨层测试与门禁」，§3.4 要求跨层模式不优于 persistence 则保持拒答。",
+      "location": "任务书 §2 M3 行；§3.4 离散变量处理",
+      "evidence": "PREREG §4.2 把「固定 (N1,x) 用最近的两层在 N2 上线性外推，只允许 1 步（|N2* − 最近层| ≤ 1）」写进预注册；src/memsharness/multichannel_surrogate.py L252–277 为其实现；multichannel_model.json 的 structure.n2_direction 原文即此；INDEX §113.3/§114 已用 30 个「口径×种子」实测其 lift（bandwidth_Hz 旧 −0.0018010583 → 整组 −0.00716005），§114 登记「符号依赖留出层（N2ex5/6 为正、N2ex7/8 为负）⇒ 结论不稳」；冻结模型已登记 channels_without_lift = ['bandwidth_Hz','Q_factor']",
+      "verdict": "conflict_with_frozen_prereg (改判定语义/缩小已冻结能力域 ⇒ 红线 5 须人拍板)；任务书未引用仓库已有的 persistence 证据"
+    },
+    {
+      "id": "C5",
+      "claim": "任务书 §1.4/§2-M9/§4.3 用「5–50 MHz 窗口」概括扫描窗口与批次差异，仅「建议」只用同一规范窗口。",
+      "location": "任务书 §1.4；§2 M9 行；§4.3 处理窗口删失",
+      "evidence": "work/runs/labels-dupkind-refined/20261008T215100/labels_two_batch_dupkind_refined.csv（2255×31，sha256 21e807eecf0807f88164c0cd51cc5329339ccee501b8cee03acaddeff3274afb）按批计数实测 = A_5-35MHz 223 / C_5-50MHz 1782 / V2_5-35MHz 250；V2 为 0.5 MHz 步长 / 61 点（INDEX §92.1）；V2 缺 abs_w_m/abs_p_Pa/abs_p_per_V_Pa/abs_vz_struct_m3s 四列 ⇒ 三批并集跑不了 8 通道（§113.3）；跨批同组合标签不一致（bandwidth_Hz 中位相对差 0.2301、>5% 200/324；§113.2）、137 组冲突标【待裁定】；§95 用户裁定 O-A「不去重、一行不删」；§92.3 记录组合身份键必须先做 ulp 归一化（否则新增数虚高 34）",
+      "verdict": "ambiguous_caliber + missing_pending_ruling (照做会在未裁决的 137 组冲突上默认选边)"
+    },
+    {
+      "id": "C6",
+      "claim": "任务书 §4.2 第 5/6/8 条与 §8.1「未闭合带宽为空，不为 0」是新增要求。",
+      "location": "任务书 §4.2 第 5/6/8 条；§8.1 数据门禁",
+      "evidence": "INDEX §69 用户裁定原文：「峰被扫频边界截断或 −3 dB 带不闭合 ⇒ 记空并标注，绝不填 0」；§70.2「正式带宽方法 single_dof_fit（RMSE 中位 0.0096、max 0.114 dB）；网格交点值另列 bw_grid_Hz/Q_grid 供审计」；§71.1 用户裁定「带宽组只用绝对 −3 dB 带宽排名」；multichannel_labels.csv 实含 f_lo_3dB_Hz/f_hi_3dB_Hz/bandwidth_Hz/method/extrapolated",
+      "verdict": "already_implemented (重复，且第 8 条口径已由 §70.2/§71.1 裁定)"
+    },
+    {
+      "id": "C7",
+      "claim": "任务书 §3.2 把 isolated 列为「由预处理硬门禁处理」的状态，§5.3 把「命中隔离或求解失败记录」列为硬拒答。",
+      "location": "任务书 §3.2「行政状态」；§5.3 硬拒答第 3 条",
+      "evidence": "INDEX §109.9 表格原文：「predict() 对 excluded_quarantine 的读取 —— 一字未动（隔离议题仍「另议」；该字段在预测路径上仍未生效）」；§101.2 第 3 条：excluded_quarantine 只出现在 model_card()（multichannel_surrogate.py L112），predict()（L222）/check_domain()（L168–L178 四条分支）均无该分支；docs/PMUT_DAC2027_初稿_v6_20261009.md L183/L185 已按此改写并注明 I_iso「仍为未生效的披露项」；实测那两点在该 476 点网格被拒的真实原因是 x=0.20 低于层标定下界 0.31，「命中隔离记录」触发 0 次；另有三套不同隔离键（标签表 quarantined 于 first_peak.py／模型 excluded_quarantine 于 multichannel_surrogate.py／响应级 quarantined_combos 于 surrogate.py），§109.9 记「三者不得混称」",
+      "verdict": "conflict_with_measurement (要求把一条实测不生效的门当作已生效的预处理 ⇒ 高风险，会再造「看起来生效的门」)"
+    },
+    {
+      "id": "C8",
+      "claim": "任务书 §3.4/§5.2 要求把跨层模式命名为 cross_layer，与 in_layer 分开训练、校准、报告。",
+      "location": "任务书 §3.4；§5.2 第 4 条",
+      "evidence": "PREREG §4.2、multichannel_model.json 的 structure.n2_direction 与 conformal 的模式键实测为 (\"in_layer\", \"n2_extrap\")；predict() 返回 \"mode\": \"in_layer\" | \"n2_extrap\"；model_card() 的 half_width_by_mode 同用这两个键",
+      "verdict": "same_thing_different_name (语义一一可映射；改名会改冻结产物键 ⇒ 触发 sha 重锚)"
+    },
+    {
+      "id": "C9",
+      "claim": "任务书 §4.1 给出 24 个样本主键字段（sample_id/run_id/model_sha256/window_id/batch_id/peak_state/bandwidth_state/is_isolated/is_valid_solver/source_artifact_sha256 等）。",
+      "location": "任务书 §4.1 建立统一的样本主键",
+      "evidence": "labels_two_batch_dupkind_refined.csv 实测 31 列（batch/source_file/x_scale/N_w_te1/N_w_te2/freq_range_MHz/peak_freq_Hz/bandwidth_Hz/Q/zeta/spl_dB/peak_closed/ranking_eligible/usable/source_type/source_pipeline/source_dataset/x_density_class/freq_grid_MHz/n_freq/source_model/peak_at_scan_endpoint/bw_upper_cutoff_at_endpoint/dup_score/dup_of/dup_kind/batch_v2_original/freq_range_v2_original/batch_basis/freq_range_source/dup_kind_refined）；multichannel_labels.csv 实测 64 列（含 quarantined/q_gate_pass/first_peak_found/bandwidth_closed）；无 window_id、无 sample_id、无 is_isolated、无 is_valid_solver",
+      "verdict": "naming_mismatch (须先给映射表；is_valid_solver 无对应列 ⇒ 需人工核对；§4.1 末句「不得靠行号/marker 顺序/文件名隐式推断」仓库已按 §69.1/§70.2 裁定过 ⇒ 该点属重复)"
+    },
+    {
+      "id": "C10",
+      "claim": "任务书 §8.1 要求「驱动电压元数据均为内 −1 V、外 0 V、ΔV=1 V」。",
+      "location": "任务书 §8.1 数据门禁第 3 条",
+      "evidence": "INDEX §70.1 原文：「⚠️ 更正：驱动电压是 1 V，不是 2 V（我的错误）… 裁定 §2：内电极 −1 V、外电极 0 V ⇒ ΔV = 1 V；禁止表述为「外电极 +1 V、内电极 −1 V 的 2 V 反相驱动」」；multichannel_labels.csv 实含 v_inner_V/v_outer_V/delta_V_V/normalization_formula/abs_p_per_V_Pa/spl_per_V_dB",
+      "verdict": "already_implemented (已裁定、已入表、已归一)"
+    },
+    {
+      "id": "C11",
+      "claim": "任务书 §1.5 称「当前 7 快照场级模型最坏 rel_L2 仍很高，不能作为可信 ROM」「场级 POD 暂不作为主模型」。",
+      "location": "任务书 §1.5 场级模型",
+      "evidence": "INDEX §87.3：7 快照在 2%/5% 两阈值下都不放行（最坏折 0.8089；过折数 0/7 与 2/7）；但仓库已推进 —— §88–§90 路线甲 x 单参数族（N1=4、81 快照）S1 转 passed（§92.4：关键区 max 0.0070、全域 max 0.0109，模型 B）；场级对象已改为离散查表 + 拒答（src/memsharness/field_lookup.py，§87.4：小数 N1 拒答、源码禁出现任何插值调用）；§104/§111：S3 failed（守恒项 6.021e-2 > 0.005）、S4 旧阶梯口径 O failed（2.4223%）/新 6 档 ftet1 passed（1.3847%）、405 组不得展开",
+      "verdict": "partially_already_implemented + stale_caliber (「不宣称已放行」与仓库一致；但 7 快照已非最前沿证据)"
+    },
+    {
+      "id": "C12",
+      "claim": "任务书 §6.1 要求 RBF/GP/XGBoost/CatBoost/MLP/标准 BO 做强制基线；§6.3 要求 Hypervolume/Pareto regret。",
+      "location": "任务书 §6.1 强制基线；§6.3 设计层指标",
+      "evidence": "全仓 src/+scripts/+tests/ 的 .py 检索：hypervolume/qEHVI/EHVI/pareto_regret/bayesopt/skopt/botorch 全部 0 命中（仅命中 bo_ 子串，来自 both_ 等）；无 GP、无 RBF 拟合、无 XGBoost/CatBoost；MLP 仅在 src/memsharness/ml/surrogate.py（sklearn MLPRegressor 集成）且服务的是旧 93 维响应级代理，不在 8 通道一阶峰代理上；已有 persistence 基线（lift_vs_persistence / beats_persistence）与 PCHIP（生产结构本身）；AGENTS.md §3 网络实测：「files.pythonhosted.org 读超时；pypi.tuna.tsinghua.edu.cn 可用但索引页偶发截断；mirrors.aliyun.com 会截断大 wheel」",
+      "verdict": "new_work (非冲突)，但需新依赖且有安装风险；任务书未提该前置"
+    },
+    {
+      "id": "C13",
+      "claim": "任务书 §5.1 要求比较未校准/Platt/isotonic/temperature 并报告 macro-F1/Brier/ECE/混淆矩阵；§8.2 要求 FAR/FRR。",
+      "location": "任务书 §5.1 分类概率校准；§8.2 模型门禁第 3 条",
+      "evidence": "全仓 .py 检索 Platt|isotonic|temperature_scaling = 0 命中；confusion_matrix|macro.?F1|f1_score|brier|ECE|false_accept|FAR|FRR = 0 命中；仓库当前无状态分类器（只有 check_domain() 四条参数域判定与频谱状态列）",
+      "verdict": "new_work，但前提不成立 (须先从零建分类器 = C1 的状态名问题)"
+    },
+    {
+      "id": "C14",
+      "claim": "任务书 §5.3 要求五类软拒答（P(valid_closed)/区间宽度/模型分歧/标准化距离/低密度）且阈值冻结在 calibration 集。",
+      "location": "任务书 §5.3 软拒答",
+      "evidence": "当前拒答只有硬的两类：check_domain() 四条（x 域 / N1 整数≥1 / N2∈[5,9] / N1<N2）与预测可得性（层内 x 越界、N2 外推 >1 步、缺同 x 标定值）；multichannel_surrogate.py _classify_refusal() docstring 明写「只归类，不改变拒答本身」；无 P(valid)、无多模型分歧、无马氏距离门槛（距离类分数只在旧响应级 ml/surrogate.py::ood_score 上）",
+      "verdict": "new_work + changes_decision_semantics (须人拍板)；模型分歧一类依赖尚未拟合的 GP/XGB/MLP"
+    },
+    {
+      "id": "C15",
+      "claim": "任务书 §10 建议新建 work/runs/peakguard-v2-YYYYMMDD/ 并交付 24 件具名产物，「不覆盖既有冻结结果」。",
+      "location": "任务书 §10 Harness 必须交付的文件",
+      "evidence": "同类产物已分散在既有 run 目录：work/runs/first-peak-20260929/（multichannel_labels.csv sha256 d06edfe199943499…）、work/runs/labels-dupkind-refined/20261008T215100/（sha256 21e807ee…）、work/runs/multichannel-surrogate-20260929/、work/runs/grouped-split-20261009/、work/runs/paper-evidence-20261009/（INDEX §109.3 记录它被就地重生成 3 次、「非 append-only」）；§95 用户裁定 O-A「不去重、一行不删」",
+      "verdict": "not_overwriting_ok_but_creates_parallel_truth_source (「不覆盖」一致；「建议新建」将造成第二/第三套事实源，与 §105–§109 的 R16 教训相抵)"
+    },
+    {
+      "id": "C16",
+      "claim": "任务书 §11 回报模板含「- git commit:」字段。",
+      "location": "任务书 §11 Harness 回报模板 §2 输入与版本",
+      "evidence": "本轮实测 & git --version 抛错（git 不可运行）；仓库根有 .git 目录与 memsharness-history.bundle，但 PATH 上无 git 可执行文件（与工单给定前提「无 git」一致）",
+      "verdict": "unexecutable"
+    },
+    {
+      "id": "C17",
+      "claim": "任务书 §1.1/§1.2 的物理模型与三个正式目标。",
+      "location": "任务书 §1.1 物理模型；§1.2 正式研究目标",
+      "evidence": "INDEX §70.1（内 −1 V / 外 0 V / ΔV=1 V）；§72.2（Q 作门槛、ζ 仅报告；正式排名只用绝对 −3 dB 带宽、振幅、单位电压灵敏度）；src/memsharness/multichannel_surrogate.py L28 FORMAL_OBJECTIVES = (\"bandwidth_Hz\",\"abs_w_m\",\"abs_p_per_V_Pa\")、L30 CONSTRAINT_ONLY、L177 check_domain 的 round(n1) >= n2 ⇒ Refused",
+      "verdict": "consistent (无冲突，任务书中唯一完全对得上的硬事实块)"
+    },
+    {
+      "id": "C18",
+      "claim": "任务书 §1.3 峰的命名「扫描窗口内首个可观测的内部局部峰」，不得直接称为物理一阶模态。",
+      "location": "任务书 §1.3 峰的命名",
+      "evidence": "INDEX §72.1 第 ⑥ 条用户裁定原文：「只发现高频局部峰时先称「首个可观测局部峰」，不得直接称「一阶模态」——必须结合位移场型确认模态阶次」，并注明为结构性约束（SPL 曲线上的局部极大不足以判定模态阶次）",
+      "verdict": "consistent (仓库口径更严：要求位移场型证据)"
+    },
+    {
+      "id": "C19",
+      "claim": "任务书 §8.2 要求「N2=9 未经独立验证前保持拒答或实验性标记」「场级连续 N1 保持拒答」。",
+      "location": "任务书 §8.2 模型门禁第 6/7 条",
+      "evidence": "multichannel_surrogate.py check_domain L175–176 允许 N2∈[5,9]（9 为 1 步外推上限）；docs/PMUT_DAC2027_初稿_v6_20261009.md §3.3 已写「不报告 n2=9 的泛化能力」；field_lookup.py 对连续（小数）N1 拒答（§87.4）；但 te2_9 新导出【待产物】——INDEX §115「新导出产物尚未落地（work/runs/te29-freq5-50-server-20261009/ 下无 Table_9.txt）…一律标【待产物】」，§119「导出从未失败，此刻仍在跑（3 h 07 m）」；本轮实测该目录 107 个文件但无 Table_9.txt",
+      "verdict": "mostly_consistent_but_stale (任务书未注意 te2_9 导出尚未落地、P4 器械四件套 rc=3)"
+    }
+  ],
+
+  "unexecutable_or_unverifiable": [
+    {"id": "U1", "claim": "§11「- git commit:」", "why": "本机 git 不可运行（实测 & git --version 抛错）"},
+    {"id": "U2", "claim": "§8.3「多目标联合覆盖的算法和口径明确」", "why": "未给算法（联合非一致性分数？Bonferroni？）也未给有限样本最小 n ⇒ 无法判定「明确」是否达成"},
+    {"id": "U3", "claim": "§5.3「阈值必须在 calibration 集上冻结」", "why": "未说 calibration 集从哪来、多大、能否与训练同批；三批规模悬殊（223/1782/250 行，整组切分 1926 组），而主判定折覆盖率本已仅约 70%（INDEX §79.2）⇒ 不可验证"},
+    {"id": "U4", "claim": "§7.1「建议预算阶梯在资源评估后预注册，例如 20/40/60 次新增 COMSOL 调用」", "why": "「例如」+「资源评估后」无判据、无责任人、无时点；本机资源是硬约束（单实例串行；commit limit 37.1 GB；11 GB 级模型峰值提交 11.2 GB，AGENTS §3/§4）⇒ 须先由人指定预算与执行机"},
+    {"id": "U5", "claim": "§7.3「稳定优于普通代理/BO」", "why": "「稳定」无判据（种子数？差值？显著性检验？）；仓库纪律是先定判据再算（INDEX §113 的 _verdict() docstring）⇒ 不可落地"},
+    {"id": "U6", "claim": "§6.2「至少运行 5 个随机种子，报告均值、标准差」", "why": "未区分确定性模型：persistence/分层线性/PCHIP 无随机性，照做产生 5 份逐位相同结果、标准差恒为 0 ⇒ 伪随机重复"},
+    {"id": "U7", "claim": "§5.4 接口的 data_manifest_sha256 / provenance / state_probabilities", "why": "未给 schema 与取值来源；仓库有 15 个 schemas/*.schema.json 但无本接口 schema ⇒ 会绕过既有 schema 校验；state_probabilities 依赖尚不存在的分类器"},
+    {"id": "U8", "claim": "§4.4 test_cross_batch「相同参数坐标的重复性审计，不计作泛化测试」", "why": "与未决裁定相互牵制：INDEX §113.2 的 137 组冲突标【待裁定】，§113.6 第 4 条明写 AC/UNION4 池化「与 §95.2 冲突 … 池化是否允许，须人拍板」⇒ 冲突组是否入分母无判据"},
+    {"id": "U9", "claim": "§8.2「若不优于简单基线，明确记录失败」", "why": "「简单基线」未点名、未给优于判据；仓库已有判据是 lift_vs_persistence 的符号 + §114 的折依赖披露，任务书未引用 ⇒ 重开一套未定义判据"},
+    {"id": "U10", "claim": "§4.3「训练主模型时，建议只使用同一规范窗口或已由扩扫补全状态的样本」", "why": "「建议」出现在数据分割硬要求段落，与同段其他条目的强制语气不一致，而它决定 §4.4 全部集合构成 ⇒ 强制/建议不明"},
+    {"id": "U11", "claim": "§7.1「候选只有经 COMSOL 重新求解后才能计入 Pareto 集」", "why": "未说用哪个模型变体；仓库实测存在同源性未证的模型分裂（INDEX §92.4/§97：S3/S4 用 currentdrive（Electrostatics + Circuit），与路线甲 x 族导出模型不是同一变体；§99 另测 acpr.p_t 与 p 逐位相等）⇒ 若不先钉死变体，「COMSOL 回算」不可复现"}
+  ],
+
+  "ambiguous_terms": [
+    {"id": "T1", "term": "PeakGuard / PeakGuard v2", "ambiguity": "论文方法名？代码模块？运行目录名？定义域与边界完全未给；又称「模型」，与「代理」「分类器/回归器」混用", "repo_state": "代码 0 命中；只是论文方法名（docs/PMUT_DAC2027_初稿_v2..v6_20261009.md）；与 guards_* 五条元守卫无关"},
+    {"id": "T2", "term": "「模型」（全文最高频，≥5 种含义）", "ambiguity": "§0 原型=回归器；§2-M1 PCHIP=回归器；§3.2 状态模型=分类器；§5 校准=校准器；§1.5 7 快照场级模型=POD-ROM；§7 普通代理/BO=代理总体；§8.2 状态模型报告混淆矩阵", "repo_state": "仓库严格区分 surrogate.py（响应级 93 维）/ multichannel_surrogate.py（8 通道标量）/ field_lookup.py（场级查表，不是模型）/ ml/surrogate.py（模型层管线）"},
+    {"id": "T3", "term": "「完善」的验收标准", "ambiguity": "§0 只给 6 句动词目标；§8 四组门禁是未量化 checkbox；无通过线、无判定人", "repo_state": "仓库有可量化体系：WORKING_PLAN §6.1.1（S0–S5 带阈值）、§6.4（放行状态机）、PREREG §6 判定带、solver.py::THRESHOLDS（S0<1%、S1 关键区<2%/全域≤5%、S2<3%、S3<0.5%、S4<2%、S5 覆盖率 0.85–0.95）"},
+    {"id": "T4", "term": "canonical_window_id / window_id", "ambiguity": "「规范扫描窗口」由谁定义、是哪一段未给", "repo_state": "仓库无此键；只有 freq_range_MHz / freq_grid_MHz / n_freq / batch / freq_range_v2_original / freq_range_source；三套栅格并存（5–35 / 61 点、5–50 / 91 点、待产出的 5–50 / 648 组合）"},
+    {"id": "T5", "term": "八个新状态名（peak_observed_in_window / bandwidth_closed 作状态 / open_left / open_right / open_both-insufficient_grid / no_peak_in_window / peak_outside_window_confirmed / unknown_censored / no_resonance_physical）", "ambiguity": "与仓库真实字段无一对应；open_left 从未独立计数", "repo_state": "真实列：first_peak_found / peak_closed / bandwidth_closed / ranking_eligible / quarantined / peak_at_scan_endpoint / bw_upper_cutoff_at_endpoint / usable / extrapolated / method"},
+    {"id": "T6", "term": "cross_layer vs n2_extrap", "ambiguity": "同物异名", "repo_state": "conformal 的键 = (\"in_layer\",\"n2_extrap\")；predict() 返回 mode 同此"},
+    {"id": "T7", "term": "「独立校准」（§5 三处含义不同）", "ambiguity": "§2-M4 独立校准集=独立数据；§5.1 至少比较=独立方法；§5.2 等价独立校准协议=独立流程", "repo_state": "仓库 §7 已是独立数据（标尺折残差 / 对半切）；论文按 A5 明确不得宣称严格 conformal guarantee"},
+    {"id": "T8", "term": "「删失 / 截断」", "ambiguity": "censored/truncated 笼统两类，未区分峰位删失（峰频只是下界）与带宽截断（宽度被高估、Q 被低估）", "repo_state": "INDEX §92.1 三条标志逐条带语义：peak_at_scan_endpoint（右删失）、bw_upper_cutoff_at_endpoint（截断）、freq_range（不得混算）；§115.4 另记 v2 SPL→带宽桥接键歧义致 usable 差 3 格且标【待裁定】"},
+    {"id": "T9", "term": "「高保真复核 / COMSOL 回算」", "ambiguity": "新求解还是复用既有解？哪个模型变体？什么算通过？", "repo_state": "§112 已示范零求解补导出；§92.4/§97 记录变体分裂（currentdrive vs x 族导出模型）；§87.8 仍有「场级阈值适用对象」未确认"},
+    {"id": "T10", "term": "「同一初始 DOE」", "ambiguity": "点数、采样法、随机种子均未给", "repo_state": "autonomous-optimization-loop SKILL §2 建议 LHS 16–24 点、§3 建议批 20–24 点/轮（前 2 轮逐轮批准）"}
+  ],
+
+  "priority_and_dependency_check": {
+    "doc_order": ["P0 立即（离线）: 冻结 schema / 修低 x 叙述与窗口删失标签 / 重建标签表 / 冻结 train-cal-test / 层级状态模型 / 五类基线 / 独立校准与统一拒答 API / 离线对比消融报告 / 定正式回归器", "P1（需新增高保真）: 冻结独立测试组合 / 跑 COMSOL / 固定预算闭环 DSE / 复核 Pareto / 汇总调用次数与 Hypervolume", "P2: 更多连续几何变量 / N2=9 泛化 / 全场 POD-ROM / 多器件族迁移 / 实验样机校准"],
+    "repo_actual_blockers": [
+      {"item": "S3 守恒项 failed", "evidence": "INDEX §92.4/§112：唯一独立守恒项 6.021e-2 > 0.005、S3_complete=false；§117 另一设计点 0.1112（未收敛、无误差界）", "doc_covers": false},
+      {"item": "S0 缺闭式解 ⇒ inconclusive", "evidence": "INDEX §92.4「S0 inconclusive — 需闭式解」；§88.5 状态机视图 S0 inconclusive", "doc_covers": false},
+      {"item": "te2_9 导出待重跑", "evidence": "INDEX §115「新导出产物尚未落地…一律标【待产物】」；§119「导出从未失败，此刻仍在跑（3 h 07 m）」；本轮实测 work/runs/te29-freq5-50-server-20261009 有 107 文件但无 Table_9.txt", "doc_covers": "partial（仅排到 P2）"},
+      {"item": "四项口径待裁定", "evidence": "§111（S4 新旧阶梯两个 2%）、§112（S3 三项 None）、§113.2（跨批 137 组）、§115.4（v2 选带口径 ±3 格）", "doc_covers": false},
+      {"item": "405 组不得展开", "evidence": "INDEX §92.7 第 8 条 / §104 / §111", "doc_covers": "partial（方向一致但未引用约束）"},
+      {"item": "PMUT L1 = 0 条通过（严格口径）", "evidence": "INDEX §78.3；WORKING_PLAN §7.1；paper v6 §6.8", "doc_covers": false},
+      {"item": "device_spec 9 个 pending_human", "evidence": "WORKING_PLAN §7.1", "doc_covers": false}
+    ],
+    "verdict": "priority_mismatch",
+    "detail": "任务书 P0 把「层级状态模型 + GP/XGB/MLP 基线 + 独立校准与统一拒答 API」列为立即执行，而仓库连 S0/S3 的第一次状态跃迁都够不着（§92.4：solver_spec.json 仍 draft，「连第一次状态跃迁都还够不着」）；P0 第 2 条（修低 x 叙述）仓库已做完（§71.2/§72.1/paper v6 §6.1，Stage-1 已执行：13/13 低频侧无局部极大、x=0.24 族 65 MHz 闭合峰）；任务书把 te2_9 排到 P2，而该重导此刻仍在服务器上跑（§119）；闭环 DSE 排到 P1 但未先解决本机单实例 + commit limit 37.1 GB 与 405 组冻结两个硬约束。"
+  },
+
+  "risks_if_executed_as_written": [
+    {"id": "R-a", "risk": "改动已被 sha 锚点引用的产物", "mechanism": "§3.4/§5.2 改名 n2_extrap→cross_layer、§3.2 改状态列、§5.4 换 predict() 返回结构 ⇒ 必须改 multichannel_model.json（sha 0d872fb1…）与 multichannel_surrogate.py（sha 7ec83d3d…），其哈希被 §109.9/§113.5/§114.4 逐条锚定，且论文 v6 §6.4 引用 model_id = 74e5127f… 与 prereg_sha256 = e90c315f…", "precedent": "INDEX §109.3：一次「校验」把 31 件产物整个重写（E3 系 + MANIFEST.{json,md}），并同时报告「逐位相同」"},
+    {"id": "R-b", "risk": "让已有守卫失效", "mechanism": "① guards_readonly.py 静态扫描只覆盖 scripts\\verify_*.py（§116.3 实测「默认 scripts\\，8 个 verify_*.py」）⇒ 新脚本落在扫描面之外；② 新表若另起列名，guards_denominator.py 要求的 denominator/flag_basis_count/n_nondecidable（§116.4）无法从新明细复算；③ 新增并行事实源后，guards_indexlock.py 只管索引单写者，管不了多份标签表谁是权威", "precedent": "§116.3 已登记两处遗留写入点未修（verify_s34_s4_interp.py:74、verify_te2_9_value_profile.py:169）⇒ 守卫覆盖面本就有限"},
+    {"id": "R-c", "risk": "制造新的「状态字段非测量」", "mechanism": "§4.1 的 is_valid_solver / peak_state / bandwidth_state / window_id / is_isolated 在现有数据里没有对应测量；§3.2 的 isolated「由预处理硬门禁处理」在 predict() 上实测不生效 ⇒ 产出「字段存在、门不存在」的组合", "precedent": "§103/§109 专为「把 I_iso 读作生效的门」做过措辞更正（paper v6 L183/L185）；§92.1 三条标志「不得当正常值用」"},
+    {"id": "R-d", "risk": "绕开 R16（校验者不得改写被校验对象）", "mechanism": "§10「能由脚本从冻结输入重建」+ §11 回报哈希；若这些重建/校验脚本沿用旧的「先重跑生成、再比对」写法即重犯 R16", "precedent": "§109.7 R16 原文：「校验脚本默认必须只读；任何重生成必须显式开关（如 --regen）、默认关闭；开关打开时不得声称完成了一次校验」；§109.5 记录旧版 verify_paper_evidence.py 第 0 项就是「先覆盖现场、再比对」"},
+    {"id": "R-e", "risk": "新增依赖的安装风险", "mechanism": "§6.1 要求 RBF/GP/XGBoost/CatBoost/标准 BO，而网络实测受限", "precedent": "AGENTS.md §3：「files.pythonhosted.org 读超时；pypi.tuna.tsinghua.edu.cn 可用但索引页偶发截断；mirrors.aliyun.com 会截断大 wheel（实测 duckdb 只下到 3,515,967/13,168,544 B 却无异常）」；§116.5 事故来源①「SAC 拦 sklearn」曾当当前事实上报、后不复现"},
+    {"id": "R-f", "risk": "把 inconclusive 写成通过", "mechanism": "§8 的 checkbox 若按「勾选即通过」执行，会把现存的 S0 inconclusive、S5 冻结口径 inconclusive、S4 冻结三档 inconclusive、check_batch_isolation 的 verdict=inconclusive 一并标成通过", "precedent": "R13/R15（ai-solver-verification §7/§10）；§92.6「凡涉及判定的措辞一律保留「inconclusive ≠ 通过」「放行权在人」」；§116.4 分母纪律；solver.py::_level 的「None 一律不等于通过」"}
+  ],
+
+  "user_decisions_required": [
+    {
+      "id": "Q1",
+      "rank": 1,
+      "question": "「PeakGuard」到底是什么 —— 论文方法名、新建代码模块，还是仅一个新运行目录名？",
+      "why_user_must_decide": "代码里 0 命中，只有论文文本。若照 §10 新建目录并实现 §3 的 B1/B2/B3，会出现第四套并行代理事实源（现有 surrogate.py 响应级 93 维、multichannel_surrogate.py 8 通道、field_lookup.py 场级查表）。谁权威、旧三套是否冻结，只能由人定。",
+      "options": [
+        {"label": "A. PeakGuard = 现有多通道代理的论文用名，代码不动、不新建目录", "consequence": "改动最小、不动任何 sha 锚点；代价是 §10 的 24 件产物名无法逐字满足（须给映射表）。Recommended"},
+        {"label": "B. 新建 src/memsharness/peakguard.py 作为 v2，旧模块冻结只读", "consequence": "双源并存，须同时定「哪一套是权威」；论文 v6 §6.4 引用的 model_id 需重锚。"},
+        {"label": "C. 只新建交付目录、代码复用现有模块", "consequence": "满足目录要求、无代码分叉；但 §3.2 状态名与 §5.4 接口是否改仍需你确认。"},
+        {"label": "D. 全面重写", "consequence": "§113/§114/§116 的冻结哈希与五条守卫全部需重锚；风险最高。"}
+      ]
+    },
+    {
+      "id": "Q2",
+      "rank": 2,
+      "question": "N2 一步线性外推：默认禁止（任务书 §2-M3），还是保留并标记？",
+      "why_user_must_decide": "这是改判定语义 + 缩小已冻结能力域，属红线 5「人保留放行权」。",
+      "options": [
+        {"label": "A. 保留 1 步外推但默认标记 experimental 并在报告单列", "consequence": "改动最小、不动冻结结构；代价是任务书 M3 字面要求未满足。Recommended"},
+        {"label": "B. 照任务书默认禁止，N2 外推一律拒答", "consequence": "作废 multichannel_model.json（sha 0d872fb1…）与 structure.n2_direction；§113/§114 的 lift 表变成历史证据；论文 v6 §6.4 覆盖率需重算。"},
+        {"label": "C. 只在 cross_layer 模式允许并单独校准", "consequence": "等价于给现有 n2_extrap 改名并加标注，需改冻结键名（触发 R-a 风险）。"},
+        {"label": "D. 维持现状，M3 不采纳", "consequence": "该条被明确拒绝，须书面记录理由。"}
+      ]
+    },
+    {
+      "id": "Q3",
+      "rank": 3,
+      "question": "标签表：按 §4.1/§4.2 新建 v2 规范表，还是在既有 31/64 列表上追加？",
+      "why_user_must_decide": "O-A 裁定「不去重、一行不删」（§95）；重建会产生同名不同物的第三张表，本仓库已因同类问题付出代价（flag 口径 vs 可判定口径、batch 标签 vs 真实子批、三套隔离键）。",
+      "options": [
+        {"label": "A. 只追加列、另存新版本、保留父版本哈希", "consequence": "符合 append-only、新字段有父可回溯；但「一组合一行」不成立（2255 行 / 1926 组），须写清。Recommended"},
+        {"label": "B. 全新重建规范表，旧表冻结不再消费", "consequence": "所有下游（代理、证据包、论文数字）需重指向；旧冻结哈希成为历史。"},
+        {"label": "C. 不重建，只补 window_id/peak_state/bandwidth_state 三列", "consequence": "最小改动；但 §4.2「重新生成」字面未执行，且缺 sample_id 主键。"},
+        {"label": "D. 维持现状，§4 不采纳", "consequence": "任务书 §4 整节被拒，须记录理由。"}
+      ]
+    },
+    {
+      "id": "Q4",
+      "rank": 4,
+      "question": "三批数据（A 223 / C 1782 / V2 250）能否池化？§113.2 的 137 组跨批标签冲突怎么处置？",
+      "why_user_must_decide": "直接决定 §4.4 的 train/cal/test 构成与 §6 全部基线比较的分母；下游默认是 keep-last（沉默 last-write-wins），已被登记为缺陷。",
+      "options": [
+        {"label": "A. 严格按批分列、绝不池化，跨批组只做一致性审计", "consequence": "与既有裁定一致；唯一能用的是单批内结论，UNION4 只作归因。Recommended"},
+        {"label": "B. 允许池化，但强制 batch 作分层项并单列每批结果", "consequence": "需新预注册；还要处理「同一组合两行谁进训练」。"},
+        {"label": "C. 先择一（按栅格更细 / 按管线优先 / 取均值）再池化", "consequence": "属新规则，未经拍板不得默认启用（§113.2 原文）。"},
+        {"label": "D. 维持【待裁定】不动", "consequence": "任务书 §4.4/§6 无法落地（判据缺失，见 U8）。"}
+      ]
+    },
+    {
+      "id": "Q5",
+      "rank": 5,
+      "question": "是否批准需要新增 COMSOL 求解的 P1（冻结测试组合 + 固定预算闭环 DSE，例如 20/40/60 次调用 + Hypervolume）？",
+      "why_user_must_decide": "本机单实例串行、commit limit 37.1 GB、11 GB 级模型峰值提交 11.2 GB（AGENTS §3/§4）；且 §92.7 第 8 条「405 组仍不得展开」、§115 te2_9 重导【待产物】、§119 显示服务器导出此刻仍在跑。求解窗口是稀缺资源。",
+      "options": [
+        {"label": "A. 只做 P0 离线部分；P1 等 te2_9 落地 + 资源评估后另批", "consequence": "§7.3「闭环增值」主张继续【待补】（论文 v6 闭环表本就是「待补」），但不动任何硬约束。Recommended"},
+        {"label": "B. 批准小预算闭环（如 20 次调用）作方法学演示", "consequence": "占用本机求解窗口、新增可追溯求解证据；须同时定「用哪个模型变体」（U11）与「预算一旦冻结不得改」（任务书 §7.1）。"},
+        {"label": "C. 用服务器 node01（§111/§112 已在用）而非本机", "consequence": "避开本机 commit 约束；但服务器侧 COMSOL/内存能力需人工核对。"},
+        {"label": "D. 借集群", "consequence": "需先抽象 ExecutionBackend 的 remote（AGENTS §7 已预留，P0–P2 只实现 local）。"}
+      ]
+    },
+    {
+      "id": "Q6",
+      "rank": 6,
+      "question": "§5.3 的五类软拒答门禁是否上线？上哪几类、阈值取什么？",
+      "why_user_must_decide": "改 predict() 的接受/拒答行为 = 改判定语义（红线 5）；「模型分歧」依赖尚未拟合的 GP/XGB/MLP；本仓库刚为「看起来生效的门」做过两次措辞更正。",
+      "options": [
+        {"label": "A. 只上「区间相对宽度 + 到最近训练样本的标准化距离」两类可立即实现的软门禁", "consequence": "可在现有 conformal 半宽与训练 x 网格上立即落地，不依赖新依赖；其余三类等基线齐备。Recommended"},
+        {"label": "B. 五类全上", "consequence": "需先拟合 RBF/GP/XGBoost/CatBoost/MLP（含依赖安装风险，AGENTS §3 网络受限）；工期与不确定性最大。"},
+        {"label": "C. 暂不上软门禁，只如实报告硬拒答 + 分模式半宽", "consequence": "零判定语义改动；任务书 §5.3 未满足。"},
+        {"label": "D. 只在报告侧给风险指标，不改 predict() 行为", "consequence": "论文可谈「风险暴露」（与 v6 §7.3 定位一致），但「拒答率」作为一等结果的主张弱化。"}
+      ]
+    },
+    {
+      "id": "Q7",
+      "rank": 7,
+      "question": "验收判据与判定人是谁？§8 的四组门禁全是未量化 checkbox。",
+      "why_user_must_decide": "没有量化线与判定人就无法判定「完成」；仓库纪律要求 inconclusive ≠ 通过（R13/R15，§92.6/§116.2）且不得把负结果写成通过。",
+      "options": [
+        {"label": "A. 采用仓库既有阈值体系并把任务书门禁映射过去", "consequence": "复用 WORKING_PLAN §6.1.1（S0–S5 数值阈值）+ §6.4 状态机 + PREREG §6 判定带（in-layer 中位 ≤0.004、p90 ≤0.012、frac(err>0.03) ≤2%；n2_extrap 中位 ≤0.020、p90 ≤0.060、frac(err>0.10) ≤5%）+ solver.py::THRESHOLDS；不新造并行阈值。Recommended"},
+        {"label": "B. 由你逐组给定新数值通过线", "consequence": "需同时声明「与既有阈值冲突时以哪个为准」。"},
+        {"label": "C. 门禁只作 checklist 报告、不作放行判据", "consequence": "与「放行权在人」一致；但「完成」不可判定。"},
+        {"label": "D. 交外部（Codex）裁定阈值", "consequence": "与 §63 codex 裁定先例一致（metric_protocol_v2）；但需你转交且周期更长。"}
+      ]
+    },
+    {
+      "id": "Q8",
+      "rank": 8,
+      "question": "场级 POD 与 405 组：任务书口径是否被采纳（场级线继续挂起 / 恢复 / 只补 S0+S3）？",
+      "why_user_must_decide": "这是研究目标级取舍；§78.4 记录用户曾明确指示「我现在没有场级解，我们先不进行这个工作」，任务书在未引用该指示的情况下再排一次期。",
+      "options": [
+        {"label": "A. 确认「场级线挂起、不上主线」，只在论文作 limitation", "consequence": "与既有用户指示一致；不动现有资源分配，P4.5 里程碑继续挂起。Recommended"},
+        {"label": "B. 恢复场级线以争取 P4.5", "consequence": "需先解 S0（闭式解）与 S3 三项 None；405 组仍受冻结约束。"},
+        {"label": "C. 只补 S0 闭式解 + S3 缺失三项（低成本，解锁状态机第一次跃迁）", "consequence": "这是唯一能推动 draft → physics_consistent 的路径（§92.4 原文「连第一次状态跃迁都还够不着」）；需新求解或新导出（§112 已示范零求解可补两项）。"},
+        {"label": "D. 只有在你给出新的场级数据时才重启", "consequence": "与「场级被数据阻塞」的现状一致。"}
+      ]
+    }
+  ],
+
+  "minimal_safe_path": "只做「零求解、只读、只追加」的离线增量 —— 在既有 multichannel_surrogate + 标签表之上加一张「任务书状态名 ↔ 仓库真实字段」映射表与逐态计数、补 §5.3 中可立即实现的两类软门禁的只读评估、补 §6.1 中不依赖新依赖的 persistence/PCHIP 对照，全部落到新 run 目录且不覆盖任何冻结哈希；并把改判定语义（Q2/Q6）、新建并行事实源（Q1/Q3）、新增 COMSOL 预算（Q5）、新阈值体系（Q7）、场级取舍（Q8）五类事项挂起等用户拍板。",
+
+  "not_done": [
+    "未改任务书一个字节；未改任何代码、产物、论文、WORKING_PLAN.md、技能。",
+    "未跑 pytest、未跑 COMSOL、未启动 mphserver、未联网。",
+    "未提升任何状态：solver_spec.json 仍 state=draft（sha256 21315173fd2732c7384c4a3d437bb7f7c297d5c3047b5ff01094ca3553b6bd3f）；multichannel_model.json 仍 status=draft（sha256 0d872fb14bb9093a1a486327e3e24298af81290e58756ed9a70b8b2b3ef444b1）。"
+  ],
+  "needs_manual_verification": [
+    "任务书 §4.1 的 is_valid_solver 对应的仓库列 —— 未找到明确对应。",
+    "各原始导出目录的 run_id 是否已在 run 表登记（§4.1 要求逐样本 run_id）—— 未核。",
+    "服务器 node01 侧 COMSOL/内存能力（Q5 选项 C 的前提）—— 未核。",
+    "data_versions/ 与 VERSION_V2_v20261008T143151.json 的现行清单是否覆盖 A 批与 C 批（本轮只核到 V2 冻结副本）—— 未穷尽。"
+  ],
+  "index_record": {
+    "section": 121,
+    "max_before": 120,
+    "writer": "scripts/append_record_locked.py",
+    "note": "追加前实测 `## <n>.` 最大节号 = 120，按 max+1 追加为 §121；写入器为 guards_indexlock.py 的独占锁包装（§116.6）。"
+  }
+}

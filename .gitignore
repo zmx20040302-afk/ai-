@@ -12,3 +12,16 @@ __pycache__/
 *.tmp
 *.log
 ~$*
+
+# ── 2026-10-14 新增：不宜入库的本机件 ──────────────────────────────
+# DSH 会话流水（23.8 MB，含全部对话与工具调用原文；属本机运行痕迹，非项目内容）
+session.jsonl
+# 仓库自身历史的 bundle（0.38 MB）：与 .git 重复，且会把旧历史再塞一份进来
+memsharness-history.bundle
+# COMSOL 生产模型一律只读、且不进仓库（AGENTS.md 第 4 节）
+*.mph
+*.mph.lock
+# 远端节点私钥/口令类文件（若被误拷进仓库）
+*.pem
+id_rsa*
+id_ed25519*

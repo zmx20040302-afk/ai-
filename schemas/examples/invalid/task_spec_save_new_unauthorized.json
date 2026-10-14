@@ -1,0 +1,23 @@
+{
+  "contract_version": "1.0.0",
+  "task_id": "fixture-invalid-task-spec-save-new",
+  "device_spec_ref": "device-ge-task3-oval-draft-v0",
+  "objective": {
+    "mode": "single",
+    "goals": [
+      { "name": "Ptot_W", "kind": "maximize", "weight": 1.0, "unit_si": "W" }
+    ]
+  },
+  "constraints": [],
+  "parameters": [
+    { "name": "x_scale", "type": "continuous", "range": [0.1, 1.0], "unit_si": "1" }
+  ],
+  "budget": { "max_comsol_points": 10, "max_wall_hours": 1.0, "batch_size": 5 },
+  "stop": { "max_rounds": 2, "no_improve_rounds": 1 },
+  "automation": {
+    "level": "autonomous",
+    "model_write": "save_new",
+    "allow_ai_solver": false
+  },
+  "deliverables": [{ "kind": "evidence_report" }]
+}

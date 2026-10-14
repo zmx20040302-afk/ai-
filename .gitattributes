@@ -1,0 +1,20 @@
+# 行尾：**一律不做任何 EOL 转换**。
+#
+# 理由：本仓库的证据链是**字节级**的 —— docs/INDEX-records-and-rulings.md 与各论文/产物件里
+# 记录的是磁盘上的 sha256，且仓库内**同时**存在两种 EOL 约定：
+#   * 论文系列（docs/PAPER_*）与 .md/.py 用 **LF**；
+#   * 运行产物 JSON 用 **CRLF**。
+# 若让 git 做 autocrlf / text 归一化，克隆出来的字节会与记录的哈希不符 ⇒ 证据链断裂。
+# 故：`* -text` 关闭全部转换，二进制判定也交给内容本身。
+* -text
+
+# 二进制/不参与 diff 的类型（仅影响 diff 显示，不改内容）
+*.mph binary
+*.mph.lock binary
+*.png binary
+*.jpg binary
+*.pdf binary
+*.zip binary
+*.npz binary
+*.npy binary
+*.bundle binary

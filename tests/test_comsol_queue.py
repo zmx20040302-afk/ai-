@@ -305,6 +305,31 @@ def test_list_jobs_returns_recent_first(sandbox) -> None:
     assert only_queued == []
 
 
+def test_list_jobs_tolerates_legacy_string_diagnostic(sandbox) -> None:
+    """历史 run 的 `diagnostic` 是**裸字符串** ⇒ 列表查询必须不崩，且原样透出。
+
+    实测：`work/runs/probe-20260911T150820Z-e3599a99/status.json` 里 `"diagnostic": "unknown"`。
+    旧实现 `(status.get("diagnostic") or {}).get("code")` 会对字符串调 `.get`
+    ⇒ 抛 `AttributeError: 'str' object has no attribute 'get'`，
+    使 `sim_status`（**无 run_id 的列表模式**）**全线不可用**（MCP 工具当场报这个错）。
+    修法：读取端宽容（dict 取 `code`，字符串原样给），**不改写任何历史 status.json**。
+    """
+    job_queue = make_queue(sandbox)
+    run_id = job_queue.submit(queue_mod.JobSpec(template=TEMPLATE, params={"q_in": 1000.0}))
+    status_path = job_queue.run_dir(run_id) / "status.json"
+    payload = json.loads(status_path.read_text(encoding="utf-8"))
+    payload["status"] = "failed"
+    payload["diagnostic"] = "unknown"  # 旧形态：字符串
+    status_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    rows = job_queue.list_jobs()
+    assert next(r for r in rows if r["run_id"] == run_id)["diagnostic"] == "unknown"
+    # 新形态（dict）取 `code`；两种形态在同一份列表里共存不得互相影响
+    payload["diagnostic"] = {"code": "oom", "retryable": True}
+    status_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    rows = job_queue.list_jobs()
+    assert next(r for r in rows if r["run_id"] == run_id)["diagnostic"] == "oom"
+
+
 def test_status_of_missing_run(sandbox) -> None:
     job_queue = make_queue(sandbox)
     status = job_queue.status("run-does-not-exist")

@@ -1,0 +1,54 @@
+{
+ "role_id": "A7",
+ "slug": "ai-field-solver",
+ "name": "AI 场求解器",
+ "kind": "executor",
+ "kind_label": "确定性执行体（代码 + MCP）",
+ "status": "契约版（骨架已有；S1 fail、S3 not_measurable）",
+ "one_liner": "在**已验证范围内**直接给完整场与误差界；超范围一律拒答回退 COMSOL。",
+ "inputs": [
+  "A4 的场快照（同点集、带掩膜与口径）",
+  "独立留出集（整族留出）"
+ ],
+ "outputs": [
+  "场解 + **误差界** + 验证等级 + 适用范围命中判定",
+  "S1/S3/S5 报告"
+ ],
+ "entrypoints": [
+  "src/memsharness/pod.py",
+  "src/memsharness/consistency.py",
+  "scripts/check_s3.py"
+ ],
+ "schemas": [],
+ "tests": [
+  "tests/test_pod.py",
+  "tests/test_consistency.py"
+ ],
+ "gaps": [
+  "场数据接口（`p_axis_100um` 频响、`V_outer/V_inner`）",
+  "FNO/DeepONet 未实现",
+  "S3 可测化（L1 网格收敛 / COMSOL 残差 / 功率平衡）"
+ ],
+ "concurrency": {
+  "can": [
+   "训练可独立进行"
+  ],
+  "cannot": [
+   "不得在未验证范围内出解"
+  ]
+ },
+ "forbidden": [
+  "超范围不得硬算（红线 §7）",
+  "AI 解不得冒充 COMSOL 解",
+  "不得声称「已验证等价于 COMSOL」",
+  "物理一致性不过的解一律作废（哪怕与数据吻合）"
+ ],
+ "stop_conditions": [
+  "S1 超阈值",
+  "S3 不过（数据作废）",
+  "S5 未认证（不得谈达标）"
+ ],
+ "contract": "AGENT.md",
+ "spawn_prompt": "prompts/spawn.md",
+ "generated_by": "scripts/gen_agent_collections.py"
+}

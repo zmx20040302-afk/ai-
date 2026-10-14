@@ -1,0 +1,56 @@
+{
+ "role_id": "A8",
+ "slug": "verification-freeze",
+ "name": "验证与冻结",
+ "kind": "executor",
+ "kind_label": "确定性执行体（代码 + MCP）",
+ "status": "**已实现并验证**（本会话）",
+ "one_liner": "核对字节与证据，fail-closed 给出裁定；LLM 只能做红队审计（不得上调结论）。",
+ "inputs": [
+  "`target_dir`（含清单 + sidecar + snapshot）或 `freeze_id` + `freezes_root`",
+  "并列门禁产物路径（S3/S1/资源）"
+ ],
+ "outputs": [
+  "`verification_verdict.json`（过 `schemas/verification_verdict.schema.json`）",
+  "人类可读裁决（含 7 项检查 + 未检查项 + 判定语义）",
+  "`verification_review.json`（红队）"
+ ],
+ "entrypoints": [
+  "scripts/verify_and_freeze.py",
+  "src/memsharness/freeze_gate.py"
+ ],
+ "schemas": [
+  "schemas/verification_verdict.schema.json"
+ ],
+ "tests": [
+  "tests/test_freeze_gate_offline.py"
+ ],
+ "gaps": [
+  "把 S3/S1/资源门禁统一到同一 verdict 契约",
+  "跨模型红队（`subagent_codex` 当前 disabled，**本机未实测**）"
+ ],
+ "concurrency": {
+  "can": [
+   "与只读分析并行"
+  ],
+  "cannot": [
+   "不得与其它实例同写一个冻结目录"
+  ]
+ },
+ "forbidden": [
+  "不得修改任何被冻结字节或清单（修正靠新 freeze）",
+  "不得把 `inconclusive`/`None` 报告为通过",
+  "不得把 `failed` 解释成「影响不大」",
+  "不得自行把模型状态升为 `approved_for_use`（红线 §5）",
+  "不得在冻结目录内部写任何文件（会改变精确文件集）"
+ ],
+ "stop_conditions": [
+  "`failed`（漂移/篡改/文件集不符/空证据）",
+  "`inconclusive`（缺证据）",
+  "目录结构不符",
+  "同一 freeze_id 出现两份不同清单"
+ ],
+ "contract": "AGENT.md",
+ "spawn_prompt": "prompts/spawn.md",
+ "generated_by": "scripts/gen_agent_collections.py"
+}

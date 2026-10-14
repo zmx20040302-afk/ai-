@@ -57,10 +57,14 @@ def main(argv: list[str] | None = None) -> int:
                            f"被支配 {fig['dominated_count']} 个（目标：频率↑、面积↓）")
 
         # ---- 图 2：响应曲线（真实 COMSOL 扫描 + 解析参考）----
+        # 必须按器件族过滤：``sample`` 表把多个模板的样本存在一起，悬臂梁样本没有
+        # k_cond/q_in/T_max_K 这些键，混入后第一条就会 KeyError（实测 2026-09-11）。
         sims = query(
             conn,
             "SELECT s.sample_id, s.run_id, s.inputs, s.outputs FROM sample s"
-            " WHERE s.source_type='simulation' AND s.fidelity='F2' LIMIT 200",
+            " JOIN design d ON s.design_id = d.design_id"
+            " WHERE s.source_type='simulation' AND s.fidelity='F2'"
+            " AND d.geometry_family = 'GF-heat-slab-2d' LIMIT 200",
             limit=200,
         )
         by_k: dict[float, list[tuple[float, float]]] = {}
@@ -121,9 +125,12 @@ def main(argv: list[str] | None = None) -> int:
 
     # ---- 如实声明 ----
     caveats += [
-        "全部结论仅限**平台管线**：用户的目标 .mph 尚未到位，因此不含任何器件物理结论。",
+        "全部结论仅限**平台管线**：三张图分别来自解析工厂样本、真实 COMSOL 扫描样本与两个真实解的场对比，"
+        "**不含器件级物理结论**。目标器件（`b_GE_task3_2-new.mph`）目前只完成只读 probe，"
+        "尚无基线求解与参数效验（见 `work/reports/modelio/probe-*.json`）。",
         "解析样本（F0）不得当作仿真真值使用：其不确定度来自模型形式误差，未量化。",
-        "本批数据只有 1 个几何族（GF-heat-slab-2d 等），**跨族泛化未验证**；数据集报告已如实标注 "
+        "**跨族泛化未验证**：本次训练只用了单一器件族（`sample` 表里另有其它族的样本，训练时必须用 "
+        "`--family` 指定），族间留出无法执行、切分退化为随机，指标偏乐观；数据集报告已如实标注 "
         "cross_family_holdout=false。",
         "90% 场级误差界**未认证**：保形校准需 ≥9 个校准点，当前训练样本仅 6–8 个（覆盖率实测 0.998 对应目标 85.7%）。",
         "S3 物理一致性检查已在真实解上通过（守恒残差 5.6e-12、边界 5.7e-15、对称 7.6e-3）。",
@@ -137,8 +144,9 @@ def main(argv: list[str] | None = None) -> int:
         caveats=caveats,
         prefix=args.prefix,
         extra_sections={
+            # 解释器路径动态取当前进程：写死绝对路径会让报告在换机器后不可复现
             "复现方式": "```powershell\n"
-                        "$py = \"C:\\Users\\18161\\memsharness_work\\repo\\work\\.venv\\Scripts\\python.exe\"\n"
+                        f"$py = \"{sys.executable}\"\n"
                         "& $py scripts\\generate_analytic.py --all --n 100\n"
                         "& $py scripts\\run_sweep.py --template heat_slab_2d --sweep \"k_cond=1.0,2.0\" --sweep \"q_in=500,1000,1500,2000\"\n"
                         "& $py scripts\\make_report.py\n```",

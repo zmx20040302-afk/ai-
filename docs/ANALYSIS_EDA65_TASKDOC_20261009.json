@@ -1,0 +1,638 @@
+{
+  "artifact": "ANALYSIS_EDA65_TASKDOC_20261009",
+  "kind": "external_taskdoc_readonly_reconciliation",
+  "date": "2026-10-09",
+  "reviewed": {
+    "path": "C:\\Users\\zmx\\.dsh\\attachments\\v1\\files\\56\\56110afbc951df696a303452d7e1c43903f77064bf4e6ea0e656b0d2f9d2b721\\TO_DEEPSEEK_HARNESS_EDA65基于会话总结的修订任务书_20261009.md",
+    "bytes": 20506,
+    "sha256": "56110afbc951df696a303452d7e1c43903f77064bf4e6ea0e656b0d2f9d2b721",
+    "in_repo": false
+  },
+  "basis": {
+    "path": "docs/TO_CODEX_SESSION_SUMMARY_20261009.md",
+    "bytes": 98035,
+    "sha256": "cf0915c7d503570b06c20b652c4e3e8fb208444ca6a4d5f220f6cf23537b7da4"
+  },
+  "discipline": {
+    "readonly": true,
+    "comsol_run": false,
+    "pytest_run": false,
+    "network_used": false,
+    "status_promoted": false,
+    "solver_spec_sha256": "21315173fd2732c7384c4a3d437bb7f7c297d5c3047b5ff01094ca3553b6bd3f",
+    "solver_spec_state": "draft",
+    "multichannel_model_sha256": "0d872fb14bb9093a1a486327e3e24298af81290e58756ed9a70b8b2b3ef444b1",
+    "multichannel_model_status": "draft"
+  },
+  "index_pre_append": {
+    "bytes": 1010266,
+    "sha256": "57b3712d9f2e1d3d6e8d124fdc97fb526f6dd7fdcc0c59f253738bc83b263d0b",
+    "max_section": 143
+  },
+  "claims": [
+    {
+      "id": "SEC0-1",
+      "category": "summary",
+      "claim": "任务书方向三条正确，但与仓库现状只对上 1/6 的阻塞链；沿用一处已更正的旧说法；引入 3 组新阈值/命名/字段；执行顺序与已在飞的排期冲突。",
+      "location": "任务书 §0/§1/§5/§7/§10",
+      "evidence": "见本文件 FRESH-* / DUP-* / CONF-* / RISK-* 各条",
+      "verdict": "方向部分一致；逐条执行会造成三类返工（重复已完成项、重开已裁定项、新增并行阈值与字段）"
+    },
+    {
+      "id": "MIS-1",
+      "category": "misreading",
+      "claim": "L155「将 S3 阈值从脚本硬编码改为读取 solver_spec.json，并增加自动测试」；L421「所有阈值统一从 solver_spec.json 读取，禁止脚本硬编码」",
+      "location": "任务书 L155 / L421；总结 §3.2 末段；索引 §143 实证第 2 条",
+      "evidence": "src/memsharness/consistency.py（9,082 B，3b33756b…）的 evaluate_s3 自己不读阈值；两条老路径把 spec 同值写死为常量（work/runs/s3-exports-server-20261009/s3_gate.py L27–28、work/runs/s34-mesh-20261006T131318Z/analyze_s34.py L30–31，docstring 自称取自 spec 同名键）；本会话新增第三条路径 work/runs/field-expansion-20261009/p2/s3_gate_expand.py（22,684 B，116c69e5…）L32 直接打开 solver_spec.json，产物 s3_gate_expand.json 的 gate.thresholds_provenance={source:…solver_spec.json, modified:false}",
+      "verdict": "沿用旧说法；正确读法 = spec 键 ↔ 脚本常量之间没有自动校验（老两条），且新路径有 .get(...,0.005) 的 fail-open 兜底"
+    },
+    {
+      "id": "MIS-2",
+      "category": "misreading",
+      "claim": "L33「法向、损耗和端口定义均有问题」；L150「避免 z 法向方向不可靠…重新计算」",
+      "location": "任务书 L33 / L150",
+      "evidence": "work/runs/field-expansion-20261009/p2/s3_gate_expand.json（49,065 B，853e215f…）gate.checks[conservation_charge_closed_piezo_surface].passed=true、metric=0.0008151239340945223 < 0.005、normal_source=「closed_surface_flux.D_esn (normal=es_n, self-check accepted)」；derived.selfcheck_per_normal_candidate.es_n.deg1_relmax=3.440081571974534e-15 且 accepted=true，geom_nX/spat_nx/up_geom/down_geom/up_spat/down_spat 六个候选 deg1_relmax=4.4 或 1.0 全部 accepted=false",
+      "verdict": "过时（本会话已完成）；同时与索引 §112.4 L7553「es.nx/ny/nz 未定义」矛盾 ⇒ 需人工核对上下文差异"
+    },
+    {
+      "id": "MIS-3",
+      "category": "misreading",
+      "claim": "L17/L30/L66/L189/L395「7 快照全局 POD」",
+      "location": "任务书 L17, L30, L66, L189, L395",
+      "evidence": "索引 §87 标题「7 快照阶段」；§87.1 表「第 1 轮（7 快照）」；§87.1 L4571 snapshot_index.tsv 572 行 = pod20 567 + representative_full 5；§127.2 逐折表字段 held_out_n1（7 折）；§127.3 引用 three_objects_per_fold.tsv",
+      "verdict": "术语不准：被判失败的是 7 折留一 × 10 模型，「7」是折/层数而非快照总数"
+    },
+    {
+      "id": "MIS-4",
+      "category": "misreading",
+      "claim": "L175「『567 个文件』等数字不会被误写成 567 个独立设计」",
+      "location": "任务书 L175；docs/PAPER_REVISION_LOG_20261009.md C-08（L73）；索引 §87.1 L4571–L4573",
+      "evidence": "C-08 原文：远端 README 的「648 快照」是笔误，实测 pod20 567 行 + representative_full 5 行 = 572 行 ⇒ 数据侧以 567 为准；work/runs/field-inventory-20261009/field_inventory.json 的 n_files=258 / total_bytes=557,328,765",
+      "verdict": "口径漂移：仓库口径是快照行数，不是「567 个文件」；本机场级清点是 258 件"
+    },
+    {
+      "id": "MIS-5",
+      "category": "omission",
+      "claim": "全文 0 处提及阶段 3／te2_9／chunk／58,968／【待产物】",
+      "location": "任务书全文（关键词命中 0）；索引 §128.4 第 5 条 / §128.5 B",
+      "evidence": "work/runs/te29-freq5-50-server-20261009/_phase4/p4_final_audit_01.txt（n_done=8 n_started=8 n_exitcode_files=8 n_verify_failed=0，逐块 T9_rows=7371）；_phase4/assemble_report.json（0bb57e50…）products.Table_9.txt.data_rows=58968、sha256=9c8c8320…；TE29_REEXPORT_REPORT.json（242e283a…）仍 new_export=null",
+      "verdict": "未覆盖（不是误读）：导出已完成但登记件未更新 ⇒ 记录侧仍【待产物】；且任务书 P1-2 要的多频场快照 ≠ 已完成的多频标量标签表"
+    },
+    {
+      "id": "MIS-6",
+      "category": "omission",
+      "claim": "全文 0 处提及 v1/v7/v8、R1–R4、R16、【待裁定】，且 0 处用 § 引用仓库索引",
+      "location": "任务书全文（关键词命中 0）",
+      "evidence": "索引 §128.5（v7 标记 13/7/3）、§132（Q3 闭合）、§138（R1–R4 裁决）、§139/§140（落地）、§142.2/§142.3（allowlist 状态位/E9 扩张）；docs/PMUT_DAC2027_初稿_v7_20261009.md 117,054 B／139f6e0a…",
+      "verdict": "未覆盖（不是误读）：其「会话总结给出的新证据」栏无法逐条回指仓库记录"
+    },
+    {
+      "id": "MIS-7",
+      "category": "unverifiable",
+      "claim": "L22「4.5/10」；L31「原先约 3/10」",
+      "location": "任务书 L22 / L31 / L403",
+      "evidence": "本执行者全仓检索（排除 .git/node_modules/.venv）：成熟度 0 命中；3/10 仅命中 work 下无关 batchlog 里的浮点数",
+      "verdict": "无本地依据、不可复算（无评分定义/量纲/权重）"
+    },
+    {
+      "id": "MIS-8",
+      "category": "new_threshold",
+      "claim": "L364「在线加速比 至少 100×」；L363「无源性｜全测试网格无违规」",
+      "location": "任务书 §7 表 L363–L364",
+      "evidence": "src/memsharness/solver.py（28,091 B，aaaccb12…）DEFAULT_THRESHOLDS L65–L75 无 speedup/passivity 键；全仓（排除 venv）break_even/break-even/passivity/无源性/Vector Fitting 0 命中",
+      "verdict": "新增门槛（非误读），但与「不新造并行阈值」先例（§121 Q7）冲突，须人拍板"
+    },
+    {
+      "id": "MIS-9",
+      "category": "terminology",
+      "claim": "L168 联合键含 mesh_id / field_expression",
+      "location": "任务书 L168",
+      "evidence": "全仓 mesh_id 0 命中；S3/S4 侧用的是档名（ftet_l5…l10 / h1um）与单元数；索引 §111.8 已声明变量边界（p ≠ acpr.p_t）",
+      "verdict": "键名不是仓库现成字段（可作审计口径，但须先定义来源）"
+    },
+    {
+      "id": "MIS-10",
+      "category": "omission",
+      "claim": "全文 0 处提及 S0（极限一致性 / 缺闭式解）",
+      "location": "任务书全文（S0 0 命中）；WORKING_PLAN.md §6.4 L682",
+      "evidence": "WORKING_PLAN.md §6.4 第一跳 draft →（S0/S3 通过）→ physics_consistent；总结 §1.3/§5「S 级目前唯一够不着第一跳的原因：S0 缺闭式解、S3 硬 failed」",
+      "verdict": "未覆盖：第一跳的另一半被漏掉"
+    },
+    {
+      "id": "MIS-11",
+      "category": "misreading",
+      "claim": "L33 把 S3 读成「电流守恒、法向、损耗和端口定义均有问题」四项",
+      "location": "任务书 L33 / §2 表 L33",
+      "evidence": "s3_gate_expand.json gate：n_checks=9、n_failed=1、n_inconclusive=3；唯一失败项 conservation_current_circuit_vs_field_flux=0.1111869506602767；另有 volume route 不一致 derived.surface_vs_volume_divergence.rel_diff=1.0361015506952378",
+      "verdict": "掩盖「只剩一项独立失败」的工作量事实；且 None 既不等于通过也不等于失败"
+    },
+    {
+      "id": "DUP-1",
+      "category": "duplicate",
+      "claim": "§10.1「暂停把更多结果自动标记为『可信』或『可发布』」",
+      "location": "任务书 §10 第 1 条",
+      "evidence": "solver_spec.json 仍 state=draft（21315173…）；multichannel_model.json 仍 status=draft（0d872fb1…）；solver.py next_state L392「代码不得自我放行」；索引 §1.3 四处 release_allowed=false",
+      "verdict": "已重复（无操作）"
+    },
+    {
+      "id": "DUP-2",
+      "category": "duplicate",
+      "claim": "§10.4「将 N1 从连续特征改为离散模型族索引；禁止未验证的跨 N1 插值」",
+      "location": "任务书 §10 第 4 条",
+      "evidence": "src/memsharness/field_lookup.py（6,617 B，5e7cb221…）：小数 N1 拒答、未测点拒答；用例锁「模块源码不得出现任何插值/拟合调用」；索引 §87.4 L4614–L4622",
+      "verdict": "已重复（已完成）"
+    },
+    {
+      "id": "DUP-3",
+      "category": "duplicate",
+      "claim": "§4 架构「拒答并回退 COMSOL」",
+      "location": "任务书 §4 架构图 L104–L107",
+      "evidence": "src/memsharness/solver.py L453 applicability() 返回 action='predict' / 'refuse_and_fallback_comsol'；L503–L522 solve() 依次判 状态→适用范围→误差界，返回 {refused:true, fallback:'comsol', reason:…}",
+      "verdict": "已重复（已实现）"
+    },
+    {
+      "id": "DUP-4",
+      "category": "duplicate",
+      "claim": "P0-2 端口与功率定义（Zin2==Zin1、I02 未使用、损耗缺失、P_rad/P_in>1）",
+      "location": "任务书 P0-2 L134–L145",
+      "evidence": "索引 §112.3 L7537（Zin2 是复制品、I02 未被 Zin2 使用）；§112.5 L7557–L7572（P_rad/P_in=1.0617755800927224；6 个候选损耗输出实测全未定义；没有用看起来合理的数凑）；s3_gate_expand.json 的 energy_loss_radiation_separation 仍 None（探测 65 个候选名）",
+      "verdict": "已重复（登记）；「修」是新工作且需改生产模型（见 CONF-2）"
+    },
+    {
+      "id": "DUP-5",
+      "category": "duplicate",
+      "claim": "P0-3 第 1 条「用 up()/down() 或逐边界外法向重新计算封闭面守恒」",
+      "location": "任务书 P0-3 第 1 条 L151",
+      "evidence": "同 MIS-2：该项已由 None 解为 True，metric=8.151239e-04，接受法向 es_n",
+      "verdict": "已重复（本会话已完成）"
+    },
+    {
+      "id": "DUP-6",
+      "category": "duplicate",
+      "claim": "P0-3 第 3 条「Sound Hard 残差从单一常数测试函数扩展到一组测试基或投影残差，目标 <1%」",
+      "location": "任务书 P0-3 第 3 条 L153",
+      "evidence": "索引 §112.4 L7539–L7555：φ≡1 的积分弱形式残差 = 1.996095e-04（0.0200%）⇒ PASS；逐点量 5.6939e-02 把 BC 误差放大约 285 倍；完整试验基投影残差未做；新门禁 bc_sound_hard_weak_form_residual_integrated metric=0.00019960946286892505",
+      "verdict": "部分已重复（φ≡1 已 PASS；扩基未做且属事后口径高风险，须先预注册）"
+    },
+    {
+      "id": "DUP-7",
+      "category": "duplicate",
+      "claim": "P0-4 审计真实独立样本数（按联合键去重）",
+      "location": "任务书 P0-4 L159–L175",
+      "evidence": "索引 §113.1（整组 1926 组、train 1578/holdout 677、三口径交集 0、5 种子）；§132.1（140 个集合内容哈希；两独立实现；35/35 键集合逐位一致；行多重集仅一套实现并如实登记）；§132.2（7 分层键×5 种子、n_leak_failures=0）；§92.3（跨批重叠 167 ulp 归一化 / 133 原样，虚高 34）；§98（N2=9 净可用 46、Q 达标 11、分母 32）",
+      "verdict": "部分已重复；未做的是含 model_sha/frequency/field_expression/mesh_id 的六元联合键"
+    },
+    {
+      "id": "DUP-8",
+      "category": "duplicate",
+      "claim": "P1-1 复现 amplitude/shape 分离 model B 两族",
+      "location": "任务书 P1-1 L181–L191",
+      "evidence": "索引 §89 L4792–L4800（n1_4 关键区 0.0070 / 全域 0.0109 / S2 0.0074）；§90.2 L4885–L4890（n1_7 关键区 0.0096 / 全域 0.0113 / S2 0.0127）；§90.3（route_a_family_gate.py 与既有两脚本逐数字一致）；脚本 scripts/amp_shape_x_family.py、scripts/s2s5_modelB_x_family.py",
+      "verdict": "已重复（已完成）"
+    },
+    {
+      "id": "DUP-9",
+      "category": "duplicate",
+      "claim": "P1-4 重新设计主 S5 协议（预注册、足够多独立测试点、报区间宽度）",
+      "location": "任务书 P1-4 L224–L236",
+      "evidence": "索引 §90.1 L4853–L4875：8 折补充协议协议原文写在任何覆盖数字之前（预注册），N1=4 0.9259、N1=7 0.9383 通过；JSON 标 supplemental:true、supersedes:null；总结 §6.1 A2「口径是否正式改为 8 折需人拍板」",
+      "verdict": "部分已重复；改口径属既有待裁定 A2（用户）"
+    },
+    {
+      "id": "DUP-10",
+      "category": "duplicate",
+      "claim": "§7 表前六行阈值（关键区 <2% / 全域 <5% / 工程量 <3% / 守恒 <0.5% / BC <1% / 网格 <2% / 覆盖率 85–95%）",
+      "location": "任务书 §7 表 L355–L361",
+      "evidence": "src/memsharness/solver.py L65–L75 与 work/runs/solver/pmut-f1/solver_spec.json 的 thresholds 块九键逐位相同（本轮逐键核对）",
+      "verdict": "已重复（一致，方向正确）"
+    },
+    {
+      "id": "DUP-11",
+      "category": "duplicate",
+      "claim": "§10.10「论文图表只从冻结的 manifest 和只读验证脚本生成」",
+      "location": "任务书 §10 第 10 条 L422",
+      "evidence": "work/runs/paper-evidence-20261009/MANIFEST.json（12,028 B，c47290c2…，31 条 outputs[]）；索引 §109.7（R16 原文）、§116.3（scan_verify_scripts）、§140.1–§140.2（legacy_hits 2→0、legacy_absent 0→2）",
+      "verdict": "部分已重复（方向一致）；仓库无图表生成链 ⇒「改为」不成立，属待新建"
+    },
+    {
+      "id": "DUP-12",
+      "category": "duplicate",
+      "claim": "P0-1 冻结唯一全阶模型来源（fom_identity 清单）",
+      "location": "任务书 P0-1 L118–L132；§10 第 2 条 L412",
+      "evidence": "已做部分：work/runs/u1-pt-vs-p-20261009T091453Z/U1_result.json（max|p − acpr.p_t| = 0.0 Pa，165,753 点/7 频点）；索引 §97.1、§111.8（currentdrive vs x 族不是同一实例）；work/runs/s3-exports-server-20261009/srv_source_sha256.txt（219 B，72228b5a…）；solver_spec.json 的 applicability。未做部分：全仓 fom_identity 0 命中",
+      "verdict": "部分已重复；「统一到一个 FOM」在无新增求解下不可执行（见 CONF-3 / U11）"
+    },
+    {
+      "id": "DUP-13",
+      "category": "duplicate",
+      "claim": "P2-4 强基线与消融",
+      "location": "任务书 P2-4 L311–L319",
+      "evidence": "work/runs/peakguard-offline-20261009T164659/ 的 baseline_compare.csv/.md、name_mapping.md、soft_gate_eval.json/.md、state_counts.csv/.md、MANIFEST.json；索引 §122.5（persistence/PCHIP 对照，不依赖新依赖）",
+      "verdict": "部分已重复"
+    },
+    {
+      "id": "DUP-14",
+      "category": "duplicate",
+      "claim": "P1-6 性能与盈亏平衡评测",
+      "location": "任务书 P1-6 L253–L274",
+      "evidence": "全仓（排除 venv）break_even / break-even 0 命中；索引 §111.7（DOF 与耗时的取数通道刚从 batchlog 修好）",
+      "verdict": "未做（新增，非冲突）"
+    },
+    {
+      "id": "DUP-15",
+      "category": "duplicate",
+      "claim": "P1-3 端口级有理 ROM（投影/PRIMA/Krylov/Vector Fitting ＋ 极点稳定/无源性）",
+      "location": "任务书 P1-3 L213–L222",
+      "evidence": "全仓（排除 venv）Vector Fitting / passivity / 无源性 0 命中；Krylov 仅命中 .venv 第三方包；solver.py 已有门控骨架（误差界/验证等级/适用范围/拒答）",
+      "verdict": "未做（新增，非冲突）；执行前需先验证 COMSOL 系统矩阵可导出 + 新依赖安装（见 UNEX-4/UNEX-5）"
+    },
+    {
+      "id": "CONF-1",
+      "category": "conflict",
+      "claim": "§10.9「禁止脚本硬编码」、所有阈值统一从 solver_spec.json 读取",
+      "location": "任务书 §10 第 9 条 L421；MIS-1",
+      "evidence": "solver.py L65–L75 DEFAULT_THRESHOLDS 本身即代码内默认值，且 spec 里另有一份同名 thresholds（双载）；solver.py sha256 aaaccb12… 被索引 §129.0 L9523 与总结 §2.1 引用",
+      "verdict": "与既有设计冲突：照字面「禁止」须改 DEFAULT_THRESHOLDS（连带 sha 锚点）"
+    },
+    {
+      "id": "CONF-2",
+      "category": "conflict",
+      "claim": "P0-2「修复 Zin2==Zin1 的定义问题；确认 I02 是否应参与端口 2 计算」",
+      "location": "任务书 P0-2 L138–L139",
+      "evidence": "AGENTS.md §4「生产模型一律只读引用；需要改动时先复制到 work\\ 下再操作」＋红线 6；模型 sha256 6005ca652baa487d72db4b8a12269a010b0721f5e704ef35d4a7dd5bc4db781f 被 work/runs/s3-exports-server-20261009/srv_source_sha256.txt 锚定",
+      "verdict": "与红线/既有约束冲突：改端口 = 改模型身份 ⇒ S3/S4 全部既有证据作废"
+    },
+    {
+      "id": "CONF-3",
+      "category": "conflict",
+      "claim": "P0-1 验收条件「所有后续 S1–S5、ROM 训练和性能评测都能追溯到同一个模型身份」",
+      "location": "任务书 P0-1 L132",
+      "evidence": "索引 §97.1、§111.8 L7444–L7446（S3/S4 = currentdrive 103,681,444 B；x 族导出 256,291,859,744 B，体量差 2,472 倍）；总结 §5.1「S4/S3 的数字不可挂到路线甲求解器名下」",
+      "verdict": "研究目标级取舍（红线 5）：无新增求解不可执行；须批服务器预算或显式声明两个模型身份"
+    },
+    {
+      "id": "CONF-4",
+      "category": "conflict",
+      "claim": "§7 表新增「在线加速比 ≥100×」「无源性：全测试网格无违规」",
+      "location": "任务书 §7 L363–L364",
+      "evidence": "solver.py L65–L75 无对应键；全仓无 speedup/passivity 测量；先例 docs/ANALYSIS_PeakGuard_TASKDOC_20261009.md §8 Q7（索引 §121）主张不新造并行阈值",
+      "verdict": "新造阈值/判据，须人拍板（否则形成第二套阈值体系）"
+    },
+    {
+      "id": "CONF-5",
+      "category": "conflict",
+      "claim": "P1-4「重新设计主 S5 协议（预先登记）」",
+      "location": "任务书 P1-4 L224–L236",
+      "evidence": "索引 §90.1 L4874（supplemental:true、supersedes:null，「口径是否正式改为 8 折需人拍板」）；总结 §6.1 A2；WORKING_PLAN.md §6.1.1 L658（S5 键 0.85–0.95 不得改）",
+      "verdict": "改预注册口径 = 既有待裁定 A2；任务书不得自行改判"
+    },
+    {
+      "id": "CONF-6",
+      "category": "conflict",
+      "claim": "P0-4「按联合键去重」若被执行成删行/选边",
+      "location": "任务书 P0-4 L159–L175",
+      "evidence": "索引 §138.1 L10550–L10553（R1 两口径并列、数字零改；R2 维持 O-A＋一行不删、不改 build()；R3 按批分列：C 单批权威/A 单批标 n 不足/A∪C 参考）；§95 用户裁定「不去重、一行不删」；§139.1–§139.3 已落地",
+      "verdict": "与三条已落地裁决冲突（任务书 0 处引用 R1–R4）"
+    },
+    {
+      "id": "CONF-7",
+      "category": "conflict",
+      "claim": "§10.6「为最终模型重新预注册 S4 和 S5，不追溯修改旧协议结论」",
+      "location": "任务书 §10 第 6 条 L418",
+      "evidence": "索引 §128.2 L9412–L9421（v6 判定层自相矛盾的教训与 v7 收敛为一条：口径 O ＋ 关键区 ⇒ passed）；§128.4 第 1 条 L9438；§129.7（S4 空间对象改述）",
+      "verdict": "方向正确（尊重 append-only），但未声明「旧 S4 判定是否降为历史」⇒ 会出现第二个 S4 判定源的风险"
+    },
+    {
+      "id": "CONF-8",
+      "category": "conflict",
+      "claim": "§10.8 新增 mesh_id / frequency_grid_id / ood_reject_reason / fallback_required / model_sha",
+      "location": "任务书 §10 第 8 条 L420",
+      "evidence": "全仓（排除 .venv）mesh_id 0 命中、frequency_grid_id 0 命中；solver.py L511–L522 已有 {refused:true, fallback:'comsol', reason:…} 与 applicability.action；前科：索引 §109.9（I_iso 未生效门）、PAPER_REVIEW_DAC2027 N69/D-03（五个自造状态名无来源）",
+      "verdict": "红线 1 变体风险：会造成「字段存在、测量不存在」"
+    },
+    {
+      "id": "CONF-9",
+      "category": "consistent",
+      "claim": "L18/L20「S3/S4 的模型实例与 x-family 场模型实例不同」「不得在不同实例间拼接证据」",
+      "location": "任务书 L18 / L20",
+      "evidence": "索引 §111.8 L7444–L7446、§97.1；总结 §10 第 3 条",
+      "verdict": "与红线 4（来源永不混同）方向一致（✔）；但其 P0-1 的「统一 FOM」要求不可执行（CONF-3）"
+    },
+    {
+      "id": "CONF-10",
+      "category": "conflict",
+      "claim": "任务书通篇未引用 R1–R4 裁决与落地（§138–§140）",
+      "location": "任务书全文（R1–R4 0 命中）",
+      "evidence": "索引 §138.1（逐字裁决）、§139（R1/R2/R3 落地）、§140（R4 落地：legacy_hits 2→0、legacy_absent 0→2、两条默认路径不再写被校验树）",
+      "verdict": "风险：既可能重开已闭合裁定，也可能把已落地处置当未做而重复劳动"
+    },
+    {
+      "id": "PRIO-1",
+      "category": "priority",
+      "claim": "任务书优先级与当前阻塞链的交集只有 1/6",
+      "location": "任务书 §6 执行顺序 L325–L347",
+      "evidence": "B1 S3 failed（covered，✔）；B2 S3 item① 已 True（未覆盖）；B3 体积路线 rel_diff=1.0361（未覆盖）；B4 S0 inconclusive（未覆盖）；B5 A3 已失败待重试（过时）；B6 阶段 3 已产完待登记（未覆盖）；B7 v8 未出（未覆盖）",
+      "verdict": "只有 S3 一条对上；其「先 P0 端口/S3 再 P1 多频」的顺序与已在飞事实冲突"
+    },
+    {
+      "id": "FRESH-1",
+      "category": "fresh_state",
+      "claim": "S3 仍 failed：唯一独立失败项 11.12%，另有 3 项 None，release_allowed=false，S3_complete=false",
+      "location": "work/runs/field-expansion-20261009/p2/s3_gate_expand.json",
+      "evidence": "gate.verdict='failed'；n_checks=9；n_failed=1；n_inconclusive=3；conservation_current_circuit_vs_field_flux metric=0.1111869506602767 thr=0.005；release_allowed=false；S3_complete=false；S3_complete_definition='verdict == \"passed\" (derived from evaluate_s3, not a literal)'；thresholds_provenance 指向 solver_spec.json 且 modified=false；design_point 警告「不是 §91 的 0.5/4/8 冻结点，数字不可逐位比」",
+      "verdict": "与任务书的 P0-3 覆盖一致（✔）；但旧件 S3_REPORT.json（69635c54…）仍是 n_inconclusive=4 ⇒ 两份 S3 判定载体并存，权威归属需人工/记录侧决定"
+    },
+    {
+      "id": "FRESH-2",
+      "category": "fresh_state",
+      "claim": "S3 item① 由 None 解为 True；体积路线与面积路线不一致 rel_diff=1.0361（已知局限）",
+      "location": "s3_gate_expand.json 的 gate.checks / derived.surface_vs_volume_divergence",
+      "evidence": "conservation_charge_closed_piezo_surface metric=0.0008151239340945223、n_boundaries=28、normal_source=es_n；surface_flux=[-7.90195301379289e-15, -1.3654502458101405e-15] vs volume_divD=[2.1888126303769067e-13, 1.428588024500464e-16]，rel_diff=1.0361015506952378，note 说明「agreement corroborates the normal orientation, disagreement means the normal is not the D-flux normal」",
+      "verdict": "任务书未覆盖（写成待做）；且该不一致应作为已知局限随结论同现"
+    },
+    {
+      "id": "FRESH-3",
+      "category": "fresh_state",
+      "claim": "A3（S4 λ/9＋λ/10）已于 19:26:58 起跑，并已失败（overall_rc=8、levels_done=0/2）；逐档 exit_code 文件内容为 0（误导）",
+      "location": "work/runs/field-expansion-20261009/p3/srv/run_l9l10.log、p3/a3_preflight.json、p3/wait/chained_runner.json",
+      "evidence": "run_l9l10.log：'L9L10_START pid=372923 host=node01' → 两档各 30 s → 'NO_LEVEL_DONE_SENTINEL -- refusing to mark done' → 'L9L10_END overall_rc=8 levels_done=0/2'；stdout：java.security.AccessControlException access denied (getenv.S4_LEVEL)；batchlog：'Error loading java class. java.io.EOFException - Class: s4_l9l10_srv'；exit_code_ftet_l9.txt 内容为 '0'；chained_runner.json outcome=A3_STARTED；a3_preflight.json gate_passed=false（no_our_comsol_processes=false）且 a3_start.skipped=true；per-level 驱动已重生成（s4_l9_srv.java / s4_l10_srv.java，等级编入源码）；wait_then_start_a3.py 已就位、wait_a3_gate.json 尚不存在",
+      "verdict": "任务书按「尚未跑完/排队」处理属过时；且「exit_code=0 vs overall_rc=8」是「状态字段非测量」的现成例证，须 append-only 登记"
+    },
+    {
+      "id": "FRESH-4",
+      "category": "fresh_state",
+      "claim": "te2_9 5–50 MHz 导出已完成（8/8 块、0 verify_failed、58,968 行），但登记件仍 new_export=null",
+      "location": "work/runs/te29-freq5-50-server-20261009/_phase4/、TE29_REEXPORT_REPORT.json",
+      "evidence": "p4_final_audit_01.txt：n_done=8 n_started=8 n_exitcode_files=8 n_verify_failed=0，逐块 T9_rows=7371、exitcode=0；assemble_report.json（0bb57e50…）products.Table_9.txt{data_rows:58968, bytes:43677591, sha256:9c8c8320ec0ce499aceee1685fbb33e9317700c134e42dd12a1931d67c45a865}；verify_chunks_08.json 逐文件 transport_sha_ok/manifest_sha_ok=true；TE29_REEXPORT_REPORT.json（242e283a…）new_export=null",
+      "verdict": "记录侧仍【待产物】；是否已达 ready_for_parse 需人工核对（本分析未跑脚本）"
+    },
+    {
+      "id": "FRESH-5",
+      "category": "fresh_state",
+      "claim": "R1–R4 记录侧已裁决并落地，论文 v7 正文未同步、无 v8",
+      "location": "docs/INDEX-records-and-rulings.md §138–§140；docs/PMUT_DAC2027_初稿_v7_20261009.md",
+      "evidence": "§138.1 四条裁决逐字；§139（R1 两口径并列落表 / R2 披露实际生效行与行序依赖 / R3 8 通道按批分列）；§140（R4：legacy_hits 2→0、legacy_absent 0→2）；v7 117,054 B／139f6e0a…，标记实测 【待裁定】13、【待产物】7、【待补】3；docs/ 下 DAC2027 只命中 v2–v7 + 2 个 review 件（无 v8）",
+      "verdict": "任务书未覆盖；出 v8 时机属用户拍板"
+    },
+    {
+      "id": "FRESH-6",
+      "category": "fresh_state_hazard",
+      "claim": "A2 驱动结束行写 blocks_done=0/2，而两块产物均在且 p2 门禁已产出",
+      "location": "work/runs/field-expansion-20261009/p3/a3_preflight.json 的 A2_END 字段；p2/srv/s3x_1.done、s3x_2.done、s3_gate_expand.json",
+      "evidence": "A2_END='2026-10-09T18:40:58+08:00 S3X_END overall_rc=0 blocks_done=0/2'；同时 p2/srv/s3x_1.json（62,253 B）、s3x_2.json（21,530 B）、s3x_1.done、s3x_2.done 均在；s3_gate_expand.json 的 derived.block1_present=true、block2_present=true",
+      "verdict": "需人工核对（疑似驱动计数器 bug，与索引 §119「status 不能是硬编码字面量」同类）"
+    },
+    {
+      "id": "RISK-a",
+      "category": "risk",
+      "claim": "会改动被 sha 锚点引用的产物",
+      "location": "任务书 P0-2 / §10.8 / §10.5 / §10.10",
+      "evidence": "模型 .mph sha 6005ca65…（srv_source_sha256.txt）；solver_spec.json 21315173…（索引 §128.6 L9479、§136、§138.3、§142.6）；multichannel_model.json 0d872fb1…（同上 + 论文 §6.4 model_id）；MANIFEST.json c47290c2…（§108.1/§142.3）；前科 §109.3「一次校验重写 31 件产物并报逐位相同」",
+      "verdict": "高风险：至少四处锚点会被触发"
+    },
+    {
+      "id": "RISK-b",
+      "category": "risk",
+      "claim": "会让已有守卫失效",
+      "location": "任务书 P0-4 / §10.2 / §10.8 / §10.10",
+      "evidence": "guards_readonly.scan_verify_scripts() 默认只扫 scripts\\verify_*.py（§116.3 实测 n_scanned=8）；guards_denominator 要求 numerator/denominator/flag_basis_count/n_nondecidable（§116.4）；guards_indexlock 只管索引单写者（§116 表）；§136.2 实测 R16 对两处历史写入点只有静态登记级执行力",
+      "verdict": "三条路径：扫描面之外 / 分母字段缺失 / 多份权威表落在盲区"
+    },
+    {
+      "id": "RISK-c",
+      "category": "risk",
+      "claim": "会制造「状态字段非测量」",
+      "location": "任务书 §10.8 L420",
+      "evidence": "mesh_id/frequency_grid_id/fom_identity 全仓 0 命中；ood_reject_reason/fallback_required 的能力已存在但键名不同（solver.py L511–L522）；前科 索引 §109.9、PAPER_REVIEW_DAC2027 N69/D-03",
+      "verdict": "高风险且最直接"
+    },
+    {
+      "id": "RISK-d",
+      "category": "risk",
+      "claim": "有绕开 R16 的明确路径",
+      "location": "任务书 §10.10 / §10.2（新建清单与重建）",
+      "evidence": "索引 §109.7 R16 原文（校验脚本默认必须只读；重生成必须显式开关、默认关闭；开关打开时不得声称完成了一次校验）；§109.3/§109 两次前科；§140 刚修 2 处读写混用（legacy_hits 2→0）",
+      "verdict": "若沿用「先重跑生成再比对」写法即重犯 R16"
+    },
+    {
+      "id": "RISK-e",
+      "category": "risk",
+      "claim": "会把「已裁定」写成「已完成」/重开已闭合项",
+      "location": "任务书 P0-4 与 §10 全域",
+      "evidence": "索引 §138–§140（R1–R4 已裁决并落地）；§132（Q3 已闭合但论文 v7 仍标【待补】）；任务书 R1–R4 命中 0",
+      "verdict": "风险成立：既可能重开裁定，也可能把记录侧完成写成论文侧完成"
+    },
+    {
+      "id": "UNEX-1",
+      "category": "unexecutable",
+      "claim": "全篇无责任人 / 无判定人",
+      "location": "任务书全文",
+      "evidence": "被审文件检索「责任人」0 命中；§10 十条执行指令均无「谁做/谁验收」",
+      "verdict": "不可执行（无人可判定完成）"
+    },
+    {
+      "id": "UNEX-2",
+      "category": "unexecutable",
+      "claim": "P2-1～P2-4 无判据、无阈值、无验收条件",
+      "location": "任务书 P2 全节 L278–L319",
+      "evidence": "只有方向句（如「对比…达到相同误差所需的全阶样本数」「只有在有严格证据时才允许跨拓扑迁移」）",
+      "verdict": "不可验收"
+    },
+    {
+      "id": "UNEX-3",
+      "category": "unexecutable",
+      "claim": "「修订」动作若按版本控制理解则不可执行",
+      "location": "任务书标题与全文",
+      "evidence": "AGENTS.md 环境事实行（本机无 git；版本 = 文件哈希链 + append-only 索引）；索引 §143 环境事实表；本会话实测一切操作不依赖 git",
+      "verdict": "需以「哈希链 + 索引入口」重述动作定义"
+    },
+    {
+      "id": "UNEX-4",
+      "category": "unexecutable",
+      "claim": "P1-3 投影 ROM（PRIMA/Krylov）需要 COMSOL 系统矩阵，路径未验证",
+      "location": "任务书 P1-3 L217",
+      "evidence": "全仓 Krylov 仅命中 .venv 第三方包；本仓无系统矩阵导出留痕",
+      "verdict": "不可执行（能力未验证）；须先做可行性探针"
+    },
+    {
+      "id": "UNEX-5",
+      "category": "unexecutable",
+      "claim": "P1-3 的 Vector Fitting 路线或 P2-3 的系统级接口需要新依赖/新能力",
+      "location": "任务书 P1-3 L218、P2-3 L300–L307",
+      "evidence": "全仓 Vector Fitting / SPICE / Verilog-A / Simulink 相关 0 命中；索引 §90.5（SAC 曾拦 sklearn 原生模块，曾当当前事实上报后不复现）⇒ 环境事实须带观测时间",
+      "verdict": "依赖与能力风险未评估，不可直接排期"
+    },
+    {
+      "id": "UNEX-6",
+      "category": "unexecutable",
+      "claim": "P1-6 的「同口径」性能测量未冻结，且本机受 commit limit 37.1 GB 约束",
+      "location": "任务书 P1-6 L253–L263",
+      "evidence": "AGENTS.md §3 内存行（物理 32,189 MB；commit limit 37,055.6 MB；页面文件系统自动管理仅 4,873 MB）；索引 §111.7（DOF/耗时取数通道刚修）；总结 §9 环境事实",
+      "verdict": "要真正留出余量须调大页面文件（系统级改动、需人拍板）"
+    },
+    {
+      "id": "UNEX-7",
+      "category": "unexecutable",
+      "claim": "§7「在线加速比 ≥100×」不可验证",
+      "location": "任务书 §7 L364",
+      "evidence": "全仓无在线预测耗时测量；被加速的 ROM 尚不存在（P1-3 未做）",
+      "verdict": "不可验证（且任务书自认不能在实验前写成已达成）"
+    },
+    {
+      "id": "UNEX-8",
+      "category": "unexecutable",
+      "claim": "P0-3 第 3 条扩试验基「目标 <1%」无预注册规则",
+      "location": "任务书 P0-3 L153",
+      "evidence": "当前 φ≡1 已 0.0200% PASS（索引 §112.4 L7550）；扩到几阶基、如何加权、判在哪个对象上均未给",
+      "verdict": "不可执行（缺预注册）；属事后口径高风险"
+    },
+    {
+      "id": "AMB-1",
+      "category": "ambiguous",
+      "claim": "EDA65 / EDA6.5 三义合一且全仓 0 命中",
+      "location": "任务书标题、L4、§10 产物名 EDA65_RELEASE_GATE.json",
+      "evidence": "全仓（排除 .git/node_modules/.venv）EDA65 0 命中、EDA6.5 0 命中",
+      "verdict": "需定义（投稿 track 全称与出处 / 内部代号 / 产物前缀 三选一或分层定义）"
+    },
+    {
+      "id": "AMB-2",
+      "category": "ambiguous",
+      "claim": "「修订」的验收标准与判定人缺失",
+      "location": "任务书标题与 §10",
+      "evidence": "无判据、无判定人（UNEX-1/UNEX-2）",
+      "verdict": "需定义"
+    },
+    {
+      "id": "AMB-3",
+      "category": "ambiguous",
+      "claim": "「会话」指哪一段未定义，且 0 处 § 引用",
+      "location": "任务书标题与 §2 表「会话总结给出的新证据」栏",
+      "evidence": "总结覆盖 §89–§142（并发多条线，§136/§137 记录三次让位抢号）",
+      "verdict": "需定义（否则无法逐条回指）"
+    },
+    {
+      "id": "AMB-4",
+      "category": "ambiguous",
+      "claim": "「7 快照全局 POD」中的 7 指代不明",
+      "location": "任务书 L17/L30/L66/L189/L395",
+      "evidence": "索引 §87 标题「7 快照阶段」；§127.2 逐折表 held_out_n1=1…7；数据 pod20 567 行",
+      "verdict": "需定义（折/层数 vs 快照数）"
+    },
+    {
+      "id": "AMB-5",
+      "category": "ambiguous",
+      "claim": "「567 个文件」与原口径（567 快照行）不一致",
+      "location": "任务书 L175",
+      "evidence": "PAPER_REVISION_LOG C-08（L73）；索引 §87.1 L4571–L4573；field_inventory.json n_files=258",
+      "verdict": "需以仓库口径重述"
+    },
+    {
+      "id": "AMB-6",
+      "category": "ambiguous",
+      "claim": "legacy_global_pod_x020 / local_x_family_rom_N1_4 / N1_7 三个模型类别名全仓 0 命中",
+      "location": "任务书 §10 第 5 条 L415–L417",
+      "evidence": "仓库对应物：pod_pipeline_x020_v2 门禁件与 x_family/n1_4、n1_7 的报告/缓存（索引 §87.1、§89、§90.2）",
+      "verdict": "需给映射表，否则无法判定「保留两个模型类别」保留哪些文件"
+    },
+    {
+      "id": "AMB-7",
+      "category": "ambiguous",
+      "claim": "端口功率的符号约定与 P_in/P_rad/结构损耗/介质损耗定义未给",
+      "location": "任务书 P0-2 L140–L143",
+      "evidence": "仓库已落表达式：P_in = 0.5·Re((−v0)·conj(I01))；P_rad = intop5（辐射面 [1,3,70,104]）通量（索引 §112.5 L7561–L7564）",
+      "verdict": "需给符号约定表并与仓库表达式显式对齐"
+    },
+    {
+      "id": "AMB-8",
+      "category": "ambiguous",
+      "claim": "「无源性」判据形态未给",
+      "location": "任务书 §7 L363、P1-3 L219",
+      "evidence": "全仓 passivity/无源性 0 命中",
+      "verdict": "需定义（S 参数/导纳矩阵/特征值/频域网格）"
+    },
+    {
+      "id": "AMB-9",
+      "category": "ambiguous",
+      "claim": "「支持域 / 未见拓扑」与既有 applicability / field_lookup 覆盖声明的关系未说明",
+      "location": "任务书 §4 架构 L83–L88、P2-2 L295–L298",
+      "evidence": "solver_spec.json applicability.param_bounds={x_scale:[0.33,0.93], N_w_te1:[4,4], N_w_te2:[8,8]}、frequency_range_MHz=[20,20]；索引 §87.4 field_lookup 覆盖（x 81 值 / N1 1–7 / N2=8）",
+      "verdict": "需定义层级关系"
+    },
+    {
+      "id": "AMB-10",
+      "category": "ambiguous",
+      "claim": "「独立测试频率 / 未见频率」与 S5 冻结 5 点、8 折的「独立」不同源",
+      "location": "任务书 P1-2 L200、P1-4 L231",
+      "evidence": "索引 §89（5 点 x 维留出）、§90.1（8 折按 x 分层）",
+      "verdict": "需统一「独立」的定义域（x 维 / 频率维 / 折）"
+    },
+    {
+      "id": "AMB-11",
+      "category": "ambiguous",
+      "claim": "五个优先产物只给文件名，未给 schema/键/判据",
+      "location": "任务书 §10 L426–L430",
+      "evidence": "FOM_IDENTITY_AND_PORT_CONTRACT.md / S3_REPAIR_REPORT.md / INDEPENDENT_SAMPLE_AUDIT.tsv / MULTIFREQUENCY_ROM_PROTOCOL.md / EDA65_RELEASE_GATE.json",
+      "verdict": "需给字段与判定条件（尤其 release_gate 判什么）"
+    },
+    {
+      "id": "HUMAN-1",
+      "category": "needs_human_check",
+      "claim": "索引 §112.4 记 es.nx/ny/nz 未定义，与本会话 es_n 被接受矛盾",
+      "location": "索引 §112.4 L7553 vs p2/s3_gate_expand.json 的 derived.selfcheck_per_normal_candidate.es_n",
+      "evidence": "§112.4 原文「es.nx/ny/nz（界面法向）未定义（只能用几何法向 nX/nY/nZ）」；本会话 es_n_x/y/z create/set_expr/selection_set=OK、sel_dim=2、deg1_relmax=3.44e-15、accepted=true",
+      "verdict": "需人工核对两次测量的上下文/选择集/算子差异"
+    },
+    {
+      "id": "HUMAN-2",
+      "category": "needs_human_check",
+      "claim": "阶段 3 是否已达 ready_for_parse 未核",
+      "location": "work/runs/te29-freq5-50-server-20261009/",
+      "evidence": "本分析未跑 scripts/profile_te29_export.py（跑脚本可能产生状态）；assemble_report.json 已给出 8 块与 58,968 行",
+      "verdict": "需人工核对"
+    },
+    {
+      "id": "HUMAN-3",
+      "category": "needs_human_check",
+      "claim": "两份 S3 判定载体并存（旧 S3_REPORT.json n_inconclusive=4 / 新 s3_gate_expand.json n_inconclusive=3），权威归属未定",
+      "location": "work/runs/s3-exports-server-20261009/S3_REPORT.json（69635c54…）与 work/runs/field-expansion-20261009/p2/s3_gate_expand.json（853e215f…）",
+      "evidence": "旧件 n_inconclusive=4（含 conservation_charge_closed_piezo_surface=None）；新件该项 True、n_inconclusive=3",
+      "verdict": "需记录侧决定是否 append-only 取代，以及论文 v8 引用哪一份"
+    },
+    {
+      "id": "HUMAN-4",
+      "category": "needs_human_check",
+      "claim": "A3 远端当前真实状态未核（是否已重试成功/仍在跑）",
+      "location": "p3/wait_then_start_a3.py、p3/srv/",
+      "evidence": "本分析未联网、未 ssh；只有本机 21:20 取回的远端日志与 21:21 的 pre-flight（gate_passed=false、a3_start.skipped=true）；wait_a3_gate.json 尚不存在",
+      "verdict": "需人工核对（且不得把 exit_code=0 当成功）"
+    },
+    {
+      "id": "HUMAN-5",
+      "category": "needs_human_check",
+      "claim": "A2 的 A2_END blocks_done=0/2 与两块产物齐备不一致",
+      "location": "p3/a3_preflight.json 的 A2_END；p2/srv/s3x_1.done、s3x_2.done、s3_gate_expand.json derived.block1_present/block2_present",
+      "evidence": "同上 FRESH-6",
+      "verdict": "需人工核对（疑似驱动计数器 bug）"
+    }
+  ],
+  "global_verdicts": {
+    "understanding_accuracy": "方向三条正确（S3 首要、N1 离散、旧全局 POD 不得翻案）；一处沿用旧说法（MIS-1）；一处过时（MIS-2 法向）；两处术语/口径漂移（MIS-3/MIS-4）；六类未覆盖（MIS-5/6/10、PRIO-1、FRESH-*）",
+    "duplicate_work": "16 项中：已重复 4（DUP-1/2/3/10）、已重复已完成 3（DUP-5/8、DUP-4 登记）、部分已重复 6（DUP-6/7/9/11/12/13）、未做新增 3（DUP-14/15、P1-2 多频场快照）",
+    "conflicts": "10 条（CONF-1～CONF-8、CONF-10 冲突；CONF-9 一致）",
+    "unexecutable_unverifiable": "8 条（UNEX-1～UNEX-8）",
+    "ambiguous": "11 条（AMB-1～AMB-11）",
+    "priority_alignment": "1/6（仅 S3 一条对上）",
+    "risks": "a 会（至少四处锚点）；b 会（三条路径）；c 会（最直接）；d 有明确路径；e 会（两处）",
+    "minimum_safe_path": "零求解、只读、只追加：补登记本会话已完成项与 A3 失败事实，产出「任务书条目 ↔ 仓库产物/裁定」映射表，把改端口/统一 FOM/A3 重试/新阈值/新 S5 口径/新字段命名六类挂起等拍板；不启动 COMSOL、不动已锚定产物、不新建并行阈值/字段/标签表",
+    "user_decisions_required": [
+      "Q1 修端口定义（改模型？）",
+      "Q2 S1–S5 是否统一到同一 FOM",
+      "Q3 A3（λ/9+λ/10）是否重试、谁盯",
+      "Q4 新阈值（加速比 ≥100×、无源性）是否入门槛",
+      "Q5 S5 主协议是否正式改口径（= 待裁定 A2）",
+      "Q6 现在出 v8 还是等阶段 3 数字落地",
+      "Q7 五个新字段照名落地还是映射既有键",
+      "Q8 EDA65/EDA6.5 定义与「修订」验收标准由谁给"
+    ]
+  }
+}

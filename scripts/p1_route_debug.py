@@ -11,8 +11,8 @@
   路线 B：Export → Data 节点（location=grid）直接写出规则网格 CSV
 
 用法（经 ASCII 交汇点，-u 保证实时输出）：
-    C:\\Users\\18161\\memsharness_work\\repo\\work\\.venv\\Scripts\\python.exe -u ^
-      C:\\Users\\18161\\memsharness_work\\repo\\scripts\\p1_route_debug.py
+    work\\.venv\\Scripts\\python.exe -u ^
+      scripts\\p1_route_debug.py
 """
 
 from __future__ import annotations

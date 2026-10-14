@@ -1,0 +1,228 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://memsharness.local/schemas/scan_analysis.schema.json",
+  "title": "A5 扫描分析 —— 分指标排名（scan_analysis）",
+  "description": "由 src/memsharness/sweep_analysis.analyze() 产出、scripts/run_sweep_analysis.py 落盘。契约要点：排名一律按 (family, metric) 分组（**禁止跨族合并**）；被质量门排除的条目逐条列在 quality.excluded（**不静默丢弃**）；**不存在**加权/总分字段（no_composite_score 必须为 true）。fail-closed：verdict=ranked 才 release_allowed=true；缺模型哈希或缺几何预检 ⇒ provisional 且 release_allowed=false。",
+  "type": "object",
+  "required": [
+    "kind", "sweep_version", "verdict", "release_allowed", "provisional",
+    "provisional_reasons", "stop_reasons", "input", "calibers", "quality",
+    "rankings", "pareto", "measured", "checks", "n_checks", "n_failed",
+    "n_inconclusive", "reason", "no_composite_score", "not_checked", "semantics",
+    "verdict_by_family", "released_families"
+  ],
+  "properties": {
+    "kind": {"const": "scan_analysis"},
+    "sweep_version": {"type": "string"},
+    "verdict": {
+      "enum": ["ranked", "provisional", "inconclusive", "failed"],
+      "description": "ranked=可用于下游决策；provisional=临时（不可与其它批合并）；inconclusive=无法判定；failed=硬违规"
+    },
+    "release_allowed": {
+      "type": "boolean",
+      "description": "硬门禁：仅 verdict=ranked 时为 true。**不表示模型状态可晋升**（红线 §5）"
+    },
+    "provisional": {"type": "boolean"},
+    "verdict_by_family": {
+      "type": "object",
+      "description": "逐族判定（`effective_points[族]` / `exclusion_rate[族]` 的聚合）：一个族可用不掩盖另一个族不可用",
+      "additionalProperties": {"enum": ["ranked", "provisional", "inconclusive", "failed"]}
+    },
+    "released_families": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "逐族判定为 ranked 的族；**顶层 release_allowed 仍取保守值**（整体 ranked 才为 true）"
+    },
+    "provisional_reasons": {"type": "array", "items": {"type": "string"}},
+    "stop_reasons": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "停止条件（有效点不足 / 质量门失败率过高 / 口径未批准…）"
+    },
+    "input": {
+      "type": "object",
+      "required": ["n_rows", "n_families", "families", "caliber_approved"],
+      "properties": {
+        "rows_path": {"type": ["string", "null"]},
+        "rows_sha256": {"type": ["string", "null"]},
+        "n_rows": {"type": "integer", "minimum": 0},
+        "n_families": {"type": "integer", "minimum": 0},
+        "families": {"type": "array", "items": {"type": "string"}},
+        "model_sha256": {"type": ["string", "null"]},
+        "precheck_provided": {"type": "boolean"},
+        "caliber_approved": {"type": "boolean"},
+        "script_sha256": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "calibers": {
+      "type": "object",
+      "minProperties": 1,
+      "description": "每个指标的口径声明（amplitude_20log10 / power_10log10 / response_20log10 / absolute / drive_dependent）",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["name", "unit", "direction", "caliber"],
+        "properties": {
+          "name": {"type": "string"},
+          "label": {"type": "string"},
+          "unit": {"type": "string"},
+          "direction": {"enum": ["max", "min"]},
+          "caliber": {
+            "enum": ["amplitude_20log10", "power_10log10", "response_20log10",
+                     "absolute", "drive_dependent"]
+          },
+          "quantity_group": {"type": "string"},
+          "exclude_flags": {"type": "array", "items": {"type": "string"}},
+          "advisory_flags": {"type": "array", "items": {"type": "string"}}
+        },
+        "additionalProperties": true
+      }
+    },
+    "quality": {
+      "type": "object",
+      "required": ["n_rows", "n_cells", "n_excluded_cells", "excluded", "flag_counts"],
+      "properties": {
+        "n_rows": {"type": "integer", "minimum": 0},
+        "n_cells": {"type": "integer", "minimum": 0},
+        "n_excluded_cells": {"type": "integer", "minimum": 0},
+        "exclusion_rate": {"type": ["number", "null"]},
+        "n_excluded_rows": {"type": "integer", "minimum": 0},
+        "flag_counts": {"type": "object", "additionalProperties": {"type": "integer"}},
+        "excluded": {
+          "type": "array",
+          "description": "被质量门排除的「行×指标」条目，逐条给理由（不得静默丢弃）",
+          "items": {
+            "type": "object",
+            "required": ["family", "metric", "params", "reasons"],
+            "properties": {
+              "family": {"type": "string"},
+              "metric": {"type": "string"},
+              "params": {"type": "object"},
+              "reasons": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+              "flags": {"type": "array", "items": {"type": "string"}},
+              "source_run_id": {"type": ["string", "null"]}
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "rankings": {
+      "type": "array",
+      "minItems": 1,
+      "description": "逐 (family, metric) 排名；families 数组长度必须为 1（禁止跨族合并）",
+      "items": {
+        "type": "object",
+        "required": ["family", "families", "metric", "unit", "caliber", "direction",
+                     "n_available", "n_excluded", "n_ranked", "top"],
+        "properties": {
+          "family": {"type": "string"},
+          "families": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"type": "string"}},
+          "metric": {"type": "string"},
+          "label": {"type": "string"},
+          "unit": {"type": "string"},
+          "caliber": {"type": "string"},
+          "direction": {"enum": ["max", "min"]},
+          "n_available": {"type": "integer", "minimum": 0},
+          "n_excluded": {"type": "integer", "minimum": 0},
+          "n_ranked": {"type": "integer", "minimum": 0},
+          "provisional": {"type": "boolean"},
+          "top": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["rank", "params", "value"],
+              "properties": {
+                "rank": {"type": "integer", "minimum": 1},
+                "params": {"type": "object"},
+                "value": {"type": "number"},
+                "advisory_flags": {"type": "array", "items": {"type": "string"}},
+                "source_run_id": {"type": ["string", "null"]}
+              },
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "pareto": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["family", "metrics", "directions", "n_considered", "n_front", "members"],
+        "properties": {
+          "family": {"type": "string"},
+          "metrics": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+          "directions": {"type": "object", "additionalProperties": {"enum": ["max", "min"]}},
+          "n_considered": {"type": "integer", "minimum": 0},
+          "n_dropped_incomparable": {"type": "integer", "minimum": 0},
+          "n_front": {"type": "integer", "minimum": 0},
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["params", "values"],
+              "properties": {"params": {"type": "object"},
+                             "values": {"type": "object"}},
+              "additionalProperties": true
+            }
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "measured": {
+      "type": "array",
+      "description": "全部输入行（含 excluded_for），供 A9 引用与复查",
+      "items": {
+        "type": "object",
+        "required": ["family", "params", "values"],
+        "properties": {
+          "family": {"type": "string"},
+          "params": {"type": "object"},
+          "values": {"type": "object"},
+          "flags": {"type": "array", "items": {"type": "string"}},
+          "excluded_for": {"type": "array", "items": {"type": "string"}},
+          "source_run_id": {"type": ["string", "null"]}
+        },
+        "additionalProperties": true
+      }
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "description": "空数组属于违约：分析层不得在无检查项时给出结论",
+      "items": {
+        "type": "object",
+        "required": ["name", "passed", "reason", "detail"],
+        "properties": {
+          "name": {"type": "string"},
+          "passed": {"type": ["boolean", "null"], "description": "null = 无法判定（不等于通过）"},
+          "metric": {"type": ["number", "null"]},
+          "threshold": {"type": ["number", "null"]},
+          "reason": {"type": "string"},
+          "detail": {"type": "object"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "n_checks": {"type": "integer", "minimum": 1},
+    "n_failed": {"type": "integer", "minimum": 0},
+    "n_inconclusive": {"type": "integer", "minimum": 0},
+    "reason": {"type": "string"},
+    "no_composite_score": {
+      "const": true,
+      "description": "恒为 true：A5 不得合成加权总分（由 check_no_composite_score 主动扫描保证）"
+    },
+    "not_checked": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string"},
+      "description": "本次**没有**检查的项（避免把「没查」读成「查过且通过」）"
+    },
+    "semantics": {"type": "string"}
+  },
+  "additionalProperties": true
+}

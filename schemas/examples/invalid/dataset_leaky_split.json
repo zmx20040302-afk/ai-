@@ -1,0 +1,32 @@
+{
+  "contract_version": "1.0.0",
+  "dataset_id": "fixture-invalid-leaky-split",
+  "version": "0",
+  "purpose": "train",
+  "split": {
+    "strategy": "grouped_by_family",
+    "n_samples": 3,
+    "n_families": 2,
+    "families": ["GF-fixture-a", "GF-fixture-b"],
+    "train_families": ["GF-fixture-a"],
+    "holdout_families": ["GF-fixture-a", "GF-fixture-b"],
+    "train_sample_ids": ["fixture-s1", "fixture-s2"],
+    "holdout_sample_ids": ["fixture-s3"],
+    "cross_family_holdout": true,
+    "holdout_is_unseen_family": true,
+    "leak_check_passed": true,
+    "leak_overlap_families": ["GF-fixture-a"],
+    "holdout_frac": 0.5,
+    "seed": 0
+  },
+  "sample_ids": ["fixture-s1", "fixture-s2", "fixture-s3"],
+  "filters": { "fidelity": ["F2"], "source_types": ["simulation"], "holdout_frac": 0.5, "seed": 0 },
+  "report": {
+    "source_counts": { "simulation": 3 },
+    "fidelity_counts": { "F2": 3 },
+    "excluded_samples": [],
+    "warning": "夹具：train/holdout 共用 GF-fixture-a，属数据泄漏；schema 拦不住（两个数组都合法），必须由语义检查 S1 拦",
+    "created_by": "fixture",
+    "created_at": "2026-09-14T00:00:00Z"
+  }
+}

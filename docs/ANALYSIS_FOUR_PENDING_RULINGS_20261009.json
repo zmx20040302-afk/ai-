@@ -1,0 +1,304 @@
+{
+  "title": "四条待裁定项的分析（机读）",
+  "generated_at": "2026-10-09T18:57:45+08:00",
+  "nature": "analysis_only_no_ruling",
+  "readonly": true,
+  "state_promotion": "none",
+  "solver_spec": {"state": "draft", "sha256": "21315173fd2732c7384c4a3d437bb7f7c297d5c3047b5ff01094ca3553b6bd3f"},
+  "multichannel_model": {"status": "draft", "sha256": "0d872fb14bb9093a1a486327e3e24298af81290e58756ed9a70b8b2b3ef444b1"},
+  "index_before_append": {
+    "path": "docs/INDEX-records-and-rulings.md",
+    "bytes": 849086, "lines_crlf": 9711, "line_endings": "pure CRLF",
+    "sha256": "036ce019792f8c39629cf78745798ba72dc31faa08f51c5f442175884f723349",
+    "numbered_sections": 128, "max_section": 130,
+    "correction": "任务书引用的 §128–§131 不存在 §131（分析开始时最大节号 = 130）",
+    "concurrent_appends": {
+      "first_read_max_section": 130,
+      "lock_time_max_section_attempt1": 134,
+      "lock_time_max_section_attempt2": 135,
+      "append_script_refusal_attempt1": "scripts/append_record_locked.py 以「片段自称 §131，而锁内读到索引最大节号 = 134 ⇒ max+1 = §135」为由拒写（防跳号/撞号）",
+      "append_script_refusal_attempt2": "改为 §135 后再次被拒（「片段自称 §135，而锁内读到索引最大节号 = 135 ⇒ max+1 = §136」）",
+      "sections_added_by_other_lines": {
+        "131": "三处工具缺口修复（默认先备份 / --remote-sha 恒失败 / 追加器「失败 ≠ 没发生」）",
+        "132": "闭合 §128.5「待补」Q3 两半：集合级内容哈希（140 个集合）+ 分层切分首次落地（7 分层键 × 5 种子）",
+        "133": "§132 的自指节号更正（正文按锁外预估写成 §131，实际锁内定号 §132）",
+        "134": "§131 追加的留痕实测（含并发线连续让位两次）",
+        "135": "§134.1 的代码块乱码更正（PowerShell 5.1 的 > 重定向写成 UTF-16LE）"
+      },
+      "this_section_number": 136,
+      "index_after_append": {"bytes": 923971, "lines_crlf": 10504, "numbered_sections": 134, "max_section": 136, "line_endings": "pure CRLF", "sha256": "26f1c4cf86f277920f6ef96515be6f7696dcfafb99271ab77fd5b184ac197d46"},
+      "impact_on_this_analysis": [
+        "「分层切分未做」（§113.6 item5）已由 §132 闭合：7 分层键 × 5 种子，C/AC/UNION4 三范围，bandwidth_Hz/Q_factor 105/105 为负（区间 [-0.009337,-0.004575] 与 [-0.004066,-0.001402]），abs_w_m 66/70 为负、4/70 为正（符号依赖分层键与种子）⇒ 仍未翻身；本文 R3 的非分层对照因此有分层旁证。",
+        "§132.1 提供集合级规范化哈希：union_v3__all_keys（1926）= 7d8d9dd06a0afa9997f0c8364b012dc5080115df61a2da61a002c40ca992ac73；labels_AC__keys（1843）= 899ae83bb3cd416008031ea49be0870390e070ee01f0f4234e8edcd7485e0a95。",
+        "§132 未单列 A-only 的分层读数 ⇒ 本文 R3 的 A 单批（分母 38–41）问题不因 §132 消失。"
+      ]
+    }
+  },
+  "corrections_to_task_brief": [
+    {
+      "id": "C1", "about": "INDEX 节号范围",
+      "brief_says": "§128–§131",
+      "measured": "编号节 128 个、最大节号 130；§131 不存在",
+      "evidence": "docs/INDEX-records-and-rulings.md 全量正则扫描（本执行者现读）"
+    },
+    {
+      "id": "C2", "about": "新导出带宽表的「19/81 个组合有 >2 条带（最多 6 条）」",
+      "measured": "chunk_01: 19/81 个组合有 >1 条带；仅 2/81 个组合有 >2 条带；最多 3 条带（= 6 行）。204 数据行 / 81 组合 这一半正确。",
+      "two_readings": "若「条带」=带 ⇒ >2 条带应为 2/81、最多 3 条；若「条带」实指行 ⇒ 19/81 有 >2 行、最多 6 行。两种读法下「位置约定不成立」都成立。",
+      "evidence": "work/tmp/te29-p4-staging/chunk_01/Bandwidth.txt + Peak_frequency.txt（本执行者现算）",
+      "action_required": "需人工核对（单位用词或数字抄错）"
+    },
+    {
+      "id": "C3", "about": "§115.4「差异恰好 3 格」与「6 格选中的带不含峰值」的关系",
+      "measured": "两口径「选中带不同」= 6 格；其中「usable 翻转」= 3 格（x=0.5/N1=7、x=0.5/N1=8、x=0.8/N1=7）。另 3 格（x=0.6/N1=8、x=0.7/N1=8、x=1.0/N1=5）选带不同但 usable 不变。",
+      "evidence": "work/runs/remote-exported-v2-20260922/exported_results_v2/cell_te2_9_test_v2_20260922_195327416_001/Bandwidth.txt + v2_labels_frozen_20261008T143151.csv（本执行者现算；三口径计数与 §115.4 表逐项相同）"
+    },
+    {
+      "id": "C4", "about": "§113.2 的 137 组冲突归属",
+      "measured": "A|C 的 rel>5% 组数 = 0（8 通道中位相对差 1e-13~2.1e-8）；C|V2 的 rel>5% 组数 = 137（= 登记的全部 137）；A|V2 = 84。⇒ 137 组 = C 与 V2 的差异，不是 A|C 冲突。",
+      "evidence": "work/runs/first-peak-20260929/multichannel_labels.csv（A|C，8 通道）+ work/runs/labels-dupkind-refined/20261008T215100/labels_two_batch_dupkind_refined.csv（C|V2、A|V2，4 通道），本执行者现算"
+    },
+    {
+      "id": "C5", "about": "§113.2 敏感性所用的 fixture",
+      "measured": "scripts/rerun_grouped_split_channels.py:389 对 fixtures['AC']（不含 V2）套用由 C|V2/A|V2 定义的 conflict 键集；137 键全部落在 A∪C 键集合内 ⇒ exclude-conflicted 在 AC 上丢掉 137 个键的全部 A/C 行（2005→1762 = −243）。它回答的是「剔除与 V2 冲突的键后 AC 怎么变」，不是「A|C 冲突处置怎么影响 AC」。",
+      "evidence": "scripts/rerun_grouped_split_channels.py:384-395/528-554；本轮现算行数"
+    }
+  ],
+  "items": [
+    {
+      "item": "R1",
+      "title": "v2 的 SPL→带宽选带口径：冻结「文件序第一条」（可用 46）vs 峰值感知（可用 43）",
+      "facts": {
+        "v2_te2_9_bandwidth_file": "work/runs/remote-exported-v2-20260922/exported_results_v2/cell_te2_9_test_v2_20260922_195327416_001/Bandwidth.txt（5 表头 + 188 数据行 = 94 条 −3 dB 带 / 80 组合；SPL 键分布 {1:66, 2:14}；唯一键 80 == 组合数 80 ⇒ 键与组合 1:1）",
+        "frozen_labels": "work/runs/remote-exported-v2-20260922/v2_labels_frozen_20261008T143151.csv（250 行 × 16 列；cell=te2_9 80 行；sha256 cdf11ce2…4b31）",
+        "regression_selfcheck": "主口径逐位复现冻结 bandwidth_Hz 80/80",
+        "three_calibers": {
+          "main_file_order_first": {"truncated": 34, "usable": 46, "Q_decidable": 32, "Q_pass": 11},
+          "peak_aware": {"truncated": 37, "usable": 43, "Q_decidable": 32, "Q_pass": 11},
+          "strict_ambiguous_undecidable": {"truncated": 34, "usable": 32, "Q_decidable": 32, "Q_pass": 11}
+        },
+        "peak_censored": 28,
+        "ambiguous_keys": 14,
+        "main_band_excludes_own_peak": 6,
+        "usable_flip_cells": 3,
+        "flip_cells": ["x=0.5/N1=7 (peak 33.5 MHz, main upper cutoff 21.640 MHz)", "x=0.5/N1=8 (17.474 MHz)", "x=0.8/N1=7 (8.100 MHz)"],
+        "band_differs_but_usable_same_cells": ["x=0.6/N1=8 (12.584 ↔ 32.723)", "x=0.7/N1=8 (9.963 ↔ 28.577)", "x=1.0/N1=5 (6.050 ↔ 29.036)"],
+        "cells_24": {"definition": "x ∈ {0.10,0.20,0.30} × N1 1..8", "usable_main": "0/24", "flip_cells_inside": false},
+        "paper_v7_citations": {"file": "docs/PMUT_DAC2027_初稿_v7_20261009.md", "lines_with_46": [90, 239, 545], "lines_with_43": [90, 239, 545], "lines_with_peak_aware": [90, 239, 545], "lines_with_caliber_term": [12, 13, 90, 239, 545]},
+        "index_registrations": ["§115.3", "§115.4", "§115.5", "§117.2 item2", "§128.4 item7", "§128.5 A/R1"],
+        "revision_log_refs": ["docs/PAPER_REVISION_LOG_20261009.md L496-L498", "L509", "L542", "L703"],
+        "new_export_structure": {
+          "observation_time": "2026-10-09T18:57:45+08:00",
+          "source": "work/tmp/te29-p4-staging/chunk_01|02|03（本机 staging 副本；非登记产物；运行中的导出未被触碰）",
+          "mtimes": {"chunk_01": "2026-10-09T16:57:10", "chunk_02": "2026-10-09T17:31:53", "chunk_03": "2026-10-09T18:02:40"},
+          "per_chunk": {
+            "chunk_01": {"data_rows": 204, "bands": 102, "unique_spl_keys": 81, "bands_per_key": {"1": 62, "2": 17, "3": 2}, "combos": 81, "rows_if_2_per_combo": 162, "delta": 42},
+            "chunk_02": {"data_rows": 226, "bands": 113, "unique_spl_keys": 81, "bands_per_key": {"1": 52, "2": 26, "3": 3}, "combos": 81, "rows_if_2_per_combo": 162, "delta": 64},
+            "chunk_03": {"data_rows": 220, "bands": 110, "unique_spl_keys": 81, "bands_per_key": {"1": 52, "2": 29}, "combos": 81, "rows_if_2_per_combo": 162, "delta": 58}
+          },
+          "totals": {"combos": 243, "bands": 325, "data_rows": 650},
+          "bridge_key": "以 −3 dB 电平列（峰值 SPL − 3.0 dB）为键：三块均 81/81 命中；唯一键数 == 组合数（1:1）",
+          "usable_flip_on_new_export": {"chunk_01": {"main": 37, "peak_aware": 27, "flip": 10, "truncated_main": 40, "truncated_pa": 54}, "chunk_02": {"main": 37, "peak_aware": 27, "flip": 10, "truncated_main": 33, "truncated_pa": 54}, "chunk_03": {"main": 34, "peak_aware": 30, "flip": 4, "truncated_main": 35, "truncated_pa": 51}, "total": {"main": 108, "peak_aware": 84, "flip": 24, "truncated_main": 108, "truncated_pa": 159, "band_selection_differs": 51}},
+          "Q_unaffected": {"Q_decidable_main_vs_pa": {"chunk_01": "22/22", "chunk_02": "19/19", "chunk_03": "17/17"}, "Q_pass_main_vs_pa": {"chunk_01": "3/3", "chunk_02": "4/4", "chunk_03": "7/7"}}
+        }
+      },
+      "options": [
+        {
+          "id": "R1-O1", "label": "维持冻结（文件序第一条）",
+          "consequence": "v2 usable 46、截断 34、净可用增量 46、Q_decidable 32、Q_pass 11 全部不变；24 格 0/24 不变；论文 0 行改动；索引 0 改动。新导出落地后口径不变，但新导出上两口径差 ≥24/243 格（现测）。",
+          "risk": "把物理上讲不通的带宽（上截止远低于本格峰值）留在可用集：v2 上 6 格（3 格可用），新导出 3 块已 51 格选带不同、24 格被判可用；风险方向 = 虚报可用。",
+          "reversibility": "可逆"
+        },
+        {
+          "id": "R1-O2", "label": "改判峰值感知口径 43 / 37（追加 append-only 更正）",
+          "consequence": "v2 usable 46→43、截断 34→37、净可用增量 46→43；Q_decidable 32 与 Q_pass 11 不变；论文 3 行（L90/L239/L545）；索引 1 节；E7_n2_9_net_value.{json,md}、E9_reproducibility_appendix.csv、te2_9_profile.json 的 usable 字段全部需重算；scripts/regress_te29_vs_v2.py --selfcheck-only 的回归靶（组合80/删失28/截断34/可用46）必须同步改，否则长期报红。",
+          "risk": "改口径 = 改登记数字；且新导出侧「峰值 = 扫描上限」的格在峰值感知口径下无法定义（该峰只是下界），该补充规则在仓库中不存在 ⇒ 属新造判据。",
+          "reversibility": "需追加更正"
+        },
+        {
+          "id": "R1-O3", "label": "两口径并列落表（不改判，器械带 usable_alt 等列）",
+          "consequence": "usable 并列 46/43、截断并列 34/37、Q 32/11 不变；论文 0 行（数字已并列）；索引 1 节（列定义）；器械列名已在 §115.4 实现（bw_n_candidates / bw_level_ambiguous / bandwidth_alt_Hz / Q_alt / bw_upper_cutoff_at_endpoint_alt / usable_alt），但尚未写进 E7/E9 的断言。",
+          "risk": "不承担改判风险；若新列不接进 E7/E9 与 profile_te29_export.py 的断言，「歧义不静默吞掉」只是口头承诺。",
+          "reversibility": "可逆"
+        },
+        {
+          "id": "R1-O4", "label": "收紧为严格口径（歧义 ⇒ 该格不可用）",
+          "consequence": "usable 46→32（−14）、截断 34 不变、净可用增量 46→32；Q_decidable 32 与 Q_pass 11 不变；论文 3 行 + 需新写判定条款；索引 1 节。严格口径的 32 与 §115.4 表的第三行一致（该行已登记为口径之一，但未被采纳为默认）。",
+          "risk": "丢掉的 14 格中有 8 格本来可用（46→32 全部来自把 14 个歧义格一律判不可判定）；「严格口径」在仓库里没有任何既有出处，属新造判据。",
+          "reversibility": "需追加更正"
+        }
+      ],
+      "must_measure": [
+        "新导出 648 组合的两口径 usable/截断总差（现仅 243/648）——缺其余 5 块",
+        "新导出端点标志的登记实现复算（现为 scratch 复现）——缺 scripts/parse_te29_v1.py 的产物",
+        "「峰值 = 扫描上限」格在峰值感知口径下的定义——缺规则文本",
+        "v2 上 3 格「选带不同却仍可用」的带宽差 5–8 倍之成因——缺 v2 的 −3 dB 提取实现/版本原文"
+      ]
+    },
+    {
+      "item": "R2",
+      "title": "跨批同组合标签不一致 137 组的处置",
+      "facts": {
+        "build_assignment": "work/runs/multichannel-surrogate-20260929/fit_multichannel_surrogate.py:145（同形见 :210）layers.setdefault((r[\"n2\"], r[\"n1\"]), {})[round(r[\"x\"], 6)] = to_space(ch, r[ch])；行序 = csv.DictReader 顺序（同文件 :78）",
+        "measured_winner": {
+          "multichannel_labels_csv": {"rows": 2005, "layout": "A/C 交替（378 个连续段）", "dup_groups": 162, "winner": {"C": 162, "A": 0}, "row_order_signature": {"(A,C)": 162}},
+          "refined_csv": {"rows": 2255, "layout": "A/C 交替段 + V2 的 250 行整段在末尾", "dup_groups": 212, "dup_rows": 541, "winner": {"V2": 167, "C": 45, "A": 0}, "signatures": {"(A,C,V2)": 117, "(A,C)": 45, "(C,V2)": 36, "(A,V2)": 14}}
+        },
+        "conflict_attribution": {
+          "A|C": {"shared_keys": 162, "groups_rel_gt_5pct": 0, "bandwidth_median_rel": 2.11e-08, "bandwidth_max_rel": 2.84e-05, "Q_median_rel": 1.64e-08, "f_peak_bitwise_equal": "126/126", "per_channel_median_rel": {"peak_SPL_dB": 1.05e-13, "abs_w_m": 2.18e-12, "abs_p_Pa": 2.32e-12, "abs_p_per_V_Pa": 2.32e-12, "abs_vz_struct_m3s": 2.18e-12, "Q_factor": 1.64e-08, "bandwidth_Hz": 2.11e-08}},
+          "C|V2": {"shared_keys": 153, "groups_rel_gt_5pct": 137, "bandwidth_median_rel": 0.238, "bandwidth_gt5pct": 117, "Q_median_rel": 0.274, "Q_gt5pct": 87, "f_peak_bitwise_equal": "74/141"},
+          "A|V2": {"shared_keys": 131, "groups_rel_gt_5pct": 84, "bandwidth_median_rel": 0.231, "bandwidth_gt5pct": 83, "Q_median_rel": 0.260, "Q_gt5pct": 62, "f_peak_bitwise_equal": "59/91"},
+          "recomputed_total_137": 137,
+          "conclusion": "137 组完全由 V2 贡献（C|V2 = 137）；A|C 的 rel>5% 组数 = 0 ⇒ A∪C（8 通道唯一可跑口径）上冲突数为 0；冲突只影响 UNION4（4 通道）口径。"
+        },
+        "priority_effect_8ch_AC": {
+          "note": "seed 0、整组切分、import 既有内核；C 胜（现状）vs A 胜（把 A 行排到 C 行之后）",
+          "bandwidth_Hz": {"C_first": -0.0071600532, "A_first": -0.0071600532, "delta": 0.0},
+          "Q_factor": {"C_first": -0.0033546129, "A_first": -0.0033546129, "delta": 0.0},
+          "abs_w_m": {"delta": 0.0},
+          "f_peak_Hz": {"delta": 0.0, "layer_cells_changed": 0},
+          "abs_p_Pa": {"delta": 2.4e-14},
+          "abs_p_per_V_Pa": {"delta": 2.4e-14},
+          "peak_SPL_dB": {"delta": 4.8e-13},
+          "layer_cells_changed_per_channel": {"bandwidth_Hz": 89, "Q_factor": 89, "abs_w_m": 93, "abs_p_Pa": 93, "abs_p_per_V_Pa": 93, "abs_vz_struct_m3s": 93, "peak_SPL_dB": 93, "f_peak_Hz": 0},
+          "conclusion": "A/C 优先级对 8 通道结论的影响 = 浮点噪声级（A|C 标签本身仅差 1e-8 量级）"
+        },
+        "priority_effect_4ch_UNION4": {
+          "note": "seed 0、整组切分",
+          "V2_over_C (现状)": {"bandwidth_Hz": -0.0098574287, "Q_factor": -0.0044722914, "f_peak_Hz": -0.0055375435, "peak_SPL_dB": 0.073260648},
+          "C_over_V2": {"bandwidth_Hz": -0.0065359342, "Q_factor": -0.0024503864, "f_peak_Hz": -0.0054313606, "peak_SPL_dB": 0.072319609},
+          "delta": {"bandwidth_Hz": 0.0033215, "bandwidth_Hz_relative_shrink": "33.7%", "Q_factor": 0.0020219, "Q_factor_relative_shrink": "45.2%", "f_peak_Hz": 0.0001061, "peak_SPL_dB": -0.0009410},
+          "denominators_unchanged": {"bandwidth_Hz": "499/549", "Q_factor": "487/536", "f_peak_Hz": "535/581", "peak_SPL_dB": "535/581"},
+          "A_position_immaterial": {"A>C>V2": {"bandwidth_Hz": -0.0065359207, "Q_factor": -0.0024503864}, "C>V2>A": {"bandwidth_Hz": -0.0065359207, "Q_factor": -0.0024503864}, "A>V2>C": {"bandwidth_Hz": -0.0076260853, "Q_factor": -0.0035502272}},
+          "verdict_unchanged": "BW/Q 在三种优先级下都为负；channels_without_lift = ['bandwidth_Hz','Q_factor'] 不受影响"
+        },
+        "disposition_effects": {
+          "keep_last": {"AC_rows": 2005, "U4_rows": 2255, "AC_bandwidth_lift": -0.00716005, "AC_Q_lift": -0.00335461, "U4_bandwidth_lift": -0.0098574, "U4_Q_lift": -0.0044723, "denominators_AC": {"bandwidth_Hz": "471/509", "abs_w_m": "499/537"}, "denominators_U4": {"bandwidth_Hz": "499/549", "Q_factor": "487/536"}},
+          "exclude_conflicted": {"AC_rows": 1762, "AC_dropped": 243, "U4_rows": 1875, "U4_dropped": 380, "U4_dropped_by_batch": {"A_5-35MHz": 106, "C_5-50MHz": 137, "V2_5-35MHz": 137}, "AC_bandwidth_lift": -0.00701050, "AC_Q_lift": -0.00330027, "AC_abs_w_m_lift": -0.00193183, "U4_bandwidth_lift": -0.0069389, "U4_Q_lift": -0.0031843, "denominators_AC": {"bandwidth_Hz": "431/461", "abs_w_m": "450/479"}, "denominators_U4": {"bandwidth_Hz": "442/478", "Q_factor": "438/473"}},
+          "prefer_finer_grid": {"AC_rows": 1843, "AC_dropped": 162, "AC_dropped_by_batch": {"A_5-35MHz": 162}, "U4_rows": 1926, "U4_dropped": 329, "U4_dropped_by_batch": {"A_5-35MHz": 162, "V2_5-35MHz": 167}, "AC_bandwidth_lift": -0.00713151, "AC_Q_lift": -0.00328716, "AC_abs_w_m_lift": -0.00202312, "U4_bandwidth_lift": -0.0071232, "U4_Q_lift": -0.0033470, "denominators_AC": {"bandwidth_Hz": "450/479", "abs_w_m": "475/504"}, "denominators_U4": {"bandwidth_Hz": "460/495", "Q_factor": "456/490"}},
+          "protected_data_check": "prefer-finer-grid 在 A∪C 上丢的 162 行 = multichannel_coverage.json 登记为「禁止字典合并（会静默丢掉 A 的 162 行）」的那批（实测 2005→1843 = −162；UNION4 上 2255→1926 = −329 = A162+V2167，C 一行不丢）⇒ 是，丢已登记受保护数据。exclude-conflicted 丢 A 106 行 ⊂ 受保护范围。"
+        },
+        "paper_refs": {"v7_lines": [262, 375, 549, 552, 553], "index": ["§94.4", "§95.1", "§95.2", "§113.2", "§113.6 item3", "§114.2", "§128.4 item7", "§128.5 A/R2"], "revision_log": ["L543", "L704", "L742"], "coverage_json": "work/runs/*/multichannel_coverage.json（禁止字典合并）"}
+      },
+      "options": [
+        {"id": "R2-O1", "label": "维持 O-A 一行不删 + 显式披露实际生效行（新增 effective_row/shadowed_by 视图列，母表不动）", "consequence": "0 行删除；8 通道 lift 与分母完全不变（−0.00716005 / −0.00335461；471/509、499/537）；论文 +2 行（L262/L552 追加披露）；索引 1 节。", "risk": "不改 build() ⇒ 「实际生效行」只是文档；若将来重排标签表行序（如按 batch 排序），数字会静默改变且当前无任何守卫（实测胜出方完全由「V2 段在末尾」这一排版事实决定）。", "reversibility": "可逆"},
+        {"id": "R2-O2", "label": "显式优先级 C > A = V2（栅格细者优先 = 现成 prefer-finer-grid）", "consequence": "A∪C 2005→1843（−162）；UNION4 2255→1926（−329 = A162+V2167，C 一行不丢）；8 通道 BW −0.00713151（Δ+2.85e-5）、Q −0.00328716（Δ+6.7e-5）、abs_w_m −0.00202312（Δ+2.01e-4）；A∪C 分母 479/504、UNION4 495/490；UNION4 BW −0.0071232 / Q −0.0033470；判定不变。", "risk": "直接与 multichannel_coverage.json 与 §95.1 用户裁决原文（不去重、一行不删）冲突 ⇒ 必须用户追加裁决，否则等于静默丢弃已登记受保护数据。", "reversibility": "需追加更正"},
+        {"id": "R2-O3", "label": "显式优先级 V2 > C > A（把现状写进登记）", "consequence": "0 行删除；数字同 O1；论文 2 行（把「默认行为」写成「已定规则」）；索引 1 节。", "risk": "正式承认 A 的行在冲突键上永不生效 —— 与 O-A「保留」的字面不冲突、与实质冲突；须在论文明确「保留 ≠ 使用」，否则 L262/L549/L552 的「不得声称两行都被使用」会与规则并存却含义不同。", "reversibility": "可逆"},
+        {"id": "R2-O4", "label": "冲突组整体排除（137 键不进训练与留出 = 现成 exclude-conflicted）", "consequence": "A∪C 2005→1762（−243）；UNION4 2255→1875（−380 = A106+C137+V2137）；8 通道 BW −0.00701050、Q −0.00330027、abs_w_m −0.00193183；A∪C 分母 461/479、UNION4 478/473；判定不变。", "risk": "丢 380 行含 V2 的 137 行，而 V2 是 N2=9 的唯一来源（§98.5）⇒ 与阶段 3 重导叠加时 N2=9 可用数据可能再次变少。", "reversibility": "需追加更正"}
+      ],
+      "must_measure": [
+        "「取均值」处置的 lift —— _apply_policy() 无该分支，需先写实现 + 判据",
+        "多 seed（1–4）的优先级敏感性 —— 现仅 seed 0",
+        "冲突处置 delta 与组成噪声的严格分离 —— 需同范围/同 seed 的「V2 保留但被 shadow」vs「V2 删掉」对照",
+        "137 组逐组明细（键/批对/通道/rel）—— 现有只有 grouped_split_groups.csv 的汇总列",
+        "v2 的 4 个缺失列补齐后的 12 通道处置敏感性 —— 缺数据"
+      ]
+    },
+    {
+      "item": "R3",
+      "title": "A∪C 池化是否允许",
+      "facts": {
+        "v2_missing_columns": {"columns": ["abs_w_m", "abs_p_Pa", "abs_p_per_V_Pa", "abs_vz_struct_m3s"], "evidence": "work/runs/remote-exported-v2-20260922/v2_labels_frozen_20261008T143151.csv 实测 16 列（本执行者现读）；scripts/rerun_grouped_split_channels.py:66 SHARED4 / :68 V2_MISSING / :500-501 eight_channel_scope"},
+        "batches": {"A_5-35MHz": {"rows": 223, "grid": "5-35/61", "N2_values": [3, 4, 6, 7, 8, 9], "closed": 154, "Q_pass": 55}, "C_5-50MHz": {"rows": 1782, "grid": "5-50/91", "N2_values": [5, 6, 7, 8], "closed": 1523, "Q_pass": 673}, "V2_5-35MHz": {"rows": 250, "grid": "5-35/61", "usable_proxy": 146, "Q_pass": 40, "Q_decidable": 108}},
+        "OA_clause": "§95.2：一律按批分组（A/C/V2 分列）；禁止合成总分、禁止池化、禁止合并批",
+        "pooled_vs_per_batch": {
+          "note": "seed 0、整组切分、8 通道；A∪C vs C 单批 vs A 单批（同一切分规则）",
+          "bandwidth_Hz": {"AC": {"lift": -0.00716005, "n_pred": 471, "n_decidable": 509}, "C": {"lift": -0.00714231, "n_pred": 450, "n_decidable": 471}, "A": {"lift": -0.01960561, "n_pred": 11, "n_decidable": 38}},
+          "Q_factor": {"AC": {"lift": -0.00335461, "n_pred": 471, "n_decidable": 509}, "C": {"lift": -0.00335101, "n_pred": 450, "n_decidable": 471}, "A": {"lift": -0.01530236, "n_pred": 11, "n_decidable": 38}},
+          "abs_w_m": {"AC": {"lift": -0.00222458, "n_pred": 499, "n_decidable": 537}, "C": {"lift": -0.00202837, "n_pred": 475, "n_decidable": 496}, "A": {"lift": -0.01982447, "n_pred": 12, "n_decidable": 41}},
+          "abs_p_per_V_Pa": {"AC": {"lift": 0.00373186}, "C": {"lift": 0.00372813}, "A": {"lift": -0.00470459, "sign_flip": true}},
+          "abs_p_Pa": {"AC": {"lift": 0.00373186}, "C": {"lift": 0.00372813}, "A": {"lift": -0.00470459, "sign_flip": true}},
+          "abs_vz_struct_m3s": {"AC": {"lift": 0.00159686}, "C": {"lift": 0.00159948}, "A": {"lift": -0.00596205, "sign_flip": true}},
+          "f_peak_Hz": {"AC": {"lift": -0.00512314}, "C": {"lift": -0.00512523}, "A": {"lift": -0.01059941}},
+          "peak_SPL_dB": {"AC": {"lift": 0.07463710}, "C": {"lift": 0.07456251}, "A": {"lift": -0.09409176, "sign_flip": true}},
+          "max_abs_lift_delta_AC_vs_C": {"channel": "abs_w_m", "delta": 1.96e-04, "relative": "9.7%"},
+          "other_deltas": {"bandwidth_Hz": 1.79e-05, "Q_factor": 3.6e-06, "peak_SPL_dB": 7.46e-05, "f_peak_Hz": 2.09e-06, "abs_vz_struct_m3s": 2.63e-06, "abs_p_Pa": 3.73e-06, "abs_p_per_V_Pa": 3.73e-06},
+          "sign_agreement_AC_vs_C": "8/8 通道符号完全相同",
+          "A_only_sign_flips": 4,
+          "denominator_gap_AC_vs_C": {"abs_class": 41, "bandwidth_class": 38},
+          "flag_caliber_note": "A∪C holdout 的 ranking_eligible 只有 236 行，与可判定 509/537 差 2 倍以上（§113.3、§116.4）"
+        },
+        "coupling_with_R2": "137 组冲突全部是 C|V2；A|C 的 rel>5% 组数 = 0 ⇒ A∪C 池化不引入 137 组问题。但 8 通道口径结构性排除 V2 的全部 250 行 ⇒ V2 与 A∪C 的一致性无法在 8 通道上检验（不可通过允许池化解决）。",
+        "veto_clauses_if_pooling_allowed": ["§95.1 用户裁决原文（所有统计按批分组）", "§95.2 可执行条款（禁止池化/禁止合并批）", "论文 v7 头注 L8（全文统计一律按批分组…禁止池化）", "论文 v7 §5.2 L307（按批分列）", "论文 v7 §5.2 L313（池化合计标注）", "§104 八项裁决第 5 项（Q 按批分列、不报单一中位数）", "E1_per_batch_label_stats.md §2（池化值仅规模参考）", "§116.4 分母纪律守卫（guards_denominator.py）"],
+        "paper_refs": {"v7_lines": [307, 313, 317, 373, 375, 553], "index": ["§113.3", "§113.6 item4/item6", "§95.2", "§128.4 item7", "§128.5 A/R3"], "revision_log": ["L544", "L705"]}
+      },
+      "options": [
+        {"id": "R3-O1", "label": "不允许池化（维持 O-A）", "consequence": "0 改动；8 通道数字与分母全部不变（−0.00716005 / −0.00335461；471/509、499/537）；论文 0 行（现有措辞已是「只作归因」）；索引 0。channels_without_lift = ['bandwidth_Hz','Q_factor'] 的支撑证据仍为 C 单批 N2 外推折（E5，分母 478/520）与 A∪C 整组折，二者不冲突 ⇒ 判定不变。", "risk": "唯一能跑 8 通道的结果长期停留在「归因」；而正式目标 abs_w_m / abs_p_per_V_Pa / bandwidth_Hz 的判定只能由这些数支撑 ⇒ 等于「8 通道永远不够格进结论」（结论层面的代价，需用户知悉）。", "reversibility": "可逆"},
+        {"id": "R3-O2", "label": "允许池化但限定口径（仅 8 通道、显式声明池化口径、只用于通道级趋势；保留 C 单批作对照列）", "consequence": "数字零改动（已算好）；论文 3–5 行（§6.4 L375、§7.4 L553、§5.2 L307/L313）+1 段口径声明；索引 1 节 + 必须 append-only 更正 §95.2 的适用范围；牵动 8 条既有条款（见 veto_clauses_if_pooling_allowed）；判定不变（8/8 符号相同）。", "risk": "与 8 条既有条款冲突，必须用户追加裁决并同步改文；技术陷阱：A∪C 值（−0.00716005）与 C 单批（−0.00714231）只差 1.8e-5，易被误读为「池化无所谓」，但分母差 38 行且 A 批独立看是反号 ⇒ 巧合接近不能当作池化安全的证据。", "reversibility": "需追加更正"},
+        {"id": "R3-O3", "label": "改按批分列（C 单批为主口径、A 单批单列并标 n 不足；不合成池化值）", "consequence": "0 行删除；新增 A 单批列（BW −0.01960561、Q −0.01530236、abs_w_m −0.01982447），分母 C 471/496 + A 38/41；论文 4–6 行（表变 3 列）；索引 1 节 + §116.4 要求为每个口径补 denominator 与 flag_basis_count 两对数。", "risk": "A 单批 n_predicted 仅 11–12、分母 38–41，且 4/8 通道符号翻转；把 A 单批当独立口径会制造 4 个方向相反的「结论」，风险方向 = 给出反号的假结论（与 §113.6 item5「未做分层切分」相关）。", "reversibility": "可逆"},
+        {"id": "R3-O4", "label": "允许池化 + 等 v2 补齐 4 列后纳入（8→12 通道，三批重算）", "consequence": "无法算：v2 冻结副本缺 4 列（不可改，须数据侧重导）。若纳入，V2 的代理标志（peaked/closed 由端点标志推出）会被带进结论。", "risk": "v2 冻结副本不可改 ⇒ 只能另出派生表；补齐 4 列需重新导出，属数据侧动作，本仓无法自行完成。", "reversibility": "不可逆"}
+      ],
+      "must_measure": [
+        "池化差与组成差的分离 —— 需同 seed、同 holdout 行数的 A↔C 等量替换对照",
+        "A 单批 4/8 通道反号的原因（删失/截断 vs 样本量）—— A/C 两批的删失/截断标志整列为空（§96.4）⇒ 该数据不存在",
+        "池化口径的 denominator 与 flag_basis_count 两对数（§116.4 要求）—— 需现算",
+        "v2 补齐 4 列后 12 通道的可行性 —— 缺数据"
+      ]
+    },
+    {
+      "item": "R4",
+      "title": "是否修 scripts/verify_*.py 的 2 处读写混用",
+      "facts": {
+        "write_point_1": {"file": "scripts/verify_s34_s4_interp.py", "line": 74, "code": "(RUN / \"independent_s4_recheck.json\").write_text(...)", "verified_root": "RUN = REPO/\"work/runs/s34-mesh-20261006T131318Z\"（L18）", "read_same_root_at": "L33 RUN.glob(\"mesh_*/field_points.npz\")", "inside_verified_tree": true, "has_argparse": false, "script_sha256": "5a0330ab7f762e03dfe21d09e4cc0f8c956d200f38620e8047cfb90abb4468c8", "script_bytes": 4057, "sha_anchored_anywhere": false},
+        "write_point_2": {"file": "scripts/verify_te2_9_value_profile.py", "line": 169, "code": "(pd / \"verify.json\").write_text(...)", "verified_root": "pd = --profile-dir（L37，必填）", "read_same_root_at": "L42 (pd / \"te2_9_profile.json\").read_text(...)", "inside_verified_tree": true, "docstring_claims": "L8 自称「本脚本**只读**」并提到一个不存在的 --out-dir；全文件 grep out-dir|out_dir 只命中该 docstring 行；guards_readonly.py:247 的注释沿用了同一不实描述", "script_sha256": "232943e2ecc6732b245d78b59fffd557db9ec2a0b0120db71ff1e7659ddeff42", "script_bytes": 8663, "sha_anchored": ["docs/INDEX-records-and-rulings.md §98.7", "work/runs/te2_9-value-20261009T090701/INDEX_SECTION_98.md"]},
+        "output_registration": {"work/runs/te2_9-value-20261009T090701/verify.json": {"bytes": 2758, "sha256": "52a1e33b88a160cf04eb47862a8b6e61dbf8344bf7073987a46d5f8b65c549c4", "registered_in": "work/runs/paper-evidence-20261009/E9_reproducibility_appendix.csv 行「te2_9 独立复核」", "implication": "校验者自己的输出被登记为论文证据，而它每次运行都会被重写 ⇒ 一次重跑即可让已登记哈希失效（§109.3 同类事故的缩小版）"}, "work/runs/s34-mesh-20261006T131318Z/independent_s4_recheck.json": {"registered": false, "note": "本文未断言其是否存在/字节/sha —— 未读该文件"}},
+        "static_guard_live_run": {"n_scanned": 8, "ok": true, "new": 0, "legacy_hits": 2, "legacy_absent": 0, "findings": ["verify_s34_s4_interp.py:74 [write_to_read_root] RUN", "verify_te2_9_value_profile.py:169 [write_to_read_root] pd"], "allowlist_definition": "src/memsharness/guards_readonly.py L241-L249 LEGACY_KNOWN_OFFENDERS", "allowlist_granularity_risk": "键为 (脚本名, 违法种类, 路径根表达式) ⇒ 写目标改成同一棵树内另一路径（根仍是 RUN/pd）仍被豁免"},
+        "test_impact_if_fixed": {"test_real_repo_scan_has_no_new_r16_offenders": "仍 pass（被修项进 legacy_absent；legacy_keys = legacy_hits ∪ legacy_absent 仍等于 allowlist）", "witness_string_check": "见证串消失时测试自带 continue 跳过 ⇒ pass", "test_legacy_allowlist_entries_are_documented": "保留 allowlist ⇒ pass；清空 allowlist ⇒ 循环体空转 ⇒ pass", "dynamic_tests": "全部在 tmp_path（L44 正例 / L59 反例）⇒ 与真仓库两棵树无关", "conclusion": "修这 2 处不会破坏任何既有用例（逐条读代码确认）"},
+        "r16_enforcement_judgement": {"verdict": "对这两条路径是「静态登记级」，不是「阻断级」；对新增写入点仍是阻断级", "evidence": ["守卫实跑 ok=True，两处进 legacy_hits 而非 new（guards_readonly.py:573-580）", "没有任何用例或脚本对 work/runs/s34-mesh-20261006T131318Z/ 或 work/runs/te2_9-value-20261009T090701/ 跑 check_dir_readonly（动态用例全在 tmp_path 与合成靶上）", "E9 把校验者自己的输出 verify.json 登记为论文证据，而它每次运行被重写 ⇒ 一次重跑即可令已登记哈希失效"]},
+        "paper_refs": {"in_paper": false, "note": "§128.5 B / PAPER_REVISION_LOG L545 / L706：R4 不在论文正文内；论文改动 0 行", "index": ["§116.3", "§116.9 item1", "§117.3 R4", "§128.5 A/R4"]}
+      },
+      "options": [
+        {"id": "R4-O1", "label": "输出移到树外（#1 写 work/runs/verify-out/ 或加 --out；#2 新增 --out-dir 且缺省树外，并修 L8 docstring 两处）", "consequence": "改 2 个文件 / 约 6–9 行；守卫 legacy_hits 2→0、legacy_absent 0→2（ok 仍 True）；失效锚点：verify_te2_9_value_profile.py 的 232943e2…（§98.7，1 处索引 + 1 处 INDEX_SECTION_98.md）须 append-only 更正；verify_s34_s4_interp.py 无锚点；E9 的 verify.json（52a1e33b…）保持有效（不动既有文件），但在树外重跑会产出不同路径的新文件 ⇒ 要么不重跑、要么另 append 登记新路径。论文 0 行。", "risk": "1 处 sha 锚点失效需更正；若在树外重跑，E9 登记的路径/哈希与新文件不再对应，须明确「E9 那条由修复前行为产出」。", "reversibility": "需追加更正"},
+        {"id": "R4-O2", "label": "默认只读 + 显式开关（默认不写任何文件；--write/--out-dir 才落盘）", "consequence": "改动同 O1 + 约 3 行默认分支；守卫 2→0；E9 那条 verify.json 证据不再能由脚本再生 ⇒ 须在 E9 或索引注明。", "risk": "同 O1；另加「证据不可再生」的语义影响。", "reversibility": "需追加更正"},
+        {"id": "R4-O3", "label": "不修（保持现状 + allowlist 登记）", "consequence": "0 改动；守卫 ok=True、legacy_hits=2；0 处锚点失效；论文 0 行；索引 0（已登记）。", "risk": "R16 在这 2 条路径上的阻断力 = 0；且 E9 已把校验者输出登记为论文证据 ⇒ 重跑会使 52a1e33b… 失效；被削弱的是「示例可信度」（守卫自称的纪律与仓库里存在豁免并存），不是机制本身。", "reversibility": "可逆"},
+        {"id": "R4-O4", "label": "就地显式豁免（仍在树内写 + 写调用行加 R16-ALLOW-WRITE: <理由>）", "consequence": "改 2 个文件 / 约 2–4 行注释；守卫 legacy_hits 2→0、exempt 0→2（ok 仍 True）；仍失效 232943e2…（1 处）；论文 0 行。", "risk": "默认行为不变（仍写被校验树）⇒ 未真正消除「改写被校验对象」；新增的是「有理由的豁免」，不是「只读保证」。", "reversibility": "需追加更正"}
+      ],
+      "must_measure": [
+        "work/runs/s34-mesh-20261006T131318Z/independent_s4_recheck.json 是否存在/字节/sha —— 需一次只读 Test-Path + 取哈希",
+        "修后是否重跑这两个脚本、新输出路径是否纳入 E9 —— 需人定 + 一次运行",
+        "LEGACY_KNOWN_OFFENDERS 是否需要「已修」状态位 —— 需约定"
+      ]
+    }
+  ],
+  "cross_item_coupling": [
+    {"between": ["R2", "R3"], "why": "两题共享同一批 8 通道数字：R3 若改口径（O2/O3）则 R2 的处置后果表须重算；R2 若丢行（O2/O4）则 R3 的池化 vs 按批对照须重算。两题不能独立拍板后各自改文。"},
+    {"between": ["R1", "R2"], "why": "R1 若改判 usable（46→43 或 32），则 R2 的敏感性中「可用格」集合变化（虽当前 8 通道路径不用 v2 的 usable 标志，但论文叙事与 N2=9 净增量会连带变）。"},
+    {"between": ["R1", "R3"], "why": "R1 的选带口径决定「可用格」；R3 的池化分母（509/537）按 defined() 的可判定基数算，不直接用 usable 标志 ⇒ 影响限于论文叙事与 E7/E9。"}
+  ],
+  "evidence_index": {
+    "v2": ["work/runs/remote-exported-v2-20260922/v2_labels_frozen_20261008T143151.csv", "work/runs/remote-exported-v2-20260922/exported_results_v2/cell_te2_9_test_v2_20260922_195327416_001/Bandwidth.txt", "work/runs/remote-exported-v2-20260922/exported_results_v2/cell_te2_9_test_v2_20260922_195327416_001/Peak_frequency.txt"],
+    "labels": ["work/runs/labels-two-batch-v3/20261008T170618/labels_two_batch.csv", "work/runs/labels-dupkind-refined/20261008T215100/labels_two_batch_dupkind_refined.csv", "work/runs/first-peak-20260929/multichannel_labels.csv"],
+    "evidence": ["work/runs/paper-evidence-20261009/E1_per_batch_label_stats.md", "work/runs/paper-evidence-20261009/E2_Q_median_denominators.md", "work/runs/paper-evidence-20261009/E5_channel_lift_table.md", "work/runs/paper-evidence-20261009/E7_n2_9_net_value.md", "work/runs/paper-evidence-20261009/E8_batch_isolation_numbers.json", "work/runs/paper-evidence-20261009/E9_reproducibility_appendix.csv"],
+    "te29": ["work/tmp/te29-p4-staging/chunk_01", "work/tmp/te29-p4-staging/chunk_02", "work/tmp/te29-p4-staging/chunk_03", "work/tmp/te29-p4-staging/_dryrun_out", "work/runs/te29-prep-20261009/（器械与夹具，85 条断言）"],
+    "code": ["work/runs/multichannel-surrogate-20260929/fit_multichannel_surrogate.py:78,145,210", "scripts/rerun_grouped_split_channels.py:66,68,189,385,528,541,562", "scripts/verify_s34_s4_interp.py:18,33,74", "scripts/verify_te2_9_value_profile.py:8,37,42,169", "src/memsharness/guards_readonly.py:241-249,550-580", "tests/test_guards_readonly.py:237-298"],
+    "docs": ["docs/INDEX-records-and-rulings.md §92.1-§92.3 §94.4 §95.1-§95.2 §98.2-§98.5 §113.1-§113.6 §114.1-§114.3 §115.3-§115.5 §116.3 §116.9 §117.3 §126.6 §127.6 §128.4 §128.5 §129 §130", "docs/PAPER_REVISION_LOG_20261009.md L496-L498 L509 L542-L547 L703-L706 L740-L742", "docs/PMUT_DAC2027_初稿_v7_20261009.md L7,L8,L12,L13,L90,L239,L240,L262,L307,L313,L317,L373,L375,L545,L549,L552,L553,L689"],
+    "scratch_artifacts": ["work/tmp/four-rulings-20261009/r2r3_measured.json", "work/tmp/four-rulings-20261009/r2_union4.json", "work/tmp/four-rulings-20261009/measure_r1*.py", "work/tmp/four-rulings-20261009/measure_r2*.py", "work/tmp/four-rulings-20261009/debug_r2.py"]
+  },
+  "must_measure_before_ruling": [
+    {"id": "M1", "item": "R1", "what": "新导出 648 组合上两口径的 usable/截断总差", "missing": "其余 5 块（N_DONE=8、Table_9.txt、ready_for_parse=True）；现仅 243/648：108 vs 84、翻 24"},
+    {"id": "M2", "item": "R1", "what": "新导出端点标志与两口径归属的登记实现复算", "missing": "scripts/parse_te29_v1.py 的产物（本文为 scratch 复现）"},
+    {"id": "M3", "item": "R1", "what": "「峰值 = 扫描上限」格在峰值感知口径下如何定义", "missing": "规则文本（现行登记无此条）"},
+    {"id": "M4", "item": "R1", "what": "v2 上 3 格「选带不同却仍可用」的带宽差 5–8 倍之成因", "missing": "v2 的 −3 dB 提取实现/版本原文（§92.7 待办 1）"},
+    {"id": "M5", "item": "R2", "what": "「取均值」处置的 lift", "missing": "先写实现（_apply_policy 无该分支）+ 判据"},
+    {"id": "M6", "item": "R2", "what": "优先级敏感性的多 seed 结果", "missing": "运行 seed 1–4（现仅 seed 0）"},
+    {"id": "M7", "item": "R2", "what": "冲突处置 delta 与组成噪声的严格分离", "missing": "同范围/同 seed 的「V2 保留但被 shadow」vs「V2 删掉」对照"},
+    {"id": "M8", "item": "R2", "what": "137 组逐组明细", "missing": "新出明细产物（现有只有 grouped_split_groups.csv 的汇总列）"},
+    {"id": "M9", "item": "R3", "what": "池化差与组成差的分离", "missing": "同 seed、同 holdout 行数的 A↔C 等量替换对照（§132 的分层口径提供的是「换切分规则」，不是「换数据范围」的严格同集合对照）"},
+    {"id": "M9b", "item": "R3", "what": "A-only 的分层读数", "missing": "§132 只覆盖 C/AC/UNION4 三个数据范围，未单列 A-only ⇒ 需 A-only × 分层键 × 种子的运行"},
+    {"id": "M10", "item": "R3", "what": "A 单批 4/8 通道反号的原因", "missing": "A/C 两批的删失/截断标志整列为空（§96.4）⇒ 该数据不存在"},
+    {"id": "M11", "item": "R3", "what": "池化口径的 denominator 与 flag_basis_count 两对数", "missing": "需现算（§116.4 assert_rate_record 要求）"},
+    {"id": "M12", "item": "R3", "what": "v2 补齐 4 列后 12 通道的可行性", "missing": "数据（v2 冻结副本不可改，须数据侧重导）"},
+    {"id": "M13", "item": "R4", "what": "work/runs/s34-mesh-20261006T131318Z/independent_s4_recheck.json 的现状", "missing": "一次只读 Test-Path + 取字节/sha"},
+    {"id": "M14", "item": "R4", "what": "修后是否重跑、新输出路径是否入 E9", "missing": "人的处置决定 + 一次运行"},
+    {"id": "M15", "item": "R4", "what": "LEGACY_KNOWN_OFFENDERS 是否需要「已修」状态位", "missing": "约定"}
+  ],
+  "discipline": {
+    "readonly_objects_modified": [],
+    "new_files": ["docs/ANALYSIS_FOUR_PENDING_RULINGS_20261009.md", "docs/ANALYSIS_FOUR_PENDING_RULINGS_20261009.json", "work/tmp/four-rulings-20261009/*（scratch 脚本与 2 个机读留档）", "docs/INDEX-records-and-rulings.md（append-only 追加 1 节）"],
+    "comsol_run": false,
+    "pytest_full_run": false,
+    "no_ruling_made": true,
+    "running_export_untouched": true,
+    "state_promotion": "none"
+  }
+}

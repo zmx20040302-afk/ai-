@@ -1,0 +1,109 @@
+{
+  "contract_version": "1.0.0",
+  "task_id": "task-ge-task3-xscale-nwte1-scan-draft-v0",
+  "device_spec_ref": "device-ge-task3-oval-draft-v0",
+  "objective": {
+    "mode": "single",
+    "goals": [
+      {
+        "name": "Ptot_W",
+        "kind": "maximize",
+        "value": null,
+        "unit_si": "W",
+        "weight": 1.0,
+        "tolerance": null
+      }
+    ],
+    "note": "⚠️ 优化方向（maximize Ptot_W）是**结构示例占位**，用户尚未确认优化目标；见 placeholders 与 pending_human"
+  },
+  "constraints": [],
+  "parameters": [
+    {
+      "name": "x_scale",
+      "type": "continuous",
+      "unit_si": "1",
+      "range": [0.1, 1.0],
+      "values": null
+    },
+    {
+      "name": "N_w_te1",
+      "type": "discrete",
+      "unit_si": "1",
+      "range": null,
+      "values": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+    }
+  ],
+  "budget": {
+    "max_comsol_points": 70,
+    "max_wall_hours": 2.0,
+    "batch_size": 20
+  },
+  "stop": {
+    "max_rounds": 12,
+    "no_improve_rounds": 3,
+    "tolerance": { "Ptot_W": 0.05 }
+  },
+  "automation": {
+    "level": "supervised",
+    "model_write": "copy_only",
+    "allow_ai_solver": false,
+    "paused": null
+  },
+  "structure_variants": null,
+  "target_caliber": null,
+  "field_targets": null,
+  "public_point_set": null,
+  "deliverables": [
+    { "kind": "round_report_card", "desc": "每轮报告卡：选了哪些点、为什么、预算剩余、被拒点及原因" },
+    { "kind": "evidence_report", "desc": "每个数值带 run_id / evidence_id / experiment_id / feedback_id 的证据表" }
+  ],
+  "placeholders": [
+    {
+      "path": "/objective/goals/0/kind",
+      "why": "优化方向未确认；此处填 maximize Ptot_W 仅为结构示例",
+      "needs": "用户确认目标量与方向（f_r / k_eff² / Q 的口径亦未确认）"
+    },
+    {
+      "path": "/objective/goals/0/name",
+      "why": "device_spec 中 4 个观测量均为 measure_only，尚未指定哪个是优化目标",
+      "needs": "用户"
+    },
+    {
+      "path": "/budget/max_comsol_points",
+      "why": "70 是**已执行扫描的组合数**（run gui-sweep-20260912T113936Z-bd387a56 settings.n_combos=70），不是用户批准的预算",
+      "needs": "用户批准预算"
+    },
+    {
+      "path": "/budget/max_wall_hours",
+      "why": "2.0 h 为示例占位；本机实测单组合 3 频点 114.6–257.1 s（LT1，run_id=lt1-reverse-sample），可据此估算但需人工确认",
+      "needs": "用户确认时间预算"
+    },
+    {
+      "path": "/budget/batch_size",
+      "why": "20 取自 WORKING_PLAN §4.7.6 的建议值（20–24），非本任务确认值",
+      "needs": "用户确认审批节奏"
+    },
+    {
+      "path": "/stop",
+      "why": "max_rounds=12 / no_improve_rounds=3 / tolerance=0.05 均为 WORKING_PLAN §4.7.2 示例量级，未针对本任务确认",
+      "needs": "用户确认停止条件"
+    },
+    {
+      "path": "/parameters/0/range",
+      "why": "0.1..1.0 是已执行的扫描范围，不是批准的设计范围",
+      "needs": "用户确认允许范围"
+    }
+  ],
+  "pending_human": [
+    "目标口径与优化目标（同 device_spec.pending_human）",
+    "预算与停止条件的批准值",
+    "结构变体白名单（approved 列表为空 ⇒ 本轮不得改动任何结构）",
+    "target_caliber / field_targets / public_point_set 的定义"
+  ],
+  "source_note": "contract 结构取自 WORKING_PLAN §4.7.2；其中的**实测**取值有三处：x_scale 范围与 N_w_te1 档位（run gui-sweep-20260912T113936Z-bd387a56 settings.batch_node）、单组合耗时量级（docs/TO_CODEX_progress-20260914-LT1-complete.md §6，run_id=lt1-reverse-sample）、batch_size 建议值（WORKING_PLAN §4.7.6）。其余数值一律列在 placeholders，**不得**当既定计划执行。",
+  "notes": [
+    "器件无关：本合同的参数名与目标名都只能引用 device_spec 已声明的名字（校验器 T1/T2 会机械核对）。",
+    "红线：model_write=copy_only（生产 .mph 永不原地改写）；allow_ai_solver=false（尚无模型通过 S 级验证，不得用 AI 解预筛）。",
+    "structure_variants=null ⇒ 本轮**不允许**任何结构改动；要做结构变更必须先补 approved 白名单并经人批准。"
+  ]
+}

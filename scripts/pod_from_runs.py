@@ -5,9 +5,9 @@
 2. 用 MPh 取节点坐标 x,y 与场值 T，插值到**同一套固定公共点集**（几何变化也能对齐）；
 3. 组快照矩阵 → 公共掩膜 → POD 基 → 系数回归（线性）→ 留出快照上报场级相对 L2 与 S1 判定。
 
-用法（经 ASCII 交汇点）：
-    C:\\Users\\18161\\memsharness_work\\repo\\work\\.venv\\Scripts\\python.exe -u ^
-      C:\\Users\\18161\\memsharness_work\\repo\\scripts\\pod_from_runs.py
+用法（在仓库根下执行）：
+    work\\.venv\\Scripts\\python.exe -u ^
+      scripts\\pod_from_runs.py
 """
 
 from __future__ import annotations

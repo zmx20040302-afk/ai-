@@ -1,0 +1,58 @@
+{
+ "role_id": "A3",
+ "slug": "comsol-execution",
+ "name": "COMSOL 执行",
+ "kind": "executor",
+ "kind_label": "确定性执行体（代码 + MCP）",
+ "status": "已实现（单组合真机验证）",
+ "one_liner": "把「一组参数」安全地变成「一份可追溯的结果」：排队→门禁→改参→几何→网格→求解→存档。",
+ "inputs": [
+  "批准的 `task_spec` + 白名单参数点",
+  "冻结件 id",
+  "资源门禁阈值"
+ ],
+ "outputs": [
+  "`work/runs/<run_id>/`（job/命令/日志/结果/哈希）",
+  "逐行 checkpoint（append-only）",
+  "失败分类记录"
+ ],
+ "entrypoints": [
+  "src/memsharness/comsol/queue.py",
+  "src/memsharness/comsol/backend.py",
+  "src/memsharness/comsol/diagnostics.py"
+ ],
+ "schemas": [
+  "schemas/run.schema.json"
+ ],
+ "tests": [
+  "tests/test_comsol_queue.py"
+ ],
+ "gaps": [
+  "PMUT 专用 MCP 模板（把冻结执行器包成一句话可调）",
+  "多频点批量的默认分块策略"
+ ],
+ "concurrency": {
+  "can": [
+   "等待期间可做非求解工作（分析/文档）"
+  ],
+  "cannot": [
+   "不得与其它求解实例并行"
+  ]
+ },
+ "forbidden": [
+  "**禁止并行求解**（单机 license/内存受限）",
+  "不得自行放宽内存线、距离守卫或任何 fail-closed 阈值",
+  "不得覆盖既有产物（append-only；已存在则停）",
+  "不得静默丢弃失败点"
+ ],
+ "stop_conditions": [
+  "`MESH_MISMATCH`",
+  "`DISTANCE_GUARD`（丢弃比越线）",
+  "`APPEND_ONLY_VIOLATION`",
+  "资源硬门禁不过",
+  "求解中止线被触碰"
+ ],
+ "contract": "AGENT.md",
+ "spawn_prompt": "prompts/spawn.md",
+ "generated_by": "scripts/gen_agent_collections.py"
+}

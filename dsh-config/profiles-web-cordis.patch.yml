@@ -1,0 +1,46 @@
+# ⚠️ 本文件是**生成副本 / 非权威来源（non-authoritative）**，不参与 DSH 装载。
+#     权威落点（本机实际生效）：C:\Users\zmx\.dsh\profiles\web\cordis.patch.yml
+#     生成器：scripts\install_mems_preset.py（它按仓库根 **动态生成** 路径并写入 ~/.dsh；
+#             其文档字符串明确说明「不能直接拷贝 dsh-config/」——本机 dsh-persona schema 与
+#             随包发布的那一代不一致，直接拷贝会挂载失败）。
+#     复核（应输出权威文件路径且无旧机路径）：
+#       work\.venv\Scripts\python.exe scripts\verify_mems_install.py
+#     保留本文件仅为审计/历史对照；若两者冲突，**一律以权威落点为准**。
+#     旧机路径已于 2026-09-14 清理（审计要求「不得出现 D: 盘路径」）。
+#
+# Your patch layer for this dsh profile, applied after every bundle layer:
+# a top-level YAML array of loader patch entries (id-targeted config
+# overrides, disables, and insert lists; `!!js` expressions allowed).
+
+# ---- 局域网访问：把 Web GUI 绑定到所有网卡 ----
+# 覆盖 dsh-web-app 的 webserver 行（host: ctx.webStartup.host ?? '127.0.0.1'）。
+# 必须是字面量 '0.0.0.0'：webserver 的 schema 只接受 127.0.0.1 / 0.0.0.0，
+# 且 dsh-web-app 只在 bind === '0.0.0.0' 时才枚举网卡、把 LAN IP 写入 /api
+# 信任栅栏（resolveLanTrust）；填具体 IP 会导致栅栏为空、远程请求全被拒。
+# 不要用命令行的 --host 0.0.0.0：dsh-web-app/startup 会把它当作 usage error
+# 直接拒绝，且拒绝后 webStartup 不提供 host/trustedHosts，启动即失败。
+# 安全提示：这是无鉴权的远程代码执行面。仅限可信局域网；公网暴露需自行加
+# 反向代理鉴权。停用/回滚方式：删掉本条目并重启 dsh web 即可恢复环回。
+- id: webserver
+  config:
+    host: '0.0.0.0'
+    port: 3080
+
+# ---- MEMS Harness：把平台工具以 mcp__mems__* 暴露给智能体 ----
+# 新增条目必须包在 `insert:` 里（不带 id 的 insert = 插入到根条目列表；
+# 不带 insert 的条目会被当作对既有 id 的覆盖，找不到 id 就会报 patch 错误）。
+# 说明与回滚方式见 C:\Users\zmx\Desktop\memsharness\docs\dsh_mcp_registration.md
+# （该路径为**本机**权威文档位置；本地副本仅为审计对照）
+- insert:
+    - id: mcp-mems-harness
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: mems
+        transport: stdio
+        command: 'C:\Users\zmx\Desktop\memsharness\work\.venv\Scripts\python.exe'
+        args: ['-m', 'memsharness.mcp_server']
+        cwd: 'C:\Users\zmx\Desktop\memsharness'
+        toolCallTimeoutMs: 60000
+        failOnStartupError: false
+        reconnect:
+          enabled: true

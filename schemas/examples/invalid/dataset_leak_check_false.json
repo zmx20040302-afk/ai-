@@ -1,0 +1,28 @@
+{
+  "contract_version": "1.0.0",
+  "dataset_id": "fixture-invalid-leak-check-false",
+  "version": "0",
+  "purpose": "train",
+  "split": {
+    "strategy": "grouped_by_family",
+    "n_samples": 2,
+    "n_families": 2,
+    "families": ["GF-fixture-a", "GF-fixture-b"],
+    "train_families": ["GF-fixture-a"],
+    "holdout_families": ["GF-fixture-b"],
+    "cross_family_holdout": true,
+    "holdout_is_unseen_family": true,
+    "leak_check_passed": false,
+    "leak_overlap_families": [],
+    "holdout_frac": 0.5,
+    "seed": 0
+  },
+  "sample_ids": ["fixture-s1", "fixture-s2"],
+  "filters": { "fidelity": ["F2"], "source_types": ["simulation"] },
+  "report": {
+    "source_counts": { "simulation": 2 },
+    "fidelity_counts": { "F2": 2 },
+    "excluded_samples": [],
+    "warning": "夹具：leak_check_passed=false 的数据集不得存在（契约要求恒为 true）"
+  }
+}

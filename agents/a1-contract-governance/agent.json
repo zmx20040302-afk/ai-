@@ -1,0 +1,53 @@
+{
+ "role_id": "A1",
+ "slug": "contract-governance",
+ "name": "合同与治理",
+ "kind": "llm",
+ "kind_label": "LLM 角色（判断/撰写）",
+ "status": "契约版（待实现工具）",
+ "one_liner": "把用户的一句话变成**可校验、可审计、口径明确**的任务合同；口径不明确时提问而不是猜。",
+ "inputs": [
+  "用户原话（逐字，含时间）",
+  "已有 device_spec 草稿",
+  "已有数据/模型/证据清单",
+  "预算与算力约束"
+ ],
+ "outputs": [
+  "`task_spec.json`（过 `schemas/task_spec.schema.json`）",
+  "`device_spec.json`（过 schema）",
+  "`contract_review.json`：逐条口径的来源与状态"
+ ],
+ "entrypoints": [],
+ "schemas": [
+  "schemas/task_spec.schema.json",
+  "schemas/device_spec.schema.json"
+ ],
+ "tests": [],
+ "gaps": [
+  "自然语言→合同的**模板**（本会话多轮口径讨论应固化）",
+  "`pending_human` 的强制清单与阻塞语义"
+ ],
+ "concurrency": {
+  "can": [
+   "与资料整理、文献抽取并行"
+  ],
+  "cannot": [
+   "不得在合同未批准时触发任何求解"
+  ]
+ },
+ "forbidden": [
+  "不得替用户批准目标口径、预算或授权范围（红线 §5）",
+  "不得把未经证实的物理量写进 `device_spec`",
+  "不得把用户没说过的东西当默认口径",
+  "不得自行扩大扫描/训练范围"
+ ],
+ "stop_conditions": [
+  "口径冲突（例：7R ≈294 µm vs 100 µm 判据）",
+  "缺预算或停止条件",
+  "schema 校验不过",
+  "`pending_human` 项未获回答"
+ ],
+ "contract": "AGENT.md",
+ "spawn_prompt": "prompts/spawn.md",
+ "generated_by": "scripts/gen_agent_collections.py"
+}

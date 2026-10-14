@@ -1,0 +1,126 @@
+{
+  "contract_version": "1.0.0",
+  "sample_id": "smpl-run-20260911T013524Z-80f89728-analytic",
+  "source_type": "analytic",
+  "fidelity": "F0",
+  "extractor": {
+    "name": "memsharness.comsol.java_model:analytic_reference",
+    "version": "0.1.0",
+    "code_sha256": null,
+    "formula_ref": "T_max = T0 + q_in*Lx/k（java_model.py 模板说明；本行数值已用该式独立验算：300 + 500*0.01/1 = 305 K，与库中 outputs.T_max_K 一致）",
+    "note": "原始 extractor 串：memsharness.comsol.java_model:analytic_reference@0.1.0"
+  },
+  "design": {
+    "design_id": "design-run-20260911T013524Z-80f89728",
+    "geometry_family": "GF-heat-slab-2d",
+    "structure_variant": null,
+    "parameters": {
+      "q_in": 500.0,
+      "Lx": 0.01,
+      "Ly": 0.008,
+      "k_cond": 1.0,
+      "rho_mat": 1000.0,
+      "Cp_mat": 1000.0,
+      "T0": 300.0,
+      "hmax_mesh": 0.0005,
+      "bnd_t": 4.0,
+      "bnd_q": 1.0
+    },
+    "parameter_units": {
+      "q_in": "W/m^2",
+      "Lx": "m",
+      "Ly": "m",
+      "k_cond": "W/(m*K)",
+      "rho_mat": "kg/m^3",
+      "Cp_mat": "J/(kg*K)",
+      "T0": "K",
+      "hmax_mesh": "m",
+      "bnd_t": "1",
+      "bnd_q": "1"
+    }
+  },
+  "frequency_set": {
+    "kind": "steady_state",
+    "unit": null,
+    "values": [],
+    "n_points": null,
+    "grid_note": null,
+    "not_applicable_reason": "闭式稳态解，无频率维度；原始记录中不存在频率字段"
+  },
+  "metrics": {
+    "T_max_K": {
+      "value": 305.0,
+      "unit_si": "K",
+      "definition": "闭式解最高温度（一维线性稳态导热）",
+      "uncertainty": {
+        "method": "闭式参照解：不做离散误差估计；只声明模型形式适用前提",
+        "type": "closed_form_reference",
+        "components": {
+          "model_form": {
+            "value": null,
+            "reason": "闭式解本身无离散误差；其适用前提（一维线性、均匀 k、绝热侧边）已在模板中声明"
+          }
+        },
+        "interval": null
+      },
+      "raw": null
+    },
+    "T_min_K": {
+      "value": 300.0,
+      "unit_si": "K",
+      "definition": "闭式解最低温度（冷端 = T0）",
+      "uncertainty": null,
+      "uncertainty_reason": "原始记录只对 T_max_K 给出分量；T_min_K 未量化（且其值等于输入 T0，属定义值而非独立测量）",
+      "raw": null
+    }
+  },
+  "units": {
+    "system": "SI",
+    "pint_checked": true,
+    "original_values": [],
+    "note": "参数单位均为 SI（与 design.units 一致）；无换算记录"
+  },
+  "uncertainty": null,
+  "quality": {
+    "role": "cross_check_reference",
+    "paired_simulation_sample_id": "smpl-run-20260911T013524Z-80f89728-sim",
+    "relative_deviation": { "T_max_K": 0.0, "T_min_K": 0.0 },
+    "within_tolerance": true,
+    "flags": ["analytic_cross_check"],
+    "uncertainty_not_quantified_reason": "T_max_K 分量已给（见其 uncertainty）；T_min_K 未量化"
+  },
+  "negative_sample": false,
+  "run_id": null,
+  "evidence_id": null,
+  "experiment_id": null,
+  "feedback_id": null,
+  "model_id": null,
+  "related_run_id": "run-20260911T013524Z-80f89728",
+  "analytic_model": {
+    "name": "1D 稳态线性导热闭式解（heat_slab_2d 模板的解析参照）",
+    "formula_ref": "T_max = T0 + q_in*Lx/k",
+    "assumptions": [
+      "一维（Ly 方向无梯度，侧边绝热）",
+      "k_cond 为常数、不随 T 变化",
+      "q_in 为均匀面热流，bnd_q=1 表示单侧加热"
+    ],
+    "validity_range": {
+      "hmax_mesh": [0.002, 0.0005],
+      "k_cond": [1.0, 2.0],
+      "q_in": [500.0, 2000.0]
+    },
+    "evidence_id": null
+  },
+  "split": {
+    "group_key": "GF-heat-slab-2d",
+    "group_role": "calibration",
+    "dataset_id": null,
+    "leak_check": null
+  },
+  "created_at": null,
+  "source_note": "实测存量记录：work/store/mems.duckdb 表 sample 行 sample_id=smpl-run-20260911T013524Z-80f89728-analytic；design 行 design-run-20260911T013524Z-80f89728；quality 原样取自库中 quality 字段（role/paired_simulation_sample_id/relative_deviation/within_tolerance）",
+  "notes": [
+    "契约化改写点（未新增任何数值）：(1) 库中该行 sample.run_id 指向**配对的仿真 run**（cross-check 用），按契约拆到 related_run_id，并保持 run_id=null——否则 analytic 与 simulation 的来源会被混同（红线 4）；(2) quality 平铺字段归位；(3) analytic_model.validity_range 取自该批 analytic 样本实际覆盖的参数区间（k_cond 1.0/2.0、q_in 500/1000/1500/2000、hmax_mesh 2e-3/1e-3/5e-4，见 design 表 an-* 行），**不是**用户确认的设计范围。",
+    "split.group_role=calibration：本样本是解析参照/交叉核对用，未进入任何已冻结数据集；若将来进入数据集，必须与配对仿真样本同族同侧（都属 GF-heat-slab-2d）。"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "contract_version": "1.0.0",
+  "evidence_id": "fixture-invalid-evidence-no-page",
+  "kind": "literature",
+  "citation": "夹具引用（非真实文献）：Journal of Fixtures, 2026, doi:10.0000/fixture",
+  "locator": "Table 2, row 3（故意缺页码）",
+  "quote": "The measured resonance frequency of the fixture device was 20.0 MHz at 25 °C.",
+  "quote_language": "en",
+  "quote_type": "verbatim",
+  "claim": "夹具：文献级证据缺页码定位",
+  "confidence": "unknown",
+  "retrieved_at": "2026-09-14T00:00:00Z"
+}

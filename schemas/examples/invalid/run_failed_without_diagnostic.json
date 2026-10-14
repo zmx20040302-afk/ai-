@@ -1,0 +1,10 @@
+{
+  "contract_version": "1.0.0",
+  "run_id": "fixture-invalid-failed-run-no-diagnostic",
+  "backend": "local",
+  "pathway": "comsolbatch",
+  "status": "failed",
+  "exit_code": 1,
+  "run_dir": "work/runs/fixture-invalid-failed-run-no-diagnostic",
+  "provenance_gaps": ["夹具：故意不给失败分类"]
+}

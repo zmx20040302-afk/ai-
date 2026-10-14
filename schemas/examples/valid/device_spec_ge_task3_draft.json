@@ -1,0 +1,210 @@
+{
+  "contract_version": "1.0.0",
+  "spec_id": "device-ge-task3-oval-draft-v0",
+  "device_class": "pmut",
+  "device_label": "b_GE_task3_2-new（用户 2026-09-11 指定的当前目标器件；本 spec 为**草稿**）",
+  "source_model": {
+    "path": "C:\\Users\\zmx\\Desktop\\b_GE_task3_2-new.mph",
+    "sha256": null,
+    "bytes": null,
+    "role": "production_readonly",
+    "provenance": "AGENTS.md §3 只记录了哈希前 8 位 `3efa34cc…`；完整 64 位哈希未在本机任何已核实报告中出现 ⇒ 按红线 1 留空，并列入 pending_human（禁止用截断值凑满）"
+  },
+  "space_dim": 3,
+  "physics": [
+    { "tag": "acpr", "type": "PressureAcoustics", "selection_count": null },
+    { "tag": "cir", "type": "Circuit", "selection_count": null },
+    { "tag": "es", "type": "Electrostatics", "selection_count": null },
+    { "tag": "solid", "type": "SolidMechanics", "selection_count": null }
+  ],
+  "studies": ["std1"],
+  "parameters": [
+    {
+      "name": "x_scale",
+      "unit_si": "1",
+      "original_expression": null,
+      "type": "continuous",
+      "range": [0.1, 1.0],
+      "values": null,
+      "auto_adjust_ok": true,
+      "range_source": "derived_from_expression",
+      "derivation_ref": "work/store/mems.duckdb 表 run 行 gui-sweep-20260912T113936Z-bd387a56 的 settings.batch_node.plistarr = range(0.1,0.1,1)（即已实际执行的扫描范围 0.1..1.0 步长 0.1）；**这不是用户确认的设计范围**",
+      "evidence": {
+        "source": "COMSOL GUI Batch 扫描 (n_combos=70, n_rows=490)",
+        "ref": "run_id=gui-sweep-20260912T113936Z-bd387a56",
+        "solve_seconds": null,
+        "selection_intact": null
+      },
+      "note": "设计范围需用户确认（见 pending_human）；已执行范围不等于允许范围"
+    },
+    {
+      "name": "N_w_te1",
+      "unit_si": "1",
+      "original_expression": null,
+      "type": "discrete",
+      "range": null,
+      "values": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
+      "auto_adjust_ok": true,
+      "range_source": "pending",
+      "evidence": {
+        "source": "COMSOL GUI Batch 扫描档位",
+        "ref": "run_id=gui-sweep-20260912T113936Z-bd387a56 settings.batch_node.plistarr = range(1,1,8)",
+        "selection_intact": null,
+        "solve_seconds": null
+      },
+      "note": "档位为**已执行的扫描档位**（整数 1..8）；是否等同工艺档位需人工确认"
+    },
+    {
+      "name": "fmax",
+      "unit_si": "Hz",
+      "original_expression": "35[MHz]",
+      "type": "derived_or_manual",
+      "range": null,
+      "values": null,
+      "auto_adjust_ok": false,
+      "range_source": "pending",
+      "evidence": {
+        "source": "人反馈（用户确认）",
+        "ref": "feedback_id=fb-20260912T023045Z-ef2ad6aa",
+        "selection_intact": null,
+        "solve_seconds": null
+      },
+      "reason": "fmax 同时驱动 lamda→网格 hmax 与频率上限：改它 = 同时改网格与研究，故不参与自动改参",
+      "note": "口径值 35 MHz 有 feedback_id 支撑；历史值 20/30/35 中末次生效者才是运行态真值"
+    },
+    {
+      "name": "N_w_te2",
+      "unit_si": "1",
+      "original_expression": "9",
+      "type": "derived_or_manual",
+      "range": null,
+      "values": null,
+      "auto_adjust_ok": false,
+      "range_source": "pending",
+      "evidence": {
+        "source": "人反馈（用户答复「没有影响」）",
+        "ref": "feedback_id=fb-20260912T023046Z-429387e1",
+        "selection_intact": null,
+        "solve_seconds": null
+      },
+      "reason": "用户确认保持不改（旧案例为 5；.m 第 2389 行末次覆盖了第 78/157 行的 5）",
+      "note": "读 .m 参数必须取最后一次 param.set（AGENTS §4）"
+    },
+    {
+      "name": "v0",
+      "unit_si": "V",
+      "original_expression": null,
+      "type": "derived_or_manual",
+      "range": null,
+      "values": null,
+      "auto_adjust_ok": false,
+      "range_source": "pending",
+      "evidence": {
+        "source": "人反馈（用户确认）",
+        "ref": "feedback_id=fb-20260912T023045Z-5b94a578",
+        "selection_intact": null,
+        "solve_seconds": null
+      },
+      "reason": "激励经 v0 接入：pot1.V0=v0、pot2.V0=-v0；V_te1/V_te2/V_be1 保留且不影响结果",
+      "note": "数值未在本 spec 中填写（该 feedback 未给出具体电压值）⇒ 留空，不得推测"
+    }
+  ],
+  "targets": {
+    "caliber_id": null,
+    "caliber_note": null,
+    "scalar_goals": [
+      {
+        "name": "Ptot_W",
+        "kind": "measure_only",
+        "unit_si": "W",
+        "target_value": null,
+        "definition": "声学域总声功率（COMSOL 全局求值）",
+        "expression": null
+      },
+      {
+        "name": "Vave_m_s",
+        "kind": "measure_only",
+        "unit_si": "m/s",
+        "target_value": null,
+        "definition": "平均法向振速幅值",
+        "expression": null
+      },
+      {
+        "name": "V_center_m_s",
+        "kind": "measure_only",
+        "unit_si": "m/s",
+        "target_value": null,
+        "definition": "中心点法向振速幅值",
+        "expression": null
+      },
+      {
+        "name": "Zin1_R_ohm",
+        "kind": "measure_only",
+        "unit_si": "ohm",
+        "target_value": null,
+        "definition": "端口 1 输入阻抗实部。⚠️ 现有 GUI 批次存在 Zin2≡Zin1 已知缺陷（quality.flags），在缺陷修复前不得作为电学结论使用",
+        "expression": null
+      }
+    ],
+    "field_targets": null
+  },
+  "constraints": null,
+  "fidelity_levels": ["F3"],
+  "public_point_set": null,
+  "uncertainty_policy": {
+    "measured": "现有 F3 批次**未做** L1 网格收敛与 L2 守恒检查（quality.flags: no_mesh_convergence_L1）⇒ 该批不确定度只有「未量化」这一如实状态",
+    "required_before_engineering_use": "任何用于工程判断的结论必须先过 L0/L1（网格收敛）并按契约把分量写入 sample.uncertainty"
+  },
+  "extensions": {
+    "_read_policy": "内核与通用校验**不得**读取本字段（器件无关硬约束）。此处仅登记与器件相关的已知缺陷事实，供人工参考。",
+    "known_defects": [
+      {
+        "id": "zin2_equals_zin1_known_defect",
+        "evidence_sample_id": "smpl-gui-sweep-20260912T113936Z-bd387a56-0001",
+        "note": "Zin2 与 Zin1 完全相等，属导出通道缺陷"
+      }
+    ],
+    "related_model_hashes_with_full_value": [
+      {
+        "model": "b_GE_task3_2-newyizu.mph",
+        "sha256": "a9a177ad775c12a53c3b7b6e444a77d87f99ebcb8cd7b8d0ff02485c6db2e44f",
+        "source": "run gui-sweep-20260912T113936Z-bd387a56 settings.model_mph_sha256"
+      },
+      {
+        "model": "b_GE_task3_2new_reverse_voltage_drive_v1.mph（由目标模型派生的反向驱动变体）",
+        "sha256": "cbe9ccc18e51005f6aa147e8d7fdd5df62266c5f9117d9829888336f326582d9",
+        "source": "docs/TO_CODEX_progress-20260914-LT1-complete.md §5 哈希清单（run_id=lt1-reverse-sample）"
+      }
+    ]
+  },
+  "pending_human": [
+    "source_model.sha256：b_GE_task3_2-new.mph 的完整 SHA256 需回填（AGENTS §3 只有前 8 位 3efa34cc…）",
+    "x_scale 的设计范围：当前填入的是**已执行扫描范围** 0.1..1.0，需用户确认允许范围",
+    "N_w_te1 的档位是否为工艺档位（当前为已执行扫描档位 1..8）",
+    "目标口径（f_r / k_eff² / Q 的确切定义）：caliber_id 仍为 null，口径错则整批扫描白跑",
+    "优化目标清单：现有 4 个观测量（Ptot_W / Vave_m_s / V_center_m_s / Zin1_R_ohm）均为 measure_only，尚未确认哪些是优化目标及其方向",
+    "结构变体白名单（预先批准哪些结构改动）",
+    "public_point_set 与掩膜策略：本器件尚无公共点集定义（work/exports/pod_points.txt 属 acoustic-cavity pilot，不适用）",
+    "field_targets（场级目标表达式与单位）",
+    "physics/studies 复核：本 spec 的物理场清单取自 work/reports/modelio/mspec-b_GE_task3_2new.json（同系列变体），需在目标文件 b_GE_task3_2-new.mph 上复核实测"
+  ],
+  "created_from": {
+    "modelio_mspec": "work/reports/modelio/mspec-b_GE_task3_2new.json（physics 4 个接口 / study std1 / dimension=3）",
+    "store_rows": [
+      "design 行 design-gui-sweep-20260912T113936Z-bd387a56-x0.1-n1（geometry_family=GF-pmut-ge-task3-oval）",
+      "run 行 gui-sweep-20260912T113936Z-bd387a56（settings.batch_node / frequencies_MHz / fidelity=F3）"
+    ],
+    "feedback_ids": [
+      "fb-20260912T023045Z-ef2ad6aa",
+      "fb-20260912T023045Z-5b94a578",
+      "fb-20260912T023046Z-429387e1"
+    ],
+    "docs": ["AGENTS.md §3 / §7（目标器件与只读引用约定）", "WORKING_PLAN.md §4.7.2 / §4.8 / D1 / D13"]
+  },
+  "source_note": "逐字段出处已内联在 evidence.ref / derivation_ref / provenance 中；**本 spec 是草稿**，未确认项全部列在 pending_human，不得作为已批准配置使用",
+  "notes": [
+    "器件无关硬约束：本文件顶层不允许出现器件专有字段（如 pmut_layers / electrode_topology）；器件相关内容只能进 extensions，且内核不得读取。",
+    "本 spec 的 device_class=pmut 是**数据**不是内核分支：内核只按 device_class 选择声明式解析模型与阈值，代码里不得出现 `if device == 'pmut'`。",
+    "range 为 null 的参数（fmax/N_w_te2/v0）已按 schema 标为 derived_or_manual；未给数值的一律留空并说明，不推测。"
+  ]
+}

@@ -1,8 +1,8 @@
 """在**真实 COMSOL 解**上跑 S3 物理一致性检查（守恒 / 边界条件 / 对称性）。
 
-用法（经 ASCII 交汇点）：
-    C:\\Users\\18161\\memsharness_work\\repo\\work\\.venv\\Scripts\\python.exe -u ^
-      C:\\Users\\18161\\memsharness_work\\repo\\scripts\\check_s3.py [--run <run_id>]
+用法（在仓库根下执行）：
+    work\\.venv\\Scripts\\python.exe -u ^
+      scripts\\check_s3.py [--run <run_id>]
 
 输出：S3 报告（verdict + 逐项 metric/threshold/reason + release_allowed）。
 """

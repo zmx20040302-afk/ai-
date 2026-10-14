@@ -1,0 +1,13 @@
+{
+  "contract_version": "1.0.0",
+  "evidence_id": "fixture-invalid-evidence-no-quote",
+  "kind": "literature",
+  "citation": "夹具引用（非真实文献）：Journal of Fixtures, 2026, doi:10.0000/fixture",
+  "locator": "p.4 Table 2",
+  "page": 4,
+  "quote": null,
+  "quote_type": "verbatim",
+  "claim": "夹具：故意不给原文摘录——只有转述不算证据",
+  "confidence": "unknown",
+  "retrieved_at": "2026-09-14T00:00:00Z"
+}

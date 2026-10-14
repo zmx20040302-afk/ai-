@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memsharness.local/schemas/dataset.schema.json",
+  "title": "MEMS Harness 数据集契约（dataset）",
+  "description": "冻结的样本集合 + **强制泄漏检查结论**（风险 R15）。红线 4：来源构成必须显式声明；红线 6：冻结后不原地修改。对应 DuckDB 表 dataset 与其 report JSON。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "dataset_id", "version", "purpose", "split", "sample_ids", "filters", "report"],
+  "properties": {
+    "contract_version": { "const": "1.0.0" },
+    "dataset_id": {
+      "type": "string", "minLength": 1, "maxLength": 120,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "version": { "type": "string", "minLength": 1, "description": "语义版本；修正必须新建版本（append-only）" },
+    "purpose": { "enum": ["train", "holdout", "calibration"] },
+    "split": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "strategy", "n_samples", "n_families", "families",
+        "train_families", "holdout_families",
+        "cross_family_holdout", "leak_check_passed"
+      ],
+      "description": "切分结论。**没有跨族留出时必须显式降级**（cross_family_holdout=false + degraded_reason），不得静默当成有效留出集",
+      "properties": {
+        "strategy": { "const": "grouped_by_family", "description": "只允许按几何族整族切分（禁止按行随机切分）" },
+        "n_samples": { "type": "integer", "minimum": 1 },
+        "n_families": { "type": "integer", "minimum": 1 },
+        "families": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 },
+        "train_families": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "holdout_families": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "train_sample_ids": { "type": ["array", "null"], "items": { "type": "string" } },
+        "holdout_sample_ids": { "type": ["array", "null"], "items": { "type": "string" } },
+        "cross_family_holdout": { "type": "boolean" },
+        "holdout_is_unseen_family": { "type": ["boolean", "null"] },
+        "leak_check_passed": { "const": true, "description": "**必须为 true**：训练/留出族交集非空的数据集不得存在（语义检查 S1 复核交集）" },
+        "leak_overlap_families": { "type": ["array", "null"], "items": { "type": "string" }, "description": "必须为空数组" },
+        "degraded_reason": { "type": ["string", "null"], "description": "cross_family_holdout=false 时必填" },
+        "holdout_frac": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "seed": { "type": ["integer", "null"] }
+      },
+      "allOf": [
+        {
+          "description": "没做出跨族留出就必须说明为什么（不得假装验证了跨族泛化）",
+          "if": { "properties": { "cross_family_holdout": { "const": false } }, "required": ["cross_family_holdout"] },
+          "then": {
+            "required": ["degraded_reason"],
+            "properties": { "degraded_reason": { "type": "string", "minLength": 1 } }
+          }
+        },
+        {
+          "description": "跨族留出成立时，留出族必须非空且与训练族无交集（交集在语义检查 S1 里再算一遍）",
+          "if": { "properties": { "cross_family_holdout": { "const": true } }, "required": ["cross_family_holdout"] },
+          "then": { "properties": { "holdout_families": { "minItems": 1 }, "train_families": { "minItems": 1 } } }
+        }
+      ]
+    },
+    "sample_ids": {
+      "type": "array", "items": { "type": "string" }, "minItems": 1,
+      "description": "冻结的样本清单（对应 store.dataset.sample_ids）"
+    },
+    "filters": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "构造规则（保真度/来源/切分比例/种子）。**必须可复现**：同一 filters 应产出同一切分",
+      "properties": {
+        "fidelity": { "type": ["array", "null"], "items": { "enum": ["F0", "F1", "F2", "F3"] } },
+        "source_types": {
+          "type": ["array", "null"],
+          "items": { "enum": ["simulation", "analytic", "literature", "experiment", "human_feedback", "ai_solver"] }
+        },
+        "holdout_frac": { "type": ["number", "null"] },
+        "seed": { "type": ["integer", "null"] }
+      }
+    },
+    "report": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["source_counts", "fidelity_counts", "excluded_samples"],
+      "description": "数据集卡：**混用了哪些来源**（红线 4）、保真度构成、被排除样本及原因（不得悄悄丢样本）",
+      "properties": {
+        "source_counts": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "type": "integer", "minimum": 0 },
+          "description": "逐来源条数：混用必须显式声明，且报告不得声称「纯仿真精度」"
+        },
+        "fidelity_counts": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 },
+          "description": "逐保真度条数：多保真融合必须写明各等级数量"
+        },
+        "excluded_samples": {
+          "type": "array",
+          "description": "被排除的样本 + 原因（缺 geometry_family / 非法来源 / run 未成功 等）",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["sample_id", "reasons"],
+            "properties": {
+              "sample_id": { "type": "string" },
+              "reasons": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+            }
+          }
+        },
+        "excluded_counts": {
+          "type": ["object", "null"],
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        },
+        "warning": { "type": ["string", "null"], "description": "如「本数据集不含跨族留出：指标只反映族内插值」——必须原样保留到下游报告" },
+        "created_by": { "type": ["string", "null"] },
+        "created_at": { "type": ["string", "null"] },
+        "note": { "type": ["string", "null"] }
+      }
+    },
+    "created_at": { "type": ["string", "null"] },
+    "supersedes": { "type": ["string", "null"], "description": "取代的 dataset_id（修正以新版本实现）" },
+    "source_note": { "type": ["string", "null"], "description": "本记录的实测出处（库表/文件/行号）" },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  }
+}

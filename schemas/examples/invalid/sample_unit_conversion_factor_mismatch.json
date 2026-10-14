@@ -1,0 +1,41 @@
+{
+  "contract_version": "1.0.0",
+  "sample_id": "fixture-invalid-unit-conversion",
+  "source_type": "simulation",
+  "fidelity": "F2",
+  "extractor": { "name": "fixture", "version": "0" },
+  "design": {
+    "design_id": "fixture-design",
+    "geometry_family": "GF-fixture",
+    "parameters": { "Lx": 0.01 },
+    "parameter_units": { "Lx": "m" }
+  },
+  "frequency_set": { "kind": "steady_state", "unit": null, "values": [], "not_applicable_reason": "非数据夹具" },
+  "metrics": {
+    "T_max_K": {
+      "value": 300.0,
+      "unit_si": "K",
+      "uncertainty": {
+        "method": "fixture",
+        "components": { "numerical_discretization": { "value": null, "reason": "fixture" } }
+      }
+    }
+  },
+  "units": {
+    "system": "SI",
+    "pint_checked": true,
+    "original_values": [
+      {
+        "name": "Lx",
+        "raw_value": 10.0,
+        "raw_unit": "mm",
+        "si_value": 0.01,
+        "si_unit": "m",
+        "factor": 1.0,
+        "source": "夹具：故意把 mm→m 的换算因子写成 1.0（10 mm 应等于 0.01 m，需 factor=0.001）"
+      }
+    ],
+    "note": "非数据夹具"
+  },
+  "run_id": "fixture-run-0001"
+}

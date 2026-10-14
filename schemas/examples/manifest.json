@@ -1,0 +1,153 @@
+{
+  "manifest_version": "1.0.0",
+  "note": "校验期望清单。valid/* 期望「schema 通过 + 语义检查通过」；invalid/* 期望「被拒」，并给出期望的拒绝关键字与路径（schema）或语义检查 id。invalid/ 下的文件是**非数据夹具**，内容故意错误，绝不可当作证据或数值引用。",
+  "semantic_checks": {
+    "S1_dataset_no_family_leak": "dataset.split.train_families ∩ holdout_families 必须为空，且 leak_overlap_families 为空",
+    "S2_literature_evidence_resolvable": "literature 样本的 evidence_id 必须能解析到一条**本身合法**的 evidence 记录",
+    "S3_sample_split_group_key_matches_family": "sample.split.group_key 必须等于 design.geometry_family",
+    "S4_sample_parameter_units_cover_parameters": "每个 parameter 必须有对应单位；有换算记录时 si_value = raw_value × factor",
+    "S5_frequency_values_ascending": "frequency_set.values 必须严格升序（且不重复）",
+    "S6_uncertainty_present_or_explained": "sample.uncertainty 为 null 时，必须给出 quality.uncertainty_not_quantified_reason",
+    "S7_ai_solver_not_disguised_as_simulation": "ai_solver 样本不得携带 run_id；且 validation_level 与 field_error_bound 必须齐备（与红线 7 一致）",
+    "D1_device_spec_caliber_or_pending": "targets.caliber_id 为 null 时必须在 pending_human 中声明",
+    "D2_device_spec_range_null_or_confirmed": "range 为 null 的参数必须在 pending_human 中声明；range 有值的 continuous 参数不得同时标 pending",
+    "D3_device_spec_source_hash_or_pending": "source_model.sha256 为 null 时必须在 pending_human 中声明",
+    "T1_task_params_exist_in_device_spec": "task_spec.parameters[].name 必须存在于被引用 device_spec.parameters",
+    "T2_task_goals_exist_in_device_spec": "task_spec.objective.goals[].name 必须存在于被引用 device_spec.targets.scalar_goals（且该目标不得是 measure_only）",
+    "T3_task_param_range_within_device_spec": "task_spec 参数范围必须落在 device_spec 声明的范围内",
+    "T4_task_caliber_matches_device_spec": "若两侧都给了 caliber_id，必须一致",
+    "R1_run_gaps_declared": "succeeded 运行的 finished_at / wall_seconds / model_sha256 若为空，必须逐项出现在 provenance_gaps"
+  },
+  "valid": [
+    { "file": "valid/solver_spec_pmut_f1_draft.json", "schema": "solver_spec.schema.json", "kind": "solver_spec" },
+    { "file": "valid/sample_simulation_heat_slab_2d.json", "schema": "sample.schema.json", "kind": "sample" },
+    { "file": "valid/sample_simulation_pmut_f3_gui_sweep.json", "schema": "sample.schema.json", "kind": "sample" },
+    { "file": "valid/sample_analytic_heat_slab_2d.json", "schema": "sample.schema.json", "kind": "sample" },
+    { "file": "valid/dataset_heat_slab_train.json", "schema": "dataset.schema.json", "kind": "dataset" },
+    { "file": "valid/feedback_parameter_fmax_accept.json", "schema": "feedback.schema.json", "kind": "feedback" },
+    { "file": "valid/run_gui_sweep_pmut_f3.json", "schema": "run.schema.json", "kind": "run" },
+    { "file": "valid/device_spec_ge_task3_draft.json", "schema": "device_spec.schema.json", "kind": "device_spec" },
+    { "file": "valid/task_spec_ge_task3_draft.json", "schema": "task_spec.schema.json", "kind": "task_spec" }
+  ],
+  "invalid": [
+    {
+      "file": "invalid/sample_simulation_missing_run_id.json",
+      "schema": "sample.schema.json",
+      "kind": "sample",
+      "expect": { "stage": "schema", "keyword": "required", "path_contains": "run_id" },
+      "red_line": "红线 1：没有证据就不出数字（simulation 必须带 run_id）"
+    },
+    {
+      "file": "invalid/sample_source_mixing_simulation_with_evidence.json",
+      "schema": "sample.schema.json",
+      "kind": "sample",
+      "expect": { "stage": "schema", "keyword": "type", "path_contains": "evidence_id" },
+      "red_line": "红线 4：来源永不混同"
+    },
+    {
+      "file": "invalid/sample_ai_solver_missing_error_bound.json",
+      "schema": "sample.schema.json",
+      "kind": "sample",
+      "expect": { "stage": "schema", "keyword": "required", "path_contains": "uncertainty" },
+      "red_line": "红线 7/8：AI 解必须带误差界，且不得混入 simulation"
+    },
+    {
+      "file": "invalid/sample_bad_source_type.json",
+      "schema": "sample.schema.json",
+      "kind": "sample",
+      "expect": { "stage": "schema", "keyword": "enum", "path_contains": "source_type" },
+      "red_line": "红线 4：来源类型只有六种，不得自造"
+    },
+    {
+      "file": "invalid/sample_missing_geometry_family.json",
+      "schema": "sample.schema.json",
+      "kind": "sample",
+      "expect": { "stage": "schema", "keyword": "required", "path_contains": "geometry_family" },
+      "red_line": "R15：缺 geometry_family 无法分组切分 ⇒ 不能入库"
+    },
+    {
+      "file": "invalid/sample_uncertainty_zero_as_unknown.json",
+      "schema": "sample.schema.json",
+      "kind": "sample",
+      "expect": { "stage": "schema", "keyword": "required", "path_contains": "numerical_discretization" },
+      "red_line": "未量化不得写 0 冒充已知（契约要求 value=0 时显式声明 zero_is_known=true）"
+    },
+    {
+      "file": "invalid/sample_unit_conversion_factor_mismatch.json",
+      "schema": "sample.schema.json",
+      "kind": "sample",
+      "expect": { "stage": "semantic", "check": "S4_sample_parameter_units_cover_parameters" },
+      "red_line": "单位：SI 内部 + 原始单位与换算记录必须自洽"
+    },
+    {
+      "file": "invalid/sample_literature_unresolvable_evidence.json",
+      "schema": "sample.schema.json",
+      "kind": "sample",
+      "expect": { "stage": "semantic", "check": "S2_literature_evidence_resolvable" },
+      "red_line": "红线 1：文献值必须回溯到带页码与摘录的 evidence 记录"
+    },
+    {
+      "file": "invalid/evidence_literature_no_quote.json",
+      "schema": "evidence.schema.json",
+      "kind": "evidence",
+      "expect": { "stage": "schema", "keyword": "type", "path_contains": "quote" },
+      "red_line": "红线 1：没有原文摘录就不算证据"
+    },
+    {
+      "file": "invalid/evidence_literature_no_page.json",
+      "schema": "evidence.schema.json",
+      "kind": "evidence",
+      "expect": { "stage": "schema", "keyword": "required", "path_contains": "page" },
+      "red_line": "红线 1：文献必须带页码定位"
+    },
+    {
+      "file": "invalid/dataset_leaky_split.json",
+      "schema": "dataset.schema.json",
+      "kind": "dataset",
+      "expect": { "stage": "semantic", "check": "S1_dataset_no_family_leak" },
+      "red_line": "R15：同族不得同时出现在训练与留出集"
+    },
+    {
+      "file": "invalid/dataset_leak_check_false.json",
+      "schema": "dataset.schema.json",
+      "kind": "dataset",
+      "expect": { "stage": "schema", "keyword": "const", "path_contains": "leak_check_passed" },
+      "red_line": "泄漏检查未通过的数据集不得存在"
+    },
+    {
+      "file": "invalid/device_spec_hardcoded_pmut_field.json",
+      "schema": "device_spec.schema.json",
+      "kind": "device_spec",
+      "expect": { "stage": "schema", "keyword": "additionalProperties", "path_contains": "" },
+      "red_line": "器件无关：器件专有字段不得进 spec 顶层（只能进 extensions）"
+    },
+    {
+      "file": "invalid/task_spec_unknown_parameter.json",
+      "schema": "task_spec.schema.json",
+      "kind": "task_spec",
+      "expect": { "stage": "semantic", "check": "T1_task_params_exist_in_device_spec" },
+      "red_line": "只允许改 device_spec 已声明的参数（防误改/器件无关）"
+    },
+    {
+      "file": "invalid/task_spec_save_new_unauthorized.json",
+      "schema": "task_spec.schema.json",
+      "kind": "task_spec",
+      "expect": { "stage": "schema", "keyword": "required", "path_contains": "save_new_authorized_by" },
+      "red_line": "生产 .mph 永不原地改写：save_new 必须有人工授权"
+    },
+    {
+      "file": "invalid/run_failed_without_diagnostic.json",
+      "schema": "run.schema.json",
+      "kind": "run",
+      "expect": { "stage": "schema", "keyword": "required", "path_contains": "diagnostic" },
+      "red_line": "失败必须有分类，否则失败原因不可复核"
+    },
+    {
+      "file": "invalid/run_succeeded_undeclared_gaps.json",
+      "schema": "run.schema.json",
+      "kind": "run",
+      "expect": { "stage": "semantic", "check": "R1_run_gaps_declared" },
+      "red_line": "缺什么就声明什么：空字段必须进 provenance_gaps，不得静默留空"
+    }
+  ]
+}

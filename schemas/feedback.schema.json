@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memsharness.local/schemas/feedback.schema.json",
+  "title": "MEMS Harness 人反馈契约（feedback）",
+  "description": "人对参数/模型/预测/报告的判定与修正（append-only）。human_feedback 来源样本的唯一合法出处（红线 1）；记录本身也是红线 5「人保留放行权」的凭据。对应 DuckDB 表 feedback。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "feedback_id", "target_kind", "target_id", "verdict", "reason", "author", "created_at"],
+  "properties": {
+    "contract_version": { "const": "1.0.0" },
+    "feedback_id": {
+      "type": "string", "minLength": 1, "maxLength": 120,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"
+    },
+    "target_kind": {
+      "enum": ["parameter", "model", "prediction", "report", "run", "sample", "dataset", "device_spec", "task_spec"],
+      "description": "反馈对象类型。`parameter` 为实测存量数据里在用的取值（见 store.py 注释仅列 model|prediction|report|run，二者不一致，以本契约为准并回写 store 注释）"
+    },
+    "target_id": {
+      "type": "string", "minLength": 1,
+      "description": "对象标识。parameter 型形如 `<model>.mph:<param_name>`；其它型填对应主键"
+    },
+    "verdict": {
+      "enum": ["accept", "reject", "correct", "prefer"],
+      "description": "accept 确认 / reject 否决 / correct 给出修正值 / prefer 表达偏好（偏好权重低于修正值）"
+    },
+    "correction": {
+      "type": ["string", "null"],
+      "description": "修正后的值/口径。verdict=correct 时必填（否则「修正」无内容可执行）"
+    },
+    "previous_value": {
+      "type": ["string", "null"],
+      "description": "被修正的原值（便于复核口径变化，如 `.m` 首部值 vs 末次覆盖值）"
+    },
+    "reason": { "type": "string", "minLength": 4, "description": "理由（人反馈必须可复核；一句话「好/不好」不构成可执行反馈）" },
+    "author": { "type": "string", "minLength": 1, "description": "反馈人标识（如 user:zmx）" },
+    "created_at": { "type": "string", "minLength": 1, "description": "ISO8601（UTC）" },
+    "evidence_refs": {
+      "type": ["array", "null"],
+      "items": { "type": "string" },
+      "description": "支撑该判断的 run_id / evidence_id / 文件路径"
+    },
+    "applies_to": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "device_spec_ref": { "type": ["string", "null"] },
+        "model_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "scope_note": { "type": ["string", "null"], "description": "该反馈的适用范围；越界使用必须显式声明" }
+      }
+    },
+    "supersedes": {
+      "type": ["string", "null"],
+      "description": "若本条是修正/取代某条既有反馈，填被取代的 feedback_id（append-only：不覆盖原记录）"
+    },
+    "source_note": {
+      "type": ["string", "null"],
+      "description": "本记录的实测出处（库表/文件/行号）。**样例与真实记录必须在此标明来源**，不得省略"
+    },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  },
+  "allOf": [
+    {
+      "description": "verdict=correct 必须带 correction（否则修正不可执行）",
+      "if": { "properties": { "verdict": { "const": "correct" } }, "required": ["verdict"] },
+      "then": { "required": ["correction"], "properties": { "correction": { "type": "string", "minLength": 1 } } }
+    },
+    {
+      "description": "parameter 型反馈必须能定位到具体模型/参数（target_id 需含 `:` 与 `.mph` 之一）",
+      "if": { "properties": { "target_kind": { "const": "parameter" } }, "required": ["target_kind"] },
+      "then": { "properties": { "target_id": { "pattern": "^.+(:|\\.mph).+" } } }
+    }
+  ]
+}

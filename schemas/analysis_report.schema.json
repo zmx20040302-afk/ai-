@@ -1,0 +1,172 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://memsharness.local/schemas/analysis_report.schema.json",
+  "title": "A9 报告与增强 —— 可溯源报告（analysis_report）",
+  "description": "由 src/memsharness/report_augment.build_report() 产出、scripts/run_report_augment.py 落盘。契约要点：每个数值必须挂 run_id/evidence_id/experiment_id/feedback_id 且（给定时）必须存在于平台已知 ID 集；文献数值必须带 quote + locator；上游未放行时出现「已验证/可放行」等升级措辞 ⇒ failed；not_checked / failures 段落必须存在且非空（不得只报好消息）；缺口必须五要素齐全。fail-closed：publish_allowed 仅在 verdict=passed 时为 true，且**放行权在人**。",
+  "type": "object",
+  "required": [
+    "kind", "report_version", "title", "verdict", "publish_allowed", "claims",
+    "gaps", "sections", "failures", "not_checked", "mixed_sources",
+    "source_type_counts", "evidence_level_counts", "retraining_suggestions",
+    "upstream", "checks", "n_checks", "n_failed", "n_inconclusive", "reason",
+    "semantics", "gate_source", "gate_not_applicable_reason", "gate_binding",
+    "number_policy"
+  ],
+  "properties": {
+    "kind": {"const": "analysis_report"},
+    "report_version": {"type": "string"},
+    "title": {"type": "string"},
+    "verdict": {"enum": ["passed", "failed", "inconclusive"]},
+    "publish_allowed": {
+      "type": "boolean",
+      "description": "仅 verdict=passed 时为 true。false 时任何叙述都不得作为结论发布"
+    },
+    "gate": {
+      "type": ["object", "null"],
+      "description": "上游 A8 verification_verdict（原样引用，不重算）",
+      "properties": {
+        "verdict": {"enum": ["passed", "failed", "inconclusive"]},
+        "release_allowed": {"type": "boolean"},
+        "freeze_id": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "model_state": {"type": ["string", "null"]},
+    "declared_state": {"type": ["string", "null"]},
+    "gate_source": {"type": ["string", "null"], "description": "A8 裁定文件的来源路径（须随报告留痕）"},
+    "gate_not_applicable_reason": {
+      "type": ["string", "null"],
+      "description": "本报告确无任何 A8 裁定覆盖时的**显式声明**；给了它才允许在无 gate 的情况下判定措辞与缺口，且仍禁止任何升级措辞"
+    },
+    "gate_binding": {
+      "type": ["string", "null"],
+      "description": "声明该裁定覆盖本报告的哪一部分；或正文里提及裁定的 freeze_id/run_id/target_dir。二者皆无 ⇒ gate_binding 判失败"
+    },
+    "number_policy": {
+      "type": "object",
+      "description": "数字扫描范围与豁免段落的**显式声明**（豁免必须有理由，避免未扫描区域变成隐形后门）",
+      "required": ["scanned_sections", "exempt_sections", "exempt_reason"],
+      "properties": {
+        "scanned_sections": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "exempt_sections": {"type": "array", "items": {"type": "string"}},
+        "exempt_reason": {"type": "string", "minLength": 1},
+        "integer_limit": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "claims": {
+      "type": "array",
+      "description": "数值主张；空数组合法（此时可溯源性判 inconclusive），但**不得有缺 trace 的条目**",
+      "items": {
+        "type": "object",
+        "required": ["label", "value_text"],
+        "properties": {
+          "label": {"type": "string"},
+          "value_text": {"type": "string"},
+          "unit": {"type": "string"},
+          "trace_kind": {
+            "enum": ["run_id", "evidence_id", "experiment_id", "feedback_id", null]
+          },
+          "trace_id": {"type": ["string", "null"]},
+          "source_type": {
+            "enum": ["simulation", "ai_solver", "analytic", "literature", "experiment",
+                     "human_feedback", null],
+            "description": "必须声明（红线 §4：来源永不混同；留空即判失败）"
+          },
+          "uncertainty": {"type": ["string", "null"]},
+          "evidence_level": {"type": ["string", "null"]},
+          "quote": {
+            "type": ["string", "null"],
+            "description": "文献级证据必填：原文逐字摘录（含原文单位）"
+          },
+          "locator": {
+            "type": ["string", "null"],
+            "description": "文献级证据必填：页码/公式号/表号"
+          },
+          "derived_from": {"type": "array", "items": {"type": "string"}},
+          "note": {"type": "string"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "description": "缺口必须五要素齐全：缺什么/为什么缺/解锁什么/怎么补/阻塞成本",
+      "items": {
+        "type": "object",
+        "required": ["missing", "why", "unlock", "how", "cost"],
+        "properties": {
+          "missing": {"type": "string", "minLength": 1},
+          "why": {"type": "string", "minLength": 1},
+          "unlock": {"type": "string", "minLength": 1},
+          "how": {"type": "string", "minLength": 1},
+          "cost": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    },
+    "sections": {
+      "type": "object",
+      "description": "必需段落：best_and_pareto / error_bounds / limitations / run_index / not_checked / failures / gaps（缺一即 failed）",
+      "required": ["not_checked", "failures", "gaps"],
+      "properties": {
+        "best_and_pareto": {},
+        "error_bounds": {},
+        "limitations": {},
+        "run_index": {},
+        "not_checked": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "failures": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "gaps": {"type": "array", "minItems": 1}
+      },
+      "additionalProperties": true
+    },
+    "failures": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "not_checked": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "mixed_sources": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "混用来源的显式声明（红线 §4：来源永不混同）"
+    },
+    "source_type_counts": {"type": "object", "additionalProperties": {"type": "integer"}},
+    "evidence_level_counts": {"type": "object", "additionalProperties": {"type": "integer"}},
+    "retraining_suggestions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["trigger", "suggestion"],
+        "properties": {
+          "trigger": {"type": "string"},
+          "feedback_id": {"type": ["string", "null"]},
+          "suggestion": {"type": "string"},
+          "requires": {"type": "array", "items": {"type": "string"}},
+          "not_automatic": {"type": "string"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "upstream": {"type": "object"},
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "passed", "reason", "detail"],
+        "properties": {
+          "name": {"type": "string"},
+          "passed": {"type": ["boolean", "null"]},
+          "metric": {"type": ["number", "null"]},
+          "threshold": {"type": ["number", "null"]},
+          "reason": {"type": "string"},
+          "detail": {"type": "object"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "n_checks": {"type": "integer", "minimum": 1},
+    "n_failed": {"type": "integer", "minimum": 0},
+    "n_inconclusive": {"type": "integer", "minimum": 0},
+    "reason": {"type": "string"},
+    "semantics": {"type": "string"}
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,496 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memsharness.local/schemas/sample.schema.json",
+  "title": "MEMS Harness 样本契约（sample）",
+  "description": "一条样本 = 一个「有来源、有单位、有不确定度、可分组防泄漏」的数值记录。对应 DuckDB 表 sample（+ design 的 geometry_family）。红线 1/4/6/7/8 的机械执行点：缺溯源 ID、来源混同、用 0 冒充未知、AI 解无误差界——一律校验失败。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version", "sample_id", "source_type", "fidelity",
+    "extractor", "design", "frequency_set", "metrics", "units"
+  ],
+  "properties": {
+    "contract_version": { "const": "1.0.0", "description": "契约版本；破坏性变更必须升版本号（append-only：老样例不原地改写）" },
+    "sample_id": {
+      "type": "string", "minLength": 1, "maxLength": 120,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "description": "样本主键；与 store.sample.sample_id 一致"
+    },
+    "source_type": {
+      "enum": ["simulation", "analytic", "literature", "experiment", "human_feedback", "ai_solver"],
+      "description": "六种来源之一，不得自造（红线 4：来源永不混同）"
+    },
+    "fidelity": {
+      "enum": ["F0", "F1", "F2", "F3"],
+      "description": "F0 解析 / F1 降阶 / F2 COMSOL 简化 / F3 COMSOL 全三维：不得用 F2 冒充 F3 真值"
+    },
+    "extractor": { "$ref": "#/$defs/extractor" },
+    "design": { "$ref": "#/$defs/design" },
+    "frequency_set": { "$ref": "#/$defs/frequencySet" },
+    "metrics": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+      "additionalProperties": { "$ref": "#/$defs/metric" },
+      "description": "指标值（对应 store.sample.outputs）。键名英文、值含 SI 单位与不确定度"
+    },
+    "units": { "$ref": "#/$defs/units" },
+    "uncertainty": {
+      "description": "样本级不确定度（方法与分量）。ai_solver 来源**必填**（红线 7）；其它来源若确实未量化，可整体缺省，但必须在 quality 中声明未量化原因。",
+      "oneOf": [{ "$ref": "#/$defs/uncertainty" }, { "type": "null" }]
+    },
+    "quality": { "$ref": "#/$defs/quality" },
+    "negative_sample": {
+      "type": "boolean",
+      "description": "是否为**负样本**（求解失败点）。负样本必须带 run.diagnostic 的分类，且不得当作有效输出使用"
+    },
+    "run_id": {
+      "type": ["string", "null"], "minLength": 1,
+      "description": "simulation 来源必填：必须指向 work\\runs\\<run_id>\\ 或 run 表记录（红线 1）"
+    },
+    "evidence_id": {
+      "type": ["string", "null"], "minLength": 1,
+      "description": "literature 来源必填：指向 evidence 表记录，该记录必须带页码定位与原文摘录"
+    },
+    "experiment_id": {
+      "type": ["string", "null"], "minLength": 1,
+      "description": "experiment 来源必填"
+    },
+    "feedback_id": {
+      "type": ["string", "null"], "minLength": 1,
+      "description": "human_feedback 来源必填"
+    },
+    "model_id": {
+      "type": ["string", "null"], "minLength": 1,
+      "description": "ai_solver 来源必填：必须挂到具体模型版本（model 表 model_id）"
+    },
+    "related_run_id": {
+      "type": ["string", "null"], "minLength": 1,
+      "description": "**交叉核对引用**（不是本样本的来源）：如实测存量数据里 analytic 参考样本会指向与其配对的 simulation run_id（quality.role=cross_check_reference）。它不改变 source_type，也不得被用来把两种来源混为一类统计"
+    },
+    "model_state": {
+      "enum": ["draft", "validated_on_holdout", "calibrated_to_experiment", "approved_for_use", "deprecated", null],
+      "description": "ai_solver 样本对应模型的放行状态（红线 5：未放行不得描述为已验证）"
+    },
+    "ai_solver": { "$ref": "#/$defs/aiSolver" },
+    "analytic_model": { "$ref": "#/$defs/analyticModel" },
+    "split": { "$ref": "#/$defs/split" },
+    "created_at": { "type": ["string", "null"], "description": "ISO8601（UTC）" },
+    "source_note": {
+      "type": ["string", "null"],
+      "description": "本记录数值的出处说明（哪张表/哪个文件/哪一行）；**样例中的数值必须在此标注来源**"
+    },
+    "notes": { "type": "array", "items": { "type": "string" } }
+  },
+  "allOf": [
+    {
+      "description": "红线 4：一条样本只允许一个来源，且必须携带该来源的溯源 ID",
+      "if": { "properties": { "source_type": { "const": "simulation" } }, "required": ["source_type"] },
+      "then": {
+        "required": ["run_id"],
+        "properties": {
+          "run_id": { "type": "string", "minLength": 1 },
+          "evidence_id": { "type": "null" },
+          "experiment_id": { "type": "null" },
+          "feedback_id": { "type": "null" },
+          "model_id": { "type": "null" }
+        }
+      }
+    },
+    {
+      "description": "literature 样本必须挂 evidence_id，且不得夹带其它来源",
+      "if": { "properties": { "source_type": { "const": "literature" } }, "required": ["source_type"] },
+      "then": {
+        "required": ["evidence_id"],
+        "properties": {
+          "evidence_id": { "type": "string", "minLength": 1 },
+          "run_id": { "type": "null" },
+          "experiment_id": { "type": "null" },
+          "feedback_id": { "type": "null" },
+          "model_id": { "type": "null" }
+        }
+      }
+    },
+    {
+      "description": "experiment 样本必须挂 experiment_id（真实测量）",
+      "if": { "properties": { "source_type": { "const": "experiment" } }, "required": ["source_type"] },
+      "then": {
+        "required": ["experiment_id"],
+        "properties": {
+          "experiment_id": { "type": "string", "minLength": 1 },
+          "run_id": { "type": "null" },
+          "evidence_id": { "type": "null" },
+          "feedback_id": { "type": "null" },
+          "model_id": { "type": "null" }
+        }
+      }
+    },
+    {
+      "description": "human_feedback 样本必须挂 feedback_id",
+      "if": { "properties": { "source_type": { "const": "human_feedback" } }, "required": ["source_type"] },
+      "then": {
+        "required": ["feedback_id"],
+        "properties": {
+          "feedback_id": { "type": "string", "minLength": 1 },
+          "run_id": { "type": "null" },
+          "evidence_id": { "type": "null" },
+          "experiment_id": { "type": "null" },
+          "model_id": { "type": "null" }
+        }
+      }
+    },
+    {
+      "description": "analytic 样本不挂运行/实验 ID，但必须能追到解析模型与公式（否则与「凭记忆填数」无法区分）",
+      "if": { "properties": { "source_type": { "const": "analytic" } }, "required": ["source_type"] },
+      "then": {
+        "required": ["analytic_model", "extractor"],
+        "properties": {
+          "analytic_model": { "type": "object" },
+          "extractor": {
+            "required": ["name", "version", "formula_ref"],
+            "properties": { "formula_ref": { "type": "string", "minLength": 1 } }
+          },
+          "run_id": { "type": "null" },
+          "evidence_id": { "type": "null" },
+          "experiment_id": { "type": "null" },
+          "feedback_id": { "type": "null" },
+          "model_id": { "type": "null" }
+        }
+      }
+    },
+    {
+      "description": "红线 7/8：ai_solver 是**独立来源**，必须同时带误差界、S 级验证状态、适用范围命中；且不得挂 run_id（不得伪装成 COMSOL 解）",
+      "if": { "properties": { "source_type": { "const": "ai_solver" } }, "required": ["source_type"] },
+      "then": {
+        "required": ["model_id", "uncertainty", "ai_solver", "model_state"],
+        "properties": {
+          "model_id": { "type": "string", "minLength": 1 },
+          "uncertainty": { "type": "object" },
+          "ai_solver": { "type": "object" },
+          "run_id": { "type": "null" },
+          "evidence_id": { "type": "null" },
+          "experiment_id": { "type": "null" },
+          "feedback_id": { "type": "null" }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "extractor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "description": "抽取器名称 + 版本；抽取逻辑一改，版本必须变（否则无法复现数值来源）",
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "code_sha256": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "formula_ref": {
+          "type": ["string", "null"],
+          "description": "analytic 来源必填：公式/文献定位（如「1D 稳态：T_max = T0 + q_in*Lx/k」）"
+        },
+        "note": { "type": ["string", "null"] }
+      }
+    },
+    "design": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["design_id", "geometry_family", "parameters"],
+      "description": "设计点：参数向量 + 单位 + **几何族**。几何族是防泄漏的唯一分组键（风险 R15）",
+      "properties": {
+        "design_id": { "type": ["string", "null"], "minLength": 1 },
+        "geometry_family": {
+          "type": "string", "minLength": 1,
+          "description": "必填。缺它 = 无法判定归属 = 不得进入任何数据集（dataset.py 会显式排除）"
+        },
+        "structure_variant": {
+          "type": ["string", "null"],
+          "description": "结构变体 ID（等同几何族时的细分标签，如 rect_elec / ring_elec）"
+        },
+        "parameters": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "type": "number" },
+          "description": "参数向量，**值为 SI 数值**（对应 store.sample.inputs）"
+        },
+        "parameter_units": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 },
+          "description": "每个参数的 SI 单位（对应 design.units）；维度用 pint 校验"
+        }
+      }
+    },
+    "frequencySet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "unit", "values"],
+      "description": "频率集合。**必填字段**：稳态/非频域工况也必须声明，不允许「留空不说」",
+      "properties": {
+        "kind": {
+          "enum": ["discrete_list", "band_samples", "sweep", "steady_state", "not_applicable"],
+          "description": "离散点列 / 频带取样 / 连续扫描 / 稳态（无频率维度）/ 不适用"
+        },
+        "unit": { "type": ["string", "null"], "description": "非无频域工况时必须是 SI 的 \"Hz\"（禁止 MHz 混入）" },
+        "values": {
+          "type": "array", "items": { "type": "number", "minimum": 0 },
+          "description": "SI 频率值（Hz），升序；无频域工况必须为空数组"
+        },
+        "n_points": { "type": ["integer", "null"], "minimum": 0 },
+        "grid_note": { "type": ["string", "null"], "description": "该频率网格的口径（如「5 MHz 粗网格，峰值贴在频率上界」）" },
+        "not_applicable_reason": {
+          "type": ["string", "null"],
+          "description": "kind=steady_state / not_applicable 时必填，说明为什么没有频率维度"
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "enum": ["discrete_list", "band_samples", "sweep"] } }, "required": ["kind"] },
+          "then": {
+            "properties": {
+              "unit": { "const": "Hz" },
+              "values": { "minItems": 1 }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "kind": { "enum": ["steady_state", "not_applicable"] } }, "required": ["kind"] },
+          "then": {
+            "required": ["not_applicable_reason"],
+            "properties": {
+              "unit": { "type": "null" },
+              "values": { "maxItems": 0 },
+              "not_applicable_reason": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      ]
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "unit_si", "uncertainty"],
+      "description": "一个指标值。**没有来源就不出数字**：value 为 null 时必须写明未测原因；不确定度未知时必须写明原因（不得用 0 冒充已知）",
+      "properties": {
+        "value": { "type": ["number", "null"], "description": "SI 数值；未抽取到写 null（禁止用 0 代替）" },
+        "unit_si": { "type": ["string", "null"], "minLength": 1, "description": "SI 单位；无量纲写 \"1\"" },
+        "not_measured_reason": { "type": ["string", "null"], "description": "value=null 时必填" },
+        "uncertainty": { "oneOf": [{ "$ref": "#/$defs/uncertainty" }, { "type": "null" }] },
+        "uncertainty_reason": { "type": ["string", "null"], "description": "uncertainty=null 时必填" },
+        "definition": {
+          "type": ["string", "null"],
+          "description": "口径定义（如「Zin1_R 取端口 1 输入阻抗实部」）；口径漂移必须显式记录（对应 target_caliber）"
+        },
+        "raw": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["value", "unit", "source"],
+          "description": "原始读数（未换算）+ 单位 + 出处；用于保留「原始单位与换算记录」",
+          "properties": {
+            "value": { "type": ["number", "null"] },
+            "unit": { "type": "string", "minLength": 1 },
+            "source": { "type": "string", "minLength": 1 }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "value": { "type": "null" } }, "required": ["value"] },
+          "then": { "required": ["not_measured_reason"], "properties": { "not_measured_reason": { "type": "string", "minLength": 1 } } }
+        },
+        {
+          "if": { "properties": { "uncertainty": { "type": "null" } }, "required": ["uncertainty"] },
+          "then": { "required": ["uncertainty_reason"], "properties": { "uncertainty_reason": { "type": "string", "minLength": 1 } } }
+        }
+      ]
+    },
+    "uncertainty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["method", "components"],
+      "description": "不确定度：**方法学 + 逐分量值**。分量值写 null 时必须给出 reason",
+      "properties": {
+        "method": {
+          "type": "string", "minLength": 1,
+          "description": "方法学说明，如「L1 网格收敛 + Richardson 外推」「测量仪器分辨率 + 重复性」「场级 L2 误差界」"
+        },
+        "type": {
+          "enum": [
+            "numeric_experiment", "closed_form_reference", "measurement",
+            "literature_range", "model_error_bound", "mixed", null
+          ]
+        },
+        "components": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/$defs/uncertaintyComponent" },
+          "description": "分量：numerical_discretization / mesh_dependency / model_form / parameter / measurement / surrogate 等"
+        },
+        "interval": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "level": { "type": ["number", "null"], "description": "置信水平（如 0.9）" },
+            "lower": { "type": ["number", "null"] },
+            "upper": { "type": ["number", "null"] },
+            "method": { "type": ["string", "null"], "description": "如 split-conformal / delta method" },
+            "n_calibration_samples": { "type": ["integer", "null"], "minimum": 0 }
+          }
+        }
+      }
+    },
+    "uncertaintyComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "reason"],
+      "description": "一个不确定度分量。value=null ⇒ 必须给 reason；value=0 ⇒ 必须声明 zero_is_known=true（**不得用 0 冒充「未知」**）",
+      "properties": {
+        "value": { "type": ["number", "null"], "minimum": 0 },
+        "unit": { "type": ["string", "null"] },
+        "source": { "type": ["string", "null"], "description": "该分量的来源（检查/报告/仪器规格）" },
+        "reason": { "type": ["string", "null"], "description": "value=null 时必填：为什么无法量化" },
+        "zero_is_known": { "type": "boolean", "description": "value=0 时必填且为 true：该零是实测/推导得到的确定零，不是「没量」" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "value": { "type": "null" } }, "required": ["value"] },
+          "then": { "properties": { "reason": { "type": "string", "minLength": 1 } } }
+        },
+        {
+          "if": { "properties": { "value": { "const": 0 } }, "required": ["value"] },
+          "then": { "required": ["zero_is_known"], "properties": { "zero_is_known": { "const": true } } }
+        }
+      ]
+    },
+    "units": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["system", "original_values"],
+      "description": "单位政策：内部一律 SI；原始单位与换算记录必须保留",
+      "properties": {
+        "system": { "const": "SI" },
+        "pint_checked": { "type": ["boolean", "null"], "description": "是否已用 pint 做量纲校验" },
+        "original_values": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/unitConversion" },
+          "description": "原始单位 ≠ SI 的量的换算留痕；全部本来就是 SI 时为空数组（并在 note 说明）"
+        },
+        "note": { "type": ["string", "null"] }
+      }
+    },
+    "unitConversion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "raw_value", "raw_unit", "si_value", "si_unit", "factor", "source"],
+      "description": "一次换算：si_value = raw_value × factor（必须自洽；原始单位必须与 SI 单位不同）",
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "raw_value": { "type": "number" },
+        "raw_unit": { "type": "string", "minLength": 1 },
+        "si_value": { "type": "number" },
+        "si_unit": { "type": "string", "minLength": 1 },
+        "factor": { "type": "number" },
+        "source": { "type": "string", "minLength": 1, "description": "换算依据/出处（如 design.units、仪表手册、单位定义）" }
+      }
+    },
+    "aiSolver": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["validation_level", "field_error_bound", "applicability"],
+      "description": "AI 求解器输出的三件套（红线 7）：S 级验证状态 + 场级误差界 + 适用范围命中判定",
+      "properties": {
+        "validation_level": {
+          "enum": ["S0", "S1", "S2", "S3", "S4", "S5"],
+          "description": "见 WORKING_PLAN 6.1.1；未到 S3 不得用于工程判断（红线 2）"
+        },
+        "field_error_bound": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["metric", "value", "unit", "n_points", "mask_policy"],
+          "description": "场级误差界（相对 L2 等）。必须是**场级**，不是几个标量点的误差",
+          "properties": {
+            "metric": { "type": "string", "minLength": 1, "description": "如 field_relative_l2" },
+            "value": { "type": "number", "minimum": 0 },
+            "unit": { "type": "string", "minLength": 1, "description": "无量纲写 \"1\"" },
+            "n_points": { "type": "integer", "minimum": 1 },
+            "mask_policy": { "type": "string", "minLength": 1 },
+            "reference_run_id": { "type": ["string", "null"], "description": "对该误差界做独立验证的 COMSOL run_id（留出集）" }
+          }
+        },
+        "applicability": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["in_scope", "scope_id"],
+          "description": "适用范围命中判定：**超范围必须拒答**，越界结果不得入库（红线 7）",
+          "properties": {
+            "in_scope": { "const": true, "description": "入库的 AI 解必须落在已声明范围内；越界解应作为拒答记录，而不是样本" },
+            "scope_id": { "type": "string", "minLength": 1 },
+            "checked_against": { "type": "string", "minLength": 1, "description": "范围声明的出处（model.scope / device_spec）" },
+            "ood_score": { "type": ["number", "null"] }
+          }
+        },
+        "physical_consistency": {
+          "type": ["object", "null"],
+          "additionalProperties": true,
+          "description": "守恒/边界条件/对称性/极限一致性检查结果；未做必须显式写 null + reason（物理不通过的解一律作废）",
+          "properties": {
+            "passed": { "type": ["boolean", "null"] },
+            "checks": { "type": ["object", "null"] },
+            "reason": { "type": ["string", "null"] }
+          }
+        }
+      }
+    },
+    "analyticModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "formula_ref"],
+      "description": "解析模型：名称 + 公式出处 + 假设（假设必须写明，否则无法判定适用边界）",
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "formula_ref": { "type": "string", "minLength": 1 },
+        "assumptions": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "validity_range": { "type": ["object", "null"], "additionalProperties": { "type": ["array", "null"] } },
+        "evidence_id": { "type": ["string", "null"], "description": "公式出处若是文献，填 evidence_id（带页码与摘录）" }
+      }
+    },
+    "split": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["group_key", "group_role"],
+      "description": "防泄漏切分信息：分组键必须等于 geometry_family；组必须整体进同一侧",
+      "properties": {
+        "group_key": { "type": "string", "minLength": 1, "description": "必须等于 design.geometry_family（语义检查 S3）" },
+        "group_role": { "enum": ["train", "holdout", "calibration", "unassigned"] },
+        "dataset_id": { "type": ["string", "null"] },
+        "leak_check": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "properties": {
+            "train_families": { "type": ["array", "null"], "items": { "type": "string" } },
+            "holdout_families": { "type": ["array", "null"], "items": { "type": "string" } },
+            "overlap": { "type": ["array", "null"], "items": { "type": "string" }, "description": "必须为空数组（语义检查 S1）" },
+            "checked_at": { "type": ["string", "null"] }
+          }
+        }
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "校验标记（开放结构，与 store.sample.quality 对齐）：L0/L1/L2 结果、单位校验、来源构成等",
+      "properties": {
+        "l0_analytic_check": { "type": ["object", "null"] },
+        "l1_mesh_convergence": { "type": ["object", "null"] },
+        "l2_conservation": { "type": ["object", "null"] },
+        "l2_conservation_reason": { "type": ["string", "null"] },
+        "unit_check": { "type": ["object", "null"] },
+        "si_normalized": { "type": ["boolean", "null"] },
+        "flags": { "type": ["array", "null"], "items": { "type": "string" } },
+        "uncertainty_not_quantified_reason": {
+          "type": ["string", "null"],
+          "description": "整体未量化不确定度时的原因（缺此项 + uncertainty 缺失 ⇒ 语义检查 S6 拒绝）"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "contract_version": "1.0.0",
+  "spec_id": "fixture-invalid-device-spec-hardcoded",
+  "device_class": "pmut",
+  "source_model": {
+    "path": "C:\\fixture\\model.mph",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "role": "run_copy"
+  },
+  "space_dim": 3,
+  "parameters": [
+    {
+      "name": "x_scale",
+      "unit_si": "1",
+      "type": "continuous",
+      "range": [0.1, 1.0],
+      "auto_adjust_ok": true,
+      "range_source": "human_confirmed",
+      "confirmed_by": "fixture"
+    }
+  ],
+  "targets": {
+    "caliber_id": "fixture-caliber",
+    "scalar_goals": [
+      { "name": "Ptot_W", "kind": "measure_only", "unit_si": "W" }
+    ]
+  },
+  "fidelity_levels": ["F3"],
+  "pending_human": ["夹具"],
+  "pmut_layers": [
+    { "name": "piezo", "thickness_um": 2.0 },
+    { "name": "si", "thickness_um": 3.0 }
+  ]
+}

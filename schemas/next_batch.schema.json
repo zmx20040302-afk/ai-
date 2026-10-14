@@ -1,0 +1,113 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://memsharness.local/schemas/next_batch.schema.json",
+  "title": "A5 下一批选点建议（next_batch）",
+  "description": "由 src/memsharness/sweep_analysis.build_next_batch() 产出。契约要点：选点只在**已声明候选网格**上进行（禁插值/外推）；每个建议必须有同族**实测邻居**作依据，expected_gain 只给实测一阶差分**幅度**、不预测符号；上游未放行 ⇒ verdict=blocked 且 selected 为空（空集不得读成「无需补数据」）。",
+  "type": "object",
+  "required": [
+    "kind", "sweep_version", "source_scan", "verdict", "blocked", "provisional",
+    "stop_conditions", "budget", "selected", "rejected", "release_allowed",
+    "not_checked", "semantics"
+  ],
+  "properties": {
+    "kind": {"const": "next_batch"},
+    "sweep_version": {"type": "string"},
+    "source_scan": {
+      "type": "object",
+      "properties": {
+        "verdict": {"type": ["string", "null"]},
+        "rows_sha256": {"type": ["string", "null"]},
+        "model_sha256": {"type": ["string", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "verdict": {"enum": ["proposed", "blocked"]},
+    "blocked": {"type": "boolean"},
+    "provisional": {
+      "type": "boolean",
+      "description": "上游排名为临时（缺模型哈希/缺几何预检）⇒ 建议可给出但不得直接执行"
+    },
+    "release_allowed": {
+      "type": "boolean",
+      "description": "仅在给出建议（verdict=proposed）时为 true；建议本身的执行权仍属 A3 与人"
+    },
+    "stop_conditions": {"type": "array", "items": {"type": "string"}},
+    "budget": {
+      "type": "object",
+      "required": ["max_points", "n_selected", "n_rejected", "n_solves"],
+      "properties": {
+        "max_points": {"type": "integer", "minimum": 0},
+        "n_selected": {"type": "integer", "minimum": 0},
+        "n_rejected": {"type": "integer", "minimum": 0},
+        "n_solves": {"type": "integer", "minimum": 0},
+        "est_wall_seconds": {"type": ["number", "null"]},
+        "per_point_cost_s": {"type": ["number", "null"]}
+      },
+      "additionalProperties": true
+    },
+    "selected": {
+      "type": "array",
+      "description": "建议点；verdict=proposed 时**不得为空**（空集判失败）",
+      "items": {
+        "type": "object",
+        "required": ["role", "family", "params", "reason", "expected_gain", "cost",
+                     "stop_condition"],
+        "properties": {
+          "role": {"enum": ["quality_repair", "baseline_refine", "contrast"]},
+          "family": {"type": "string"},
+          "params": {"type": "object"},
+          "reason": {"type": "string", "minLength": 1},
+          "priority": {"type": "integer"},
+          "expected_gain": {
+            "type": "object",
+            "required": ["metric", "basis", "neighbour_ids", "observed_delta", "note"],
+            "properties": {
+              "metric": {"type": "string"},
+              "basis": {
+                "type": "string", "minLength": 1,
+                "description": "依据必须写明（一阶差分/对照/质量修复）；禁止无依据的插值外推"
+              },
+              "neighbour_ids": {
+                "type": "array",
+                "items": {"type": ["string", "null"]},
+                "description": "实测邻居的 run_id；quality_repair 依据是排除原因本身，可为空"
+              },
+              "neighbour_params": {"type": "array", "items": {"type": "object"}},
+              "observed_delta": {"type": ["number", "null"]},
+              "note": {"type": "string"}
+            },
+            "additionalProperties": true
+          },
+          "cost": {
+            "type": "object",
+            "required": ["n_solves"],
+            "properties": {
+              "n_solves": {"type": "integer", "minimum": 1},
+              "n_freq_points": {"type": "integer", "minimum": 1},
+              "est_wall_seconds": {"type": ["number", "null"]}
+            },
+            "additionalProperties": true
+          },
+          "stop_condition": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": true
+      }
+    },
+    "rejected": {
+      "type": "array",
+      "description": "被拒候选：逐条给理由（already_measured / no_measured_neighbour / budget_exhausted…）",
+      "items": {
+        "type": "object",
+        "required": ["candidate", "reason"],
+        "properties": {
+          "candidate": {"type": "object"},
+          "reason": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": true
+      }
+    },
+    "not_checked": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "semantics": {"type": "string"}
+  },
+  "additionalProperties": true
+}

@@ -4,9 +4,9 @@
 导致 `comp.geom(tag)` 报 "object is not callable"。本脚本把候选调用方式逐个试一遍，
 把成功/失败如实打印出来，避免继续猜 API。
 
-用法（经 ASCII 交汇点）：
-    C:\\Users\\18161\\memsharness_work\\repo\\work\\.venv\\Scripts\\python.exe -u ^
-      C:\\Users\\18161\\memsharness_work\\repo\\scripts\\mph_introspect.py
+用法（在仓库根下执行）：
+    work\\.venv\\Scripts\\python.exe -u ^
+      scripts\\mph_introspect.py
 """
 
 from __future__ import annotations

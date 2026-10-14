@@ -15,8 +15,8 @@
 优点：只依赖已验证的求值 API；与 COMSOL 版本/导出属性名解耦；几何变化时天然支持（域外点记为 NaN，用掩膜处理）。
 
 ## 用法（**必须经 ASCII 交汇点启动**，否则 JPype 因中文路径报 UnsatisfiedLinkError）
-    C:\\Users\\18161\\memsharness_work\\repo\\work\\.venv\\Scripts\\python.exe -u ^
-      C:\\Users\\18161\\memsharness_work\\repo\\scripts\\p1_field_grid_probe.py
+    work\\.venv\\Scripts\\python.exe -u ^
+      scripts\\p1_field_grid_probe.py
 """
 
 from __future__ import annotations

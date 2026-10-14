@@ -1,0 +1,26 @@
+{
+  "contract_version": "1.0.0",
+  "sample_id": "fixture-invalid-literature-unresolvable",
+  "source_type": "literature",
+  "fidelity": "F1",
+  "extractor": { "name": "fixture-literature-extractor", "version": "0" },
+  "design": {
+    "design_id": "fixture-design-lit",
+    "geometry_family": "GF-fixture",
+    "parameters": { "t": 0.0001 },
+    "parameter_units": { "t": "m" }
+  },
+  "frequency_set": { "kind": "discrete_list", "unit": "Hz", "values": [20000000.0] },
+  "metrics": {
+    "f_r_Hz": {
+      "value": 20000000.0,
+      "unit_si": "Hz",
+      "uncertainty": {
+        "method": "文献给出的误差棒",
+        "components": { "literature_range": { "value": 500000.0, "unit": "Hz", "source": "夹具" } }
+      }
+    }
+  },
+  "units": { "system": "SI", "original_values": [] },
+  "evidence_id": "ev-fixture-nonexistent-0001"
+}

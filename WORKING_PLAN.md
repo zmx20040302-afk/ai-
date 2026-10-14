@@ -216,6 +216,63 @@ DSH 以 npm 包形式安装（非源码 checkout），profile 位于 `C:\Users\1
 
 - `submit(job_spec) -> run_id`：非阻塞；job 落到文件队列（复用现有 worker 模式）。
 - **单实例串行 + license 感知并发**：COMSOL 求解**禁止**用 DSH `workflow` 并行 fan-out（会抢 license/内存）；并行只用于非求解工作（解析计算、文献抽取、报告）。
+
+#### 4.1.1 资源门禁（2026-09-14 实测更新，取代此前所有凭印象的内存假设）
+
+> 依据 run-id：`lt2-resource-calibration-x080-n02-v2`（页面文件前）、
+> `lt2-resource-confirm-x080-n02-postpagefile-r2`（页面文件后）。
+> 本节数值全部为**本机实测**，可复算；未实测的项**留空**，不填推测值。
+
+**本机内存与提交限制（实测）**
+
+| 项 | 值 | 说明 |
+|---|---|---|
+| 物理内存 | 32,189 MB | — |
+| 页面文件 | `C:\pagefile.sys` 固定 **12,288 MB**（2026-09-14 用户授权调整；此前自动管理仅 4,873 MB） | 固定大小，不再自动扩张；**再次变更须重新授权** |
+| **commit limit** | **44,477.4 MB**（调整前 37,063.0 MB） | 实测关系：`commit limit = 物理内存 + 页面文件分配`（预测 44,478 / 实测 44,477.4，误差 1.4e-5） |
+| 11 GB 级模型的 COMSOL 峰值提交增量 | 约 11,112 MB | 与实测 Peak WS 11,236 MB 相差 1.1% |
+
+**页面文件调整的效果（同一模型、7 频点、单组合）**
+
+| 指标 | 调整前 | 调整后 |
+|---|---|---|
+| 求解期 commit 可用最低 | **647.3 MB** | **17,409.9 MB** |
+| 采样判定 | 147/159 命中 commit 硬线 | **154/154 全部 ok** |
+
+⇒ 结论：**commit 贴地问题已由页面文件调整消除**。该结论仅适用于当前机器、当前背景负载、
+当前模型与单 server 串行设置；**不授权并行 server**，也不替代每个生产组合的实时监控。
+
+**实时停止线（唯一权威实现：`work\tools\rt_gate.py` 的 `Thresholds`，不得静默放宽）**
+
+```text
+ws_warning_mb               = 11500
+ws_hard_stop_mb             = 12288    连续 2 个 5 s 采样
+physical_avail_hard_stop_mb = 4096     连续 2 个采样
+commit_warning_mb           = 6144
+commit_hard_stop_mb         = 4096     连续 2 个采样
+sample_gap_hard_stop        = 连续 15 s 无新样本 => 停止投递并报警
+physical_avail_warning_mb   = None     Codex 未指定，显式留空，不自行发明
+```
+
+语义：**软线只阻止下一组合，不取消当前组合**；硬线先正常取消，必要时才终止**已核对归属**
+（端口 owner PID + 进程启动时间 + run-id）的 server。⚠️ **`PeakWorkingSet` 单调不减，只作审计，
+不作实时信号**（实时量看 `WorkingSet`）。**「commit 余量低」不是故障前兆**——调整前它是本机常态。
+
+**前置门禁与批大小**
+
+```text
+preflight: 无其他 server / 端口 2036 空闲 / 可用物理 >= 16384 MB / commit 可用 >= 16384 MB
+logical_batch_size    = 4 combinations（汇报/checkpoint 批次）
+server_lifecycle_size = 1 combination（每组合一个全新 server）
+禁止 12–16 组合大批量；升到 lifecycle=2 须先做「两组合共用一 server」试验
+```
+
+**口径限制（避免误用）**
+
+- 电气电流/阻抗类指标（`Zin*`、`I_*`）因 LT0-C 实测 **KCL 相对误差 16.6–18.9% > 1%** 而**整体排除**，
+  不得参与任何排名、训练或报告；被排除的单元格一律留空。
+- LT2 未完全通过前**不得制作「正式反相粗扫排名」**（授权限制，已写入 `work\tools\lt3_prep.py` 的守卫）。
+- 运行期**必须**实时判定（不得事后回放）；**空集合不得判「一致」**；验收日志不得只留 tail。
 - 每次运行固定记录：COMSOL 版本、license、mphserver 端口、模型文件 SHA256、参数快照、网格设置、求解器设置、墙钟/CPU 时间、日志、产物哈希。
 - 失败诊断：复用并扩展 `execution_diagnostics.py`（连接失败 / 不收敛 / 内存不足 / 几何错误 / 选择集失效），给出分类 + 处置建议 + 是否可重试。
 - 前置校验：单位完整性、参数范围、`.mph` 是否被 GUI 占用（曾观察到 `a_Oval shape.mph.lock`）、运行前复制到 ASCII 工作目录。
@@ -679,6 +736,33 @@ draft →（S0/S3 通过）→ physics_consistent
 
 ---
 
+### 7.1 现状对照（**2026-09-29 实测**，逐阶段对应上表；AGENTS §6 要求「发现计划与现实不符时先记录实测事实再改本文件」）
+
+| 阶段 | 现状 | 证据（可复核） |
+|---|---|---|
+| **P0 环境打通** | ✅ **已完成** | venv（Python 3.12.14）；MCP server 已注册 **22** 个工具且 `--selftest` 通过；COMSOL 6.4.0.293 / MATLAB R2023b 路径与版本见 `AGENTS.md` §3 |
+| **P1 资产整合** | ✅ **已完成** | `work/store/mems.duckdb` **9.7 MB / 12 张表**（artifact 1297、sample 1185、design 586、run 132…） |
+| **P2 仿真内核** | 🟡 **部分** | 队列化 submit/poll、单实例串行、失败分类、run 目录与溯源**已在**（`tests/test_comsol_queue.py`）；**但**「网格收敛自动化」**未达标**——`validation` 表 11 条 L1 仅 1 条通过且是玩具模板 ⇒ **PMUT 的 L1 仍为 0**；`device_spec` 仍有 **9 个 `pending_human`** |
+| **P3 数据工厂** | 🟡 **部分** | 解析基准夹具 423 条在库；**未**产出「≥10⁴ 条 F0/F1 样本」；多保真采样器/增强计划生成**未建**。真实仿真数据反而是**外部导出**的两批（A 223 + C 1782 组合） |
+| **P4 代理模型** | 🟡 **部分（已有两个可用代理）** | 响应级代理 93 维（`surrogate-response-20260929`）与**多通道一阶峰代理 8 通道**（`multichannel-surrogate-20260929`：预注册 + 逐通道误差/覆盖率/拒答域 + 保形区间 + 模型卡）；OOD 拒答与模型卡**已有**。**未达成**：留出集 ≤3% 未普遍达到（多通道中位 0.0016–0.005 达标，但**折覆盖率约 70%**，且 `bandwidth_Hz`/`Q_factor` **未优于持续性基线**）；**主动学习未做** |
+| **P4.5 AI 求解器（场级）** | ❌ **未达成，且被数据阻塞** | S1 级场误差评估**历史上已做过且失败**（全局 max **9.18** vs 门槛 0.05、关键区 **8.91** vs 0.02，见 `s1-field-eval-20260915/S1_RESULT_result.json`）；现有 57 个 phase0 场快照**只有 20 MHz 一个频点**；批 A/C **无任何场数据**。**用户 2026-09-29 指示该线挂起** |
+| **P5 增强闭环** | ❌ **未开始** | `experiment=0`、`evidence=0`（文献证据 0 条）、`prediction=0`；`feedback` 6 条但**无偏好模型**；实验接入与文献抽取管线**未建** |
+| **P6 端到端示范** | ❌ **未开始** | 尚无「需求 → 5 个候选设计 + 置信度 + 证据链」的自动产出；「零 COMSOL 支线」因 P4.5 未达成而**不可谈** |
+| **P7 平台化** | 🟡 **部分（Web UI 已显著超前）** | 网页控制台已到 **v3**：显式双模式（离线/DeepSeek）、两个代理的端点与出图、数据浏览、平台任务（含**超时与取消可见性**）、子智能体离线点名、MCP 暴露（`docs/WEB_SERVICES.md` §10）。**未做**：多器件模板库、复现包导出、定时巡检与周报、局域网暴露 |
+
+**一句话**：**P0/P1 完成；P2/P3/P4/P7 部分；P4.5/P5/P6 未达成**。
+其中 P4.5 的缺口**不是工程能力问题，而是数据问题**（无场快照 + L1=0）——
+这也决定了 KPI 表里「免求解器占比 ≥80%」「场级相对 L2 ≤5%」等指标**当前一律不可谈**。
+
+**与 §7 计划的两处口径修正（原表不删）**：
+
+1. 计划把 P3 写成「自动产出 ≥10⁴ 条 F0/F1 样本」，实况是**真实仿真数据靠外部导出**，
+   平台侧做的是**接入/校验/分析**（`x-densify`、`n2-8-intake`，镜像校验 12/12 通过）；
+2. 计划把 P7 的 Web UI 排在最后，实况是**它已被用户要求提前并做到 v3**——
+   它是「能用的界面」，但**不改变任何科学结论**（两个代理仍是 `draft`，红线未动）。
+
+---
+
 ## 8. 关键指标（KPI）
 
 | 维度 | 指标 | 阶段目标（P0–P6，约 12–16 周） |
@@ -903,6 +987,52 @@ draft →（S0/S3 通过）→ physics_consistent
 3. **`python -m venv` 在中文路径下必失败**（`ensurepip` 报错路径出现 `D:\????\memsharness`），必须用 `uv venv`。（已写入 `AGENTS.md`）
 4. **HMR 不会新增插件条目**：改完补丁层后并未出现 `memsharness.mcp_server` 子进程，MCP 需**重启 DSH 服务**才在 GUI 生效。
 5. **技能能力实际可用**：会话技能目录中已动态出现 `comsol-modeling-sop`，说明技能发现链路是通的（此前对 `--dump-config` 输出的解读有误——那条 `disabled: true` 来自 bundle 层，已被 web-app 层重新启用）。
+
+### 机器迁移到 `C:\Users\zmx\Desktop\memsharness` 后的实测修正（2026-09-11）
+
+> 第 2 节与本节上文的「本机实测」均指**旧机**（`D:\桌面\memsharness`）。迁移到当前工作机后，
+> 下列事实被推翻或修正；**权威值见 `AGENTS.md` 第 3 节**。
+
+1. **不再需要 ASCII 交汇点**：本机仓库根为纯 ASCII 路径，旧机因中文路径导致的
+   `java.lang.UnsatisfiedLinkError` 前提不存在。JPype/MPh 可直接用 `work\.venv\Scripts\python.exe`。
+2. **`uv` 未安装，`python -m venv` 可用**：旧结论「必须用 uv」只在中文路径下成立（`ensurepip` 失败）；
+   本机用系统自带解释器建 venv 成功（Python 3.12.14）。若仓库再落到中文路径，需回到 `uv` 或交汇点方案。
+3. **pip/venv 在受限文件策略下必失败（新发现的沙箱约束）**：沙箱拒绝写入「以 `0o700` 创建」的目录，
+   而 `tempfile.mkdtemp`、pip 的解包目录、venv 的 `ensurepip` 全都用 `0o700` → 报
+   `PermissionError: [Errno 13]`。绕过方式：venv 内放 `sitecustomize.py` 强制 `0o777`
+   （对所有子进程生效，含 pip 的构建隔离子进程），并把 `TMP/TEMP` 指向工作区。
+4. **COMSOL 启动器在受限策略下静默失败（最重要的新事实）**：`workspace-write` 下
+   `comsolcompile`/`comsolbatch` 统一 **rc=15、stdout/stderr 全空、不产出任何文件**，连最小
+   `Hello.java` 都失败；`-userdir`／`COMSOL_USERHOME`／覆盖 `USERPROFILE,HOME,APPDATA` 三种重定向
+   全部无效，说明它需要的不只是文件写入权限。放宽到 `danger-full-access` 后同一命令 rc=0。
+   → 任何真实 COMSOL 步骤必须在放宽策略下跑。
+5. **镜像会在无异常的情况下截断大 wheel**：`mirrors.aliyun.com` 的 duckdb wheel 只下到
+   3,515,967 B（应为 13,168,544 B），`urllib` 不校验长度故不报错，靠 pip 的 sha256 校验才拦住。
+   清华镜像可用但 `simple` 索引 JSON 偶发截断（表现为 pip 的 JSON 解析崩溃），需重试收敛。
+6. **依赖声明缺三处**：`matplotlib`（`report.py` 延迟导入；缺它则 `tests/test_report.py` 直接失败，
+   旧机是恰好装过才显示 240 passed）、`joblib`（被 `ml/surrogate.py` 直接导入但只靠 scikit-learn 传递提供）、
+   `mph`（COMSOL Python 接入路径需要）。已补入 `pyproject.toml`（`mph`/`JPype1` 放入可选组 `[comsol]`）。
+7. **同一张 `sample` 表混入多个器件族后，下游脚本会静默归零或崩溃**（新增真实缺陷）：
+   `load_samples` 展开的是**全表 JSON 键的并集**，按 `fidelity` 过滤不按族过滤 → 跨族样本彼此全 NaN，
+   `dropna` 后有效样本 **0 条**（实测 F2 0/49、F0 0/423）；`make_report.py` 图 2 同源，
+   直接 `KeyError: 'k_cond'`。已修：`train_surrogate.py` 增 `--family` 并先丢整列全空的跨族列；
+   `make_report.py` 图 2 补 `geometry_family` 过滤。
+8. **跨族泛化仍未验证**：训练数据只有单一器件族时，族间留出无法执行，切分退化为
+   `random_degraded`（同族样本同时进训练与测试集，指标偏乐观）。这不是 bug 而是数据/口径缺口，
+   数据集报告里的 `cross_family_holdout=false` 必须继续如实标注。
+9. **MATLAB 版本修正**：本机为 **R2023b**（`D:\matlab\bin\matlab.exe`），非旧文档写的 R2025b；
+   `src/memsharness/env.py` 的默认路径已改为候选列表探测（不再写死 `D:\MATLAB2025\...`）。
+10. **MEMS 模式（DSH 预设）的安装方式必须改变**：迁移包内那份预设出自**旧一代 DSH**——
+    persona 用 `text:` 键，而本机 `@deepseek-ai/dsh-persona` 的 schema 只接受 `prefix`（必填）；
+    它还缺本机 standard 预设里的 `command-goal` 条目。直接拷贝会**挂载失败**（症状：选择器能选到、
+    选完跳回原模式）。正确做法是以**本机** `presets/standard/agent.cordis.yml` 为基底注入 MEMS 人格，
+    见重写后的 `scripts/install_mems_preset.py`。
+11. **目标器件已由用户指定**：`C:\Users\zmx\Desktop\b_GE_task3_2-new.mph`（98.9 MB）为目标器件，
+    另两个同名变体用于参数化扫描。只读 probe 已完成（`work/reports/modelio/probe-*.json`）：
+    37 参数、3D 几何 83 顶点/152 边界/16 域、4 接口（`acpr`/`solid`/`es`/`cir`）+ 19 命名选择集、
+    研究 `std1` = `param` + `param2` + `freq`、3 求解器、**mesh 未构建**。
+12. **`work/runs` 内没有任何 `.mph`**（迁移时剥离），因此依赖真实解的用例与 POD 路线
+    （`scripts/pod_from_runs.py`）在本机当前无法复现，需重新求解产出。
 
 ---
 

@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://memsharness.local/schemas/solver_spec.schema.json",
+  "title": "AI 求解器规格（solver_spec）",
+  "description": "免 COMSOL 出解的**底层配置**：身份、降阶方法、场与单位、公共点集、适用范围内、S0–S5 阈值、放行状态与必带元数据。口径来自 WORKING_PLAN §6.1.1 / §6.4 与技能 ai-solver-verification、field-io-contract。本 schema 与 src/memsharness/solver.py::validate_spec 必须保持一致。",
+  "type": "object",
+  "required": [
+    "solver_id", "method", "fields", "point_set", "applicability",
+    "thresholds", "state", "stamps"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "solver_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "求解器实例标识（与代理层的 model_id 分开：两类模型两套放行口径，§6.4）"
+    },
+    "method": {
+      "enum": ["pod", "rom", "pod-rom"],
+      "description": "首选降阶路线；深度算子（FNO/DeepONet）属扩展期，尚未接入"
+    },
+    "model_id": {
+      "type": "string",
+      "description": "底层降阶模型的版本标识；出解时必须非空（红线 8）"
+    },
+    "base_model_id": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "对应的 COMSOL 基模型 sha256（没有共同模板时如实留空，不得编造）"
+    },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "unit"],
+        "properties": {
+          "name": {"type": "string"},
+          "unit": {"type": "string", "description": "内部一律 SI（field-io-contract §4）"},
+          "note": {"type": "string"}
+        }
+      }
+    },
+    "point_set": {
+      "type": "object",
+      "required": ["spec", "points_file", "mask_policy"],
+      "properties": {
+        "spec": {"type": "object", "description": "公共点集规格：每轴 start/stop/n"},
+        "points_file": {"type": "string", "description": "显式坐标文件（相对仓库根）"},
+        "mask_policy": {
+          "const": "common_mask_all_finite",
+          "description": "公共掩膜 = 在所有快照中都有限的点；绝不允许把 NaN 当 0 填充"
+        }
+      }
+    },
+    "applicability": {
+      "type": "object",
+      "required": ["param_bounds"],
+      "properties": {
+        "geometry_family": {"type": "string", "description": "跨族外推一律拒答"},
+        "param_bounds": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "array", "minItems": 2, "maxItems": 2,
+            "items": {"type": "number"}
+          },
+          "description": "每个参数的 [下界, 上界]；缺参数的请求一律拒答"
+        },
+        "frequency_range_MHz": {
+          "type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number"}
+        },
+        "extrapolation": {
+          "type": "object",
+          "properties": {
+            "allowed_steps": {"type": "integer", "minimum": 0},
+            "policy": {"type": "string"}
+          }
+        }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "description": "§6.1.1 的 S0–S5 阈值。**必须逐项给全**：不许用实现里的默认值兜底（那会成为第二套口径）。",
+      "required": [
+        "S0_limit_rel_err_max", "S1_key_region_rel_L2_max", "S1_global_rel_L2_max",
+        "S2_engineering_rel_err_max", "S3_conservation_residual_max", "S3_bc_residual_max",
+        "S4_mesh_diff_max", "S5_coverage_min", "S5_coverage_max"
+      ],
+      "additionalProperties": {"type": "number"}
+    },
+    "state": {
+      "enum": ["draft", "physics_consistent", "solver_certified", "approved_solver", "suspended"],
+      "description": "§6.4 状态机。approved_solver 只能由**人工签字**到达；代码不得自我放行。"
+    },
+    "stamps": {
+      "type": "object",
+      "description": "每次出解必须附带的元数据（§6.4 运行时规则 + 红线 7/8）",
+      "required": [
+        "source_type", "model_id", "uncertainty", "verification_level", "applicability_hit"
+      ],
+      "properties": {
+        "source_type": {"const": "ai_solver"},
+        "model_id": {"type": "string"},
+        "uncertainty": {"type": "string", "description": "场级误差界的来源/口径说明"},
+        "verification_level": {"type": "string"},
+        "applicability_hit": {"type": "boolean"}
+      }
+    },
+    "recheck": {
+      "type": "object",
+      "description": "§6.4：按 schedule 定期抽样用 COMSOL 复检；命中漂移 ⇒ suspended",
+      "properties": {
+        "every_n_solves": {"type": "integer", "minimum": 1},
+        "every_hours": {"type": "integer", "minimum": 1},
+        "action_on_drift": {"const": "suspended"}
+      }
+    },
+    "release": {
+      "type": "object",
+      "description": "放行台账镜像（真台账在 work/runs/solver/<solver_id>/release_log.jsonl，append-only）",
+      "properties": {
+        "state": {"enum": ["draft", "physics_consistent", "solver_certified", "approved_solver", "suspended"]},
+        "history": {"type": "array", "items": {"type": "object"}}
+      }
+    },
+    "schedule": {"type": "string"},
+    "note": {"type": "string"},
+    "not_a_solver": {
+      "type": "string",
+      "description": "反向声明：本配置用于 AI 求解器，但**不得**声称等价于 COMSOL、不得用于工程绝对值（未过 S1/S2 时）"
+    }
+  }
+}
