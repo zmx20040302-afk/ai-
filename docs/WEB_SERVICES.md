@@ -164,10 +164,22 @@ powershell -NoProfile -ExecutionPolicy Bypass -File $I -Action remove    # 卸�
 没有 L1 网格收敛 ⇒ **不给工程绝对值**；每次预测强制带 `model_id`、认证区间与**拒答判定**；
 状态只能是 `draft_surrogate`，**放行权在人**」。缺任一条 ⇒ **服务端拒绝启动**。
 
-### 6.2 后期开局域网（一步即可）
+### 6.2 局域网访问（一键启动、自动鉴权）
+
+双击：
+
+```text
+work\tools\start_network_console.cmd
+```
+
+启动器会自动生成并复用 `work/runtime/lan-access-token.txt`，然后打印形如
+`http://192.168.x.x:8877/?token=...` 的完整地址。把**完整地址**复制到同一局域网的其他电脑即可；
+不需要每次重新配置令牌。令牌文件位于 gitignored 的运行区，不会进入 Git。
+
+等价的手动命令：
 
 ```powershell
-python -B scripts\webapp_server.py --host 0.0.0.0 --port 8877 --token <至少16字符>
+python -B scripts\webapp_server.py --lan --port 8877
 ```
 
 * 设了 `--token` 后**所有端点**都要带 `Authorization: Bearer <token>` 或 `?token=<token>`；

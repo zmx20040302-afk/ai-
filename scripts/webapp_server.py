@@ -22,6 +22,8 @@ import io
 import json
 import os
 import re
+import secrets
+import socket
 import subprocess
 import sys
 import tempfile
@@ -2617,6 +2619,36 @@ def _is_loopback(host: str) -> bool:
     return host in ("127.0.0.1", "localhost", "::1")
 
 
+def _read_or_create_lan_token(path: Path) -> str:
+    """读取或一次性创建局域网访问令牌；令牌只落在 gitignored 的 work/ 中。"""
+    path = path.resolve()
+    if path.is_file():
+        token = path.read_text(encoding="utf-8").strip()
+        if len(token) < 16:
+            raise ValueError("局域网令牌文件内容过短（至少 16 字符）：%s" % path)
+        return token
+    path.parent.mkdir(parents=True, exist_ok=True)
+    token = secrets.token_urlsafe(24)
+    path.write_text(token + "\n", encoding="utf-8")
+    try:
+        path.chmod(0o600)
+    except OSError:
+        pass
+    return token
+
+
+def _local_ipv4_addresses() -> list[str]:
+    addresses: set[str] = set()
+    try:
+        for item in socket.getaddrinfo(socket.gethostname(), None, family=socket.AF_INET):
+            address = item[4][0]
+            if address and not address.startswith("127."):
+                addresses.add(address)
+    except OSError:
+        pass
+    return sorted(addresses)
+
+
 def check_bind(host: str, token: str | None) -> str | None:
     """绑定守卫（**fail-closed**）：非回环地址必须带 `--token`，否则拒绝启动。
 
@@ -2640,6 +2672,10 @@ def main(argv: list[str] | None = None) -> int:
                     help="默认 127.0.0.1；非回环地址必须同时给 --token（fail-closed）")
     ap.add_argument("--token", default=None,
                     help="访问令牌（非回环绑定时必填）；请求需带 Authorization: Bearer <token>")
+    ap.add_argument("--token-file", default=None,
+                    help="从文件读取访问令牌；文件不存在时安全生成并复用（默认 work/runtime/lan-access-token.txt）")
+    ap.add_argument("--lan", action="store_true",
+                    help="一键局域网模式：绑定 0.0.0.0，自动生成/复用令牌并打印可复制网址")
     ap.add_argument("--selftest", action="store_true")
     ap.add_argument("--exec-task", default=None,
                     help="内部用：在子进程里执行一个已登记任务（配合 --args-json/--out-json）")
@@ -2655,20 +2691,37 @@ def main(argv: list[str] | None = None) -> int:
         return _exec_task_entry(args.exec_task, args.args_json, args.out_json)
     if args.selftest:
         return selftest()
-    guard = check_bind(args.host, args.token)
+    host = "0.0.0.0" if args.lan else args.host
+    token = args.token
+    token_path = Path(args.token_file) if args.token_file else REPO / "work/runtime/lan-access-token.txt"
+    if not token and (args.lan or not _is_loopback(host)):
+        if not token_path.is_absolute():
+            token_path = REPO / token_path
+        try:
+            token = _read_or_create_lan_token(token_path)
+        except (OSError, ValueError) as exc:
+            print("[FAIL] 无法准备局域网令牌：%s" % exc)
+            return 2
+    guard = check_bind(host, token)
     if guard:
         print("[FAIL] " + guard)
         return 2
-    if args.token:
-        TOKEN["value"] = args.token
+    if token:
+        TOKEN["value"] = token
     # 允许"在 npx 缓存里自动发现 dsh"——**只有控制台自己打开这个开关**，
     # 免得测试/脚本在没设 DSH_BIN 时顺手把真实 dsh 拉起来（实测发生过，真花 token）。
     os.environ.setdefault("MEMS_DSH_ALLOW_DISCOVERED", "1")
-    srv = ThreadingHTTPServer((args.host, args.port), Handler)
-    print("MEMS 控制台：http://%s:%d/  （Ctrl+C 停止）" % (args.host, args.port))
+    srv = ThreadingHTTPServer((host, args.port), Handler)
+    print("MEMS 控制台：http://%s:%d/  （Ctrl+C 停止）" % (host, args.port))
     print("工作模式默认 **离线**（不发网络请求）；页面右上角可切到 DeepSeek。")
-    if args.token:
+    if token:
         print("已启用令牌鉴权（Authorization: Bearer …）")
+    if not _is_loopback(host):
+        encoded = urllib.parse.quote(token or "", safe="")
+        print("局域网访问地址（把其中一个完整地址复制到其他电脑）：")
+        for address in _local_ipv4_addresses():
+            print("  http://%s:%d/?token=%s" % (address, args.port, encoded))
+        print("令牌文件：%s（不要提交、不要发给不受信任的人）" % token_path.resolve())
     print("已登记任务 %d 个：%s" % (len(TASKS), ", ".join(sorted(TASKS))))
     try:
         srv.serve_forever()

@@ -125,6 +125,15 @@ def test_bind_guard(srv):
     assert srv.check_bind("0.0.0.0", "x" * 24) is None
 
 
+def test_lan_token_is_generated_once_and_reused(srv, tmp_path):
+    path = tmp_path / "lan-token.txt"
+    first = srv._read_or_create_lan_token(path)
+    second = srv._read_or_create_lan_token(path)
+    assert first == second
+    assert len(first) >= 16
+    assert path.read_text(encoding="utf-8").strip() == first
+
+
 # ---------------------------------------------------------------- 页面措辞锁
 def test_page_has_required_and_no_forbidden_wording():
     t = PAGE.read_text(encoding="utf-8")
@@ -294,6 +303,13 @@ def test_page_can_fall_back_to_absolute_api_base():
     for must in ("detectApiBase", "API_CANDIDATES", "http://127.0.0.1:8877",
                  "API_BASE", "showConnBanner", "diagText", "复制诊断信息", "重试连接"):
         assert must in t, "页面缺少回落到绝对基址所需的：%s" % must
+
+
+def test_page_forwards_lan_token_to_every_api_request():
+    t = PAGE.read_text(encoding="utf-8")
+    for must in ("ACCESS_TOKEN", "sessionStorage", "Authorization", "Bearer ",
+                 "authHeaders(o.headers)", "headers:authHeaders()"):
+        assert must in t, "局域网令牌没有贯穿页面 API 请求：%s" % must
 
 
 def test_mode_buttons_are_never_both_disabled():

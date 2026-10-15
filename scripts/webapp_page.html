@@ -322,6 +322,16 @@ svg{background:#0b0f14;border:1px solid #22282f;border-radius:8px;width:100%;hei
 <script>
 "use strict";
 const $=s=>document.querySelector(s);
+const ACCESS_TOKEN=(()=>{
+  const q=new URLSearchParams(location.search).get('token')||'';
+  if(q){ try{ sessionStorage.setItem('mems_lan_token',q); }catch(_){} return q; }
+  try{ return sessionStorage.getItem('mems_lan_token')||''; }catch(_){ return ''; }
+})();
+function authHeaders(headers){
+  const h=new Headers(headers||{});
+  if(ACCESS_TOKEN) h.set('Authorization','Bearer '+ACCESS_TOKEN);
+  return h;
+}
 /* 诊断模式（`?no_incident=1` 或 `?diag=1`）：自动化探针把页面跑一遍时，
    它自己触发的拒答/异常**不是**用户遇到的问题 ⇒ 不登记失败通道（服务端也认这个头）。
    实测动机：例行复检每跑一次都会制造一条拒答，把台账稀释成"机器噪音"。 */
@@ -332,7 +342,8 @@ const pill=(v,cls)=>'<span class="pill '+((cls||VC[v])||'')+'">'+esc(v)+'</span>
 const f=(v,n)=>(v==null||isNaN(v))?'—':Number(v).toFixed(n==null?3:n);
 async function api(path,body,noQueue){
   const o=body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{headers:{}};
-  if(DIAG_MODE) o.headers['X-MEMS-No-Incident']='1';   // 诊断探针如实声明"不是人的操作"
+  o.headers=authHeaders(o.headers);
+  if(DIAG_MODE) o.headers.set('X-MEMS-No-Incident','1'); // 诊断探针如实声明"不是人的操作"
   o.cache='no-store';
   const url=(API_BASE||'')+path;
   let r,t;
@@ -371,14 +382,17 @@ function incNoteServiceDown(msg,path,body){
    ------------------------------------------------------------------ */
 let API_BASE='';                       // '' = 同源相对路径
 let CONN={ok:false, base:'', tried:[]};
-const API_CANDIDATES=()=>[location.origin,'http://127.0.0.1:8877','http://localhost:8877'];
+const API_CANDIDATES=()=>{
+  const local=/^(127\.0\.0\.1|localhost|::1)$/.test(location.hostname);
+  return local?[location.origin,'http://127.0.0.1:8877','http://localhost:8877']:[location.origin];
+};
 async function detectApiBase(){
   const tried=[]; const seen=new Set();
   for(const b of API_CANDIDATES()){
     if(!b||seen.has(b)) continue; seen.add(b);
     const url=b+'/api/mode';
     try{
-      const r=await fetch(url,{cache:'no-store'});
+      const r=await fetch(url,{cache:'no-store',headers:authHeaders()});
       const t=await r.text();
       let j=null; try{ j=JSON.parse(t); }catch(_){}
       if(j&&j.mode){ tried.push(url+' → OK'); return {ok:true, base:(b===location.origin?'':b), tried}; }
@@ -399,8 +413,8 @@ function showConnBanner(){
   b.innerHTML='<b>连不上本平台的本地服务</b>　'
    +'<button class="ghost" style="float:right;padding:2px 8px" data-act="diag">复制诊断信息</button>'
    +'<button class="ghost" style="float:right;padding:2px 8px;margin-right:6px" data-act="retry">重试连接</button>'
-   +'<div style="margin-top:6px">请在浏览器地址栏<b>直接打开</b> '
-   +'<code>http://127.0.0.1:8877/</code>（不要通过其它界面内嵌打开）。</div>'
+   +'<div style="margin-top:6px">请在浏览器地址栏<b>直接打开</b>当前工作站提供的完整访问地址。'
+   +'本机默认地址是 <code>http://127.0.0.1:8877/</code>；局域网地址需保留 <code>?token=…</code>。</div>'
    +'<pre>'+esc(diagText())+'</pre>';
   b.querySelectorAll('[data-act]').forEach(x=>{
     x.onclick=()=>{ if(x.dataset.act==='retry') location.reload();
