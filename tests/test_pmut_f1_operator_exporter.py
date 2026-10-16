@@ -29,6 +29,9 @@ def test_operator_export_is_independent_and_does_not_mutate_physics():
     assert "same_eval_columns_not_nearest_neighbor" in code
     assert "'original_fe_mesh_verified', false" in code
     assert "loaded_model_definition_snapshot_not_per_outer_state" in code
+    assert "node.isActive()" in code
+    assert "for group = {'func', 'study'}" in code
+    assert "for group = {'feature', 'propertyGroup', 'func'}" in code
     assert "forced_response_displacement_not_eigenmode" in code
     assert "'physics_inputs_complete', false" in code
     assert "'release_allowed', false" in code
@@ -46,7 +49,10 @@ def test_index_resolution_and_identity_remain_fail_closed():
     assert "'ext', 0, 'coorderr', 'on', 'matherr', 'on'" in source
     assert source.index("file_sha256(modelPath)") < source.index("mphload(modelPath")
     assert source.index("'PMUTF1:SourceHashMismatch'") < source.index("mphload(modelPath")
-    assert source.index("'solution_map_raw.mat'") < source.index("tags = fieldnames(info)")
+    assert source.index("'solution_map_raw.mat'") < source.index("solutionTag = binding.solution_tag")
+    assert "datasetNode.getString('solution')" in source
+    assert "'PMUTF1:DatasetBindingUnavailable'" in source
+    assert "explicit_paramsweep_metadata_names_values_and_all_rows_verified" in source
     assert "PMUTF1 context_done" in source and "PMUTF1 resolve_start" in source
     assert "assert_source_unchanged(modelPath, before);" in source
     assert "rethrow_identity_error(err)" in source
@@ -132,6 +138,8 @@ function out=numerical(obj); out=obj; end
 function out=tags(~); out={'dset3'}; end
 function create(varargin); end
 function out=get(obj,varargin); out=obj; end
+function out=getType(~); out='Solution'; end
+function out=getString(~,key); assert(strcmp(key,'solution')); out='sol3'; end
 function set(obj,key,value)
 switch key; case 'expr'; obj.expr=value; case 'outersolnum'; obj.outer=value; case 'solnum'; obj.inner=value; end
 end
@@ -234,3 +242,97 @@ end
     assert resolved["raw_solution_map"]["sha256"] == hashlib.sha256((tmp_path / "success/solution_map_raw.mat").read_bytes()).hexdigest()
     failed = json.loads((tmp_path / "changed/export_report.json").read_text())
     assert failed["status"] == "failed" and failed["source_unchanged"] is False
+
+
+@pytest.mark.skipif(not os.environ.get("PMUT_F1_MATLAB"), reason="Native MATLAB offline map regression requires PMUT_F1_MATLAB; never COMSOL")
+def test_recovered_n2_5_map_resolves_only_explicit_dataset_binding(tmp_path):
+    """真实 map 回归；dset3→sol2 是显式测试替身，不能声称现场绑定已读回。"""
+    evidence_root = REPO / "work/runs/pmut-operator-intake-20261016-v1"
+    raw = evidence_root / "context-preview-n2-5/solution_map_raw.mat"
+    manifest_path = evidence_root / "manifests/manifest_n2_5.json"
+    if not raw.is_file() or not manifest_path.is_file():
+        pytest.skip("Pinned recovered N2=5 evidence is not present in this checkout")
+    expected_sha = "fab29d79c41a40ff25e0b6ecca490bd5dec819d7562783aa3065149117893149"
+    assert hashlib.sha256(raw.read_bytes()).hexdigest() == expected_sha
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert len(manifest["cases"]) == 20
+    # 仅离线微型替身，不能把远端真实源哈希用在这个惯性 fixture 上。
+    manifest.pop("expected_source_model_sha256", None)
+    manifest["test_scope"] = "offline_real_map_with_synthetic_dataset_binding_no_field_export"
+    local_manifest = tmp_path / "offline-manifest.json"
+    local_manifest.write_text(json.dumps(manifest), encoding="utf-8")
+    model = tmp_path / "inert.mph"
+    model.write_bytes(b"inert offline map regression; NOT a COMSOL model")
+    (tmp_path / "mphload.m").write_text(
+        "function out=mphload(varargin)\nout=FakeMapModel();\nend\n", encoding="utf-8"
+    )
+    (tmp_path / "mphsolutioninfo.m").write_text(
+        "function out=mphsolutioninfo(~,varargin)\n"
+        "global MAP_MODE MAP_FILE; assert(isequal(varargin,{'dataset','dset3','cellmap','on'}));\n"
+        "saved=load(MAP_FILE); out=saved.solution_info;\n"
+        "if strcmp(MAP_MODE,'nonconstant_tail'); out.sol2.map(1,5)=.5; end\n"
+        "if strcmp(MAP_MODE,'wrong_metadata_names'); out.sol2.paramsweepnames{1}='unrelated'; end\n"
+        "if strcmp(MAP_MODE,'missing_metadata'); out.sol2=rmfield(out.sol2,'paramsweepvals'); end\n"
+        "if strcmp(MAP_MODE,'bad_parameter_names'); out.sol2.parameters{1}='wrong_freq'; end\n"
+        "if strcmp(MAP_MODE,'duplicate_row'); out.sol2.map=[out.sol2.map;out.sol2.map(3453,:)]; end\n"
+        "end\n", encoding="utf-8"
+    )
+    (tmp_path / "FakeMapModel.m").write_text(r"""classdef FakeMapModel < handle
+properties; result; dataset; end
+methods
+function obj=FakeMapModel(); obj.result=obj; obj.dataset=obj; end
+function out=numerical(obj); out=obj; end
+function out=tags(~); out={'dset3'}; end
+function create(varargin); end
+function out=get(obj,varargin); out=obj; end
+function set(varargin); end
+function out=getType(~); global MAP_MODE; out='Solution'; if strcmp(MAP_MODE,'wrong_type'); out='CutPoint3D'; end; end
+function out=getString(~,key)
+global MAP_MODE; assert(strcmp(key,'solution')); out='sol2';
+if strcmp(MAP_MODE,'missing_binding'); out=''; end
+if strcmp(MAP_MODE,'child_binding'); out='sol3'; end
+end
+function out=getInt(varargin); error('Fake:StopAfterResolution','No real field evaluation in offline index regression'); end
+end
+end
+""", encoding="utf-8")
+    modes = {"success": "Fake:StopAfterResolution", "missing_binding": "PMUTF1:DatasetBindingUnavailable",
+             "wrong_type": "PMUTF1:DatasetBindingUnavailable", "child_binding": "PMUTF1:SolutionMapNotUnique",
+             "nonconstant_tail": "PMUTF1:InvalidSolutionMap", "wrong_metadata_names": "PMUTF1:InvalidSolutionMap",
+             "missing_metadata": "PMUTF1:InvalidSolutionMap", "bad_parameter_names": "PMUTF1:InvalidSolutionMap",
+             "duplicate_row": "PMUTF1:SolutionMapNotUnique"}
+    lines = ["function run_recovered_map_checks()", "global MAP_MODE MAP_FILE;",
+             f"MAP_FILE={_quote(raw)}; addpath({_quote(SCRIPT.parent)}); addpath({_quote(tmp_path)},'-begin');"]
+    for mode, expected in modes.items():
+        call = f"pmut_f1_export_operator({_quote(model)},{_quote(local_manifest)},{_quote(tmp_path / mode)})"
+        lines.append(f"MAP_MODE='{mode}'; expect(@() {call},'{expected}');")
+    lines += ["disp('RECOVERED_MAP_CHECKS_OK'); end", "function expect(call,id)",
+              "try; call(); catch err; assert(strcmp(err.identifier,id),'%s: %s',err.identifier,err.message); return; end",
+              "error('Test:ExpectedFailure','Expected %s',id); end"]
+    (tmp_path / "run_recovered_map_checks.m").write_text("\n".join(lines), encoding="utf-8")
+    run = subprocess.run([os.environ["PMUT_F1_MATLAB"], "-batch", f"addpath({_quote(tmp_path)}); run_recovered_map_checks"],
+                         cwd=tmp_path, capture_output=True, encoding="utf-8", errors="replace", timeout=180,
+                         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "RECOVERED_MAP_CHECKS_OK" in run.stdout
+    candidates = json.loads((tmp_path / "success/resolved_index_candidates.json").read_text())
+    expected_indices = [(86, 38), (85, 39), (79, 44), (77, 45), (17, 154), (16, 159),
+                        (14, 172), (13, 176), (13, 177), (13, 182), (12, 189), (11, 195),
+                        (11, 196), (11, 197), (11, 198), (8, 223), (3, 308), (3, 313),
+                        (3, 322), (3, 323)]
+    assert [(c["inner_solnum"], c["outer_solnum"]) for c in candidates["cases"]] == expected_indices
+    assert [c["case_id"] for c in candidates["cases"]] == [c["case_id"] for c in manifest["cases"]]
+    assert all(c["solution_tag"] == "sol2" and c["parameter_frequency_readback_verified"] is False
+               and c["exact_point_pressure_verified"] is False for c in candidates["cases"])
+    assert candidates["parameter_column_evidence"]["parameter_columns_1based"] == [1, 2, 3, 4]
+    assert candidates["parameter_column_evidence"]["excluded_metadata_columns_1based"] == [5, 6, 7]
+    assert candidates["dataset_binding"]["solution_tag"] == "sol2"  # stub only
+    assert not (tmp_path / "success/resolved_index.json").exists()
+    for mode in modes:
+        report = json.loads((tmp_path / mode / "export_report.json").read_text())
+        assert report["status"] == "failed" and report["completed"] == 0 and report["source_unchanged"]
+        assert report["training_ready"] is False and report["release_allowed"] is False
+        assert (tmp_path / mode / "solution_map_raw.mat").is_file()
+        if mode != "success":
+            assert not (tmp_path / mode / "resolved_index_candidates.json").exists()
+    assert hashlib.sha256(raw.read_bytes()).hexdigest() == expected_sha

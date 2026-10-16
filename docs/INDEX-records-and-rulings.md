@@ -18362,3 +18362,55 @@ validation 选 checkpoint 后评分 test，不依据 test 重新调参；单分�
 21:47 左右远端已输出 hash_done/load_done/context_done/resolve_start：N2=5 实算源哈希与历史
 `6a930354002260a187b36b121ea96c2f561f41fa86aa47ffd988768edd79f1fd` 相同。
 模型定义快照 available=1 但 outer_binding_verified=false；该阶段仍无新样本验收与训练结果。
+
+## 251. 首分支导出失败、真实映射兼容修复及物理快照差异（2026-10-16）
+
+本节追加 §250 提交之后的最终事实，不改写当时的运行状态。首个 N2=5 run `n5.ii0H1v`
+已结束：`status=failed_exit_1`、`exit_code=1`、requested=20、completed=0。
+实际通过源哈希、加载和定义读取，在保存解索引解析时因
+`PMUTF1:InvalidSolutionMap: Map must explicitly identify final inner/outer columns.` 拒绝继续。
+这是导出器对真实映射格式兼容不足，不是 COMSOL 新求解失败。没有新复场样本进入训练。
+源文件首次实算 SHA256 与历史一致，导出前后文件状态一致（不是再次全字节哈希）；
+最终检查 `remaining_task_marked_processes_after_cleanup=[]`，其他四分支未启动，无自动重试。
+
+以下均在 `work/runs/pmut-operator-intake-20261016-v1/`，保持原始证据不覆盖：
+
+| 证据 | SHA256 |
+|---|---|
+| `failure-n2-5.json` | `8fb973e51c8b488e7731513d99e6629c09847ad06df294deeb0bbfe908928adc` |
+| `context-preview-n2-5/solution_map_raw.mat` | `fab29d79c41a40ff25e0b6ecca490bd5dec819d7562783aa3065149117893149` |
+| `context-preview-n2-5/model_definition_context.mat` | `d7a8beaf04e480466ea14a84a18cfd916377d74af54b97af8c3eb3c9789273cf` |
+| `context-preview-n2-5/running_export_report.json`（沿用回收时文件名，实际 status=failed） | `739053cfdd1c30f8ac581777147068763477ecb4a95e93be4fe9662e8e075d3e` |
+| `context-preview-n2-5/definition_context_audit.json` | `f6e0f0887e307530f3457d1a165d96740a5298c2a515907fabe026a044f3ddc7` |
+
+真实 `mphsolutioninfo` 有 325 个解节点；聚合 `sol2` 的 map 为 29484×9，末列实际名为
+`Inner`/`Outer`，参数头含重复的 x_scale/N_w_te1/N_w_te2。其后附三列与
+`paramsweepnames/paramsweepvals` 的 `[1,4,5]` 元数据全列一致。
+内部 324 个 ParametricStore 节点也标记 dataset=dset3，而且各自 Outer=1；不能将内部局部索引
+误当聚合数据集的 outer。原始证据尚未读取 dset3 的实际 solution 属性，故不得宣布 sol2 绑定已验证。
+本地修复改为先读 Solution 数据集实际绑定，只解析该 tag；有重复参数名时仅在声明名称、
+完整参数列表、元数据尾部及整列值全部核对后排除附加元数据。缺绑定、非 Solution、歧义或重复命中均拒绝。
+离线真实 map 回归须显式使用 dset3→sol2 替身；成功也不代替下一次真实 getter 读回。
+
+定义快照实际读到 37 个全局参数、5 个材料、4 类物理接口及 2 个多物理耦合。
+材料为 Pt、PZT-4、各向异性单晶 Si、Parylene C 和水；接口为 acpr/solid/es/cir，
+耦合为声固边界与压电效应。这证明定义存在，不证明全部在历史研究中启用或已完成多场联合压缩。
+尤其当前模型参数为 x_scale=.2、N_w_te1=2、N_w_te2=6，而保存解映射记录 N2=5，
+且源哈希与历史一致。不能据此判保存解错误，也不能把当前配置直接绑定到历史 outer。
+水材料使用 rho(T)、cs(T)、eta(T)、muB(T)，原快照未包含函数体；未用全局 NOT USED 的
+c_water=1481m/s 擅自补值。电极电位、端子和电路存在，但启用/激励连接与历史状态仍待核验，
+不将电压参数直接解释为已知实际驱动幅相。新增 getter 将尝试读取 active、函数体与研究树，
+仍只记录载入态，不执行特征、重建几何或启动研究。
+
+当前真实扩展是 0/20，新算子尚未进行 PMUT 数据训练；原 21 个 N2=8 开发样本及其既有 QC 不受影响。
+下一次大模型加载须在独立新目录、保留失败证据并经用户确认后进行，不自动重试。
+继续保持 production model read-only、training_ready=false、release_allowed=false。
+
+修复后的主代理定向回归为 **178 passed / 46.19 s**（七个测试文件，显式启用本机 MATLAB
+离线替身及真实回收 map 的固定 SHA 回归）；并非 178 次真实 COMSOL 求解。
+`junit-resolver-final.xml` SHA256 为
+`d0cbe42b00516f1dbb63b362d3b83d0c233b2583ab0592d85f3ef92f38d2187f`。
+修复导出器 SHA256 `7f0c930e545bf0b5887f3a8e0cc54aa2a22e84ae7a485dd88512bbc53684aeca`，
+测试文件 SHA256 `b9c510749e2d2a33667e825f08afaf5daafc7dbc08d0548a7a8c3558daeb3659`。
+另一代理独立核对全部 29484 行元数据尾、20 组索引及 fail-closed 分支，未发现阻断问题。
+这些是离线修复验收；未将修复脚本覆盖到旧失败任务目录，未启动第二次大型加载。

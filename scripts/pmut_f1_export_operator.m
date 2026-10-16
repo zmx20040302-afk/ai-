@@ -599,65 +599,81 @@ function [selectedCases, resolution] = resolve_indices(model, manifest, outputRo
         return;
     end
     info = mphsolutioninfo(model, 'dataset', manifest.dataset, 'cellmap', 'on');
+    % part.dataset 对聚合解和内部 ParametricStore 都可能相同，不能据此选解。
+    % 直接读 Solution 数据集的实际绑定；缺失时保存证据后拒绝，不猜 sol2。
+    binding = struct('dataset', manifest.dataset, 'type', '', 'solution_tag', '', ...
+        'readback_available', false, 'api', 'dataset_getType_getString_solution', 'error', '');
+    try
+        datasetNode = model.result.dataset.get(manifest.dataset);
+        binding.type = char(datasetNode.getType());
+        binding.solution_tag = char(datasetNode.getString('solution'));
+        binding.readback_available = strcmp(binding.type, 'Solution') && ...
+            ~isempty(regexp(binding.solution_tag, '^[A-Za-z][A-Za-z0-9_]*$', 'once'));
+    catch err
+        binding.error = [err.identifier ': ' err.message];
+    end
     % 原始 map、headers、solution tag 与 dataset 在匹配之前独立保存；失败仍可诊断。
     rawPath = fullfile(outputRoot, 'solution_map_raw.mat');
     atomic_save_new(rawPath, struct('schema', 'memsharness.pmut_f1_solution_map_evidence/v0', ...
         'dataset', manifest.dataset, 'api', 'mphsolutioninfo_dataset_cellmap_on', ...
-        'solution_info', info, 'solution_identity_verified', false));
+        'solution_info', info, 'dataset_binding', binding, 'solution_identity_verified', false));
     resolution.raw_solution_map = struct('file', rawPath, 'sha256', file_sha256(rawPath));
     fprintf('PMUTF1 resolve_map_saved\n');
-    tags = fieldnames(info);
+    resolution.dataset_binding = binding;
+    if ~binding.readback_available || ~isfield(info, binding.solution_tag)
+        error('PMUTF1:DatasetBindingUnavailable', 'An explicitly bound Solution dataset and its map are required; refusing inferred binding.');
+    end
+    solutionTag = binding.solution_tag;
+    part = info.(solutionTag);
+    if ~isstruct(part) || ~isscalar(part) || ~all(isfield(part, {'map', 'mapheaders', 'dataset'})) || ...
+            ~any(strcmp(as_text_list(part.dataset), manifest.dataset))
+        error('PMUTF1:InvalidSolutionMap', 'Bound solution does not supply a map for the requested dataset.');
+    end
+    headers = as_text_list(part.mapheaders);
+    values = part.map;
+    if ~isnumeric(values) || ~isreal(values) || isempty(values) || ...
+            size(values, 2) ~= numel(headers) || numel(headers) < 5
+        error('PMUTF1:InvalidSolutionMap', 'Unsupported map layout for %s.', solutionTag);
+    end
+    names = lower(regexprep(string(headers), '[ _-]', ''));
+    inner = find(ismember(names, ["inner", "innersolnum", "solnum", "innersolutionnumber"]));
+    outer = find(ismember(names, ["outer", "outersolnum", "outersolutionnumber"]));
+    if numel(inner) ~= 1 || numel(outer) ~= 1 || inner ~= numel(headers) - 1 || outer ~= numel(headers)
+        error('PMUTF1:InvalidSolutionMap', 'Map must explicitly identify final inner/outer columns.');
+    end
+    [parameterColumns, metadata] = map_parameter_columns(part, headers, values, inner);
+    resolution.parameter_column_evidence = metadata;
     resolution.method = 'mphsolutioninfo_unique_parameter_frequency_row_then_eval_and_exact_point_verification';
     for k = 1:numel(selectedCases)
         selected = selectedCases(k);
         matches = {};
-        for q = 1:numel(tags)
-            part = info.(tags{q});
-            if ~isstruct(part) || ~isscalar(part) || ~all(isfield(part, {'map', 'mapheaders', 'dataset'}))
-                continue;
+        wanted = {'x_scale', 'N_w_te1', 'freq'};
+        expected = [selected.x_scale, selected.N_w_te1, selected.frequency_Hz];
+        tolerance = [5e-9, 0, 1];
+        hit = true(size(values, 1), 1);
+        for j = 1:3
+            col = parameterColumns(strcmp(headers(parameterColumns), wanted{j}));
+            if numel(col) ~= 1
+                error('PMUTF1:InvalidSolutionMap', 'Map needs one exact %s header.', wanted{j});
             end
-            if ~any(strcmp(as_text_list(part.dataset), manifest.dataset))
-                continue;
+            hit = hit & isfinite(values(:, col)) & abs(values(:, col) - expected(j)) <= tolerance(j);
+        end
+        n2 = parameterColumns(strcmp(headers(parameterColumns), 'N_w_te2'));
+        if numel(n2) > 1
+            error('PMUTF1:InvalidSolutionMap', 'Ambiguous N_w_te2 header.');
+        elseif ~isempty(n2)
+            hit = hit & isfinite(values(:, n2)) & values(:, n2) == selected.N_w_te2;
+        end
+        rows = find(hit);
+        for row = reshape(rows, 1, [])
+            actual = values(row, [inner, outer]);
+            if any(~isfinite(actual) | actual < 1 | actual ~= fix(actual) | actual > intmax('int32'))
+                error('PMUTF1:InvalidSolutionMap', 'Invalid resolved solution indices.');
             end
-            headers = as_text_list(part.mapheaders);
-            values = part.map;
-            if ~isnumeric(values) || size(values, 2) ~= numel(headers) || numel(headers) < 5
-                error('PMUTF1:InvalidSolutionMap', 'Unsupported map layout for %s.', tags{q});
-            end
-            names = lower(regexprep(string(headers), '[ _-]', ''));
-            inner = find(ismember(names, ["innersolnum", "solnum", "innersolutionnumber"]));
-            outer = find(ismember(names, ["outersolnum", "outersolutionnumber"]));
-            if numel(inner) ~= 1 || numel(outer) ~= 1 || inner ~= numel(headers) - 1 || outer ~= numel(headers)
-                error('PMUTF1:InvalidSolutionMap', 'Map must explicitly identify final inner/outer columns.');
-            end
-            wanted = {'x_scale', 'N_w_te1', 'freq'};
-            expected = [selected.x_scale, selected.N_w_te1, selected.frequency_Hz];
-            tolerance = [5e-9, 0, 1];
-            hit = true(size(values, 1), 1);
-            for j = 1:3
-                col = find(strcmp(headers, wanted{j}));
-                if numel(col) ~= 1
-                    error('PMUTF1:InvalidSolutionMap', 'Map needs one exact %s header.', wanted{j});
-                end
-                hit = hit & isfinite(values(:, col)) & abs(values(:, col) - expected(j)) <= tolerance(j);
-            end
-            n2 = find(strcmp(headers, 'N_w_te2'));
-            if numel(n2) > 1
-                error('PMUTF1:InvalidSolutionMap', 'Ambiguous N_w_te2 header.');
-            elseif ~isempty(n2)
-                hit = hit & isfinite(values(:, n2)) & values(:, n2) == selected.N_w_te2;
-            end
-            rows = find(hit);
-            for row = reshape(rows, 1, [])
-                actual = values(row, [inner, outer]);
-                if any(~isfinite(actual) | actual < 1 | actual ~= fix(actual) | actual > intmax('int32'))
-                    error('PMUTF1:InvalidSolutionMap', 'Invalid resolved solution indices.');
-                end
-                matches{end + 1} = struct('case_id', selected.case_id, 'solution_tag', tags{q}, ...
-                    'mapheaders', {headers}, 'matched_row_1based', row, ...
-                    'matched_values', values(row, :), 'inner_solnum', actual(1), ...
-                    'outer_solnum', actual(2), 'N_w_te2_in_map', ~isempty(n2)); %#ok<AGROW>
-            end
+            matches{end + 1} = struct('case_id', selected.case_id, 'solution_tag', solutionTag, ...
+                'mapheaders', {headers}, 'matched_row_1based', row, ...
+                'matched_values', values(row, :), 'inner_solnum', actual(1), ...
+                'outer_solnum', actual(2), 'N_w_te2_in_map', ~isempty(n2)); %#ok<AGROW>
         end
         if numel(matches) ~= 1
             error('PMUTF1:SolutionMapNotUnique', 'Case %s matched %d map rows; refusing guessed indices.', selected.case_id, numel(matches));
@@ -674,6 +690,52 @@ function [selectedCases, resolution] = resolve_indices(model, manifest, outputRo
     end
 end
 
+function [columns, evidence] = map_parameter_columns(part, headers, values, inner)
+    columns = 1:(inner - 1);
+    evidence = struct('method', 'unique_parameter_headers', 'parameter_columns_1based', columns, ...
+        'excluded_metadata_columns_1based', [], 'excluded_metadata_names', {{}}, ...
+        'excluded_metadata_values', [], 'not_current_model_parameter_values', true);
+    if numel(unique(headers(columns))) == numel(columns)
+        return;
+    end
+    % 实测 mphsolutioninfo 的 parameters 尾部包含 paramsweepnames/vals 快照。
+    % 仅在名字、数量、parameters 对齐且每整列恒等于该元数据时排除该块。
+    % 不是选择重复列的 first/last，也绝不读取当前 model.param 来替代扫描值。
+    if ~all(isfield(part, {'parameters', 'paramsweepnames', 'paramsweepvals'}))
+        error('PMUTF1:InvalidSolutionMap', 'Repeated parameter headers lack explicit sweep metadata.');
+    end
+    parameters = as_text_list(part.parameters);
+    sweepNames = as_text_list(part.paramsweepnames);
+    sweepValues = part.paramsweepvals;
+    count = numel(sweepNames);
+    if ~isequal(parameters, headers(columns)) || count < 1 || count >= numel(columns) || ...
+            ~isnumeric(sweepValues) || ~isreal(sweepValues) || numel(sweepValues) ~= count || ...
+            any(~isfinite(sweepValues(:))) || numel(unique(sweepNames)) ~= count
+        error('PMUTF1:InvalidSolutionMap', 'Invalid repeated-header sweep metadata.');
+    end
+    metadataColumns = columns(end - count + 1:end);
+    sweepValues = reshape(sweepValues, 1, []);
+    if ~isequal(headers(metadataColumns), sweepNames)
+        error('PMUTF1:InvalidSolutionMap', 'Sweep metadata names do not exactly identify the appended block.');
+    end
+    for j = 1:count
+        if any(~isfinite(values(:, metadataColumns(j)))) || ...
+                any(values(:, metadataColumns(j)) ~= sweepValues(j))
+            error('PMUTF1:InvalidSolutionMap', 'Sweep metadata columns are not constant at the declared values.');
+        end
+    end
+    columns = columns(1:end - count);
+    if numel(unique(headers(columns))) ~= numel(columns) || ...
+            ~all(ismember(sweepNames, headers(columns)))
+        error('PMUTF1:InvalidSolutionMap', 'Actual parameter columns remain ambiguous or are absent.');
+    end
+    evidence.method = 'explicit_paramsweep_metadata_names_values_and_all_rows_verified';
+    evidence.parameter_columns_1based = columns;
+    evidence.excluded_metadata_columns_1based = metadataColumns;
+    evidence.excluded_metadata_names = sweepNames;
+    evidence.excluded_metadata_values = sweepValues;
+end
+
 function context = read_definition_context(model)
     % getter 读取的是载入时模型定义，不能自动绑定到每个历史 outer。
     context = struct('schema', 'memsharness.pmut_operator_definition_context/v0', ...
@@ -683,6 +745,21 @@ function context = read_definition_context(model)
         context.global_parameter_expressions = mphgetexpressions(model.param());
     catch err
         context.errors{end + 1} = ['parameters: ' err.identifier ': ' err.message];
+    end
+    % 仅载入态定义快照（可与保存 outer 的历史状态不同），不执行任何 feature。
+    for group = {'func', 'study'}
+        name = group{1};
+        try
+            list = javaMethod(name, model);
+            tags = as_text_list(list.tags());
+            nodes = cell(1, numel(tags));
+            for k = 1:numel(tags)
+                nodes{k} = definition_node(javaMethod(name, model, tags{k}), 0);
+            end
+            context.(name) = nodes;
+        catch err
+            context.errors{end + 1} = [name ': ' err.identifier ': ' err.message];
+        end
     end
     try
         components = model.component();
@@ -718,6 +795,7 @@ function item = definition_node(node, depth)
     try; item.tag = char(node.tag()); catch err; item.errors{end + 1} = ['tag: ' err.message]; end
     try; item.label = char(node.label()); catch err; item.errors{end + 1} = ['label: ' err.message]; end
     try; item.type = char(node.getType()); catch err; item.errors{end + 1} = ['type: ' err.message]; end
+    try; item.active = logical(node.isActive()); catch err; item.errors{end + 1} = ['active: ' err.message]; end
     try; item.properties = mphgetproperties(node, 'returnstring', 'on');
     catch err; item.errors{end + 1} = ['properties: ' err.message]; end
     try; item.expressions = mphgetexpressions(node);
@@ -728,7 +806,7 @@ function item = definition_node(node, depth)
         item.truncated = true;
         return;
     end
-    for group = {'feature', 'propertyGroup'}
+    for group = {'feature', 'propertyGroup', 'func'}
         name = group{1};
         try
             list = javaMethod(name, node);
