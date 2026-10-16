@@ -84,13 +84,13 @@ def test_field_refusal_returns_support_plan_but_no_field(srv):
     assert "field_data" not in result and "field_summary" not in result
 
 
-def test_http_routes_and_page_default_to_field_solver(http):
+def test_http_routes_and_page_retains_fixed_20mhz_field_solver(http):
     card = _get(http, "/api/field/model")
     pred = _get(http, "/api/field/predict?x=0.6&n1=4&n2=8&freq=20000000")
     assert card["field"] == "p_total_Pa"
     assert pred["source_type"] == "ai_solver" and pred["n_valid_points"] == 1369
     html = PAGE.read_text(encoding="utf-8")
-    for required in ('id="p-field"', "复声压场求解器", "/api/field/predict", "show('field')"):
+    for required in ('id="p-field"', "复声压场求解器", "/api/field/predict"):
         assert required in html
 
 

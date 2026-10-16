@@ -1,0 +1,136 @@
+{
+  "schema": "memsharness.pmut_f1_contract/v0",
+  "contract_version": "0.2.1",
+  "task_id": "pmut-f1-v0",
+  "model_state": "draft",
+  "objective": {
+    "mode": "maximize",
+    "quantity": "abs_p_total_Pa",
+    "field_expression": "acpr.p_t",
+    "field_alias": "p_total_Pa",
+    "frequency_policy": "per_design_first_mode",
+    "observation": {
+      "coordinate_system": "model_global",
+      "side": "below",
+      "xyz_m": [0.0, 0.0, -0.00001],
+      "evaluation": "COMSOL point evaluation; no nearest-neighbor substitution",
+      "approved_by_user_on": "2026-10-16"
+    }
+  },
+  "parameters": {
+    "x_scale": {
+      "type": "continuous",
+      "range": [0.2, 1.0],
+      "validation_grid_step": 0.01
+    },
+    "N_w_te1": {
+      "type": "discrete_integer",
+      "rule": "1 <= N_w_te1 < N_w_te2"
+    },
+    "N_w_te2": {
+      "type": "discrete_integer",
+      "values": [5, 6, 7, 8, 9]
+    }
+  },
+  "known_scalar_data": {
+    "dataset_id": "C_v20260929",
+    "x_scale": {
+      "range": [0.2, 1.0],
+      "step": 0.01,
+      "count": 81
+    },
+    "N_w_te2": [5, 6, 7, 8],
+    "N_w_te1_rule": "1 <= N_w_te1 < N_w_te2",
+    "n_designs": 1782,
+    "frequency_grid_Hz": {
+      "range": [5000000.0, 50000000.0],
+      "step": 500000.0,
+      "count": 91
+    },
+    "observation_xyz_m": [0.0, 0.0, -0.00001],
+    "n_first_peak_found": 1612,
+    "n_first_peak_not_found_in_window": 170
+  },
+  "known_field_data": {
+    "field": "p_total_Pa",
+    "frequency_Hz": 20000000.0,
+    "N_w_te2": [8],
+    "N_w_te1": [1, 2, 3, 4, 5, 6, 7],
+    "coverage_kind": "raw_branch_inventory_not_complete_per_design_or_live_file_verification",
+    "released_solver_N_w_te1": [4, 7],
+    "x_scale_raw_range": [0.2, 1.0],
+    "released_solver_x_scale_range": [0.33, 0.93],
+    "released_solver_state": "draft",
+    "note": "Fixed 20 MHz raw branches include the later field-expansion intake. Released draft branches remain N1=4/7. Neither is a per-design first-mode operator dataset."
+  },
+  "mode_identity_gate": {
+    "label_before_gate": "provisional_first_mode",
+    "required_checks": [
+      "first_local_peak_in_registered_frequency_window",
+      "displacement_mode_shape_identity",
+      "mode_continuity_against_neighboring_x_scale",
+      "no_unresolved_mode_switch"
+    ],
+    "failure_action": "refuse_ai_field_and_queue_serial_comsol_validation"
+  },
+  "modeling_policy": {
+    "primary_model_family": "geometry_conditioned_neural_operator",
+    "recommended_architecture": "mode_router_plus_mesh_graph_operator_with_coordinate_query_head",
+    "training_status": "not_trained",
+    "architecture_status": "candidate_to_be_validated_on_pmut",
+    "interpolation_as_solver": "forbidden",
+    "discrete_structure_interpolation": "forbidden",
+    "legacy_fixed_20MHz_interpolation": "baseline_only_not_target_solver",
+    "operator_inputs": [
+      "mesh_or_geometry_graph",
+      "material_fields",
+      "boundary_condition_tags_and_values",
+      "excitation_amplitude_phase_and_loss_coefficients",
+      "coupled_physics_description",
+      "x_scale",
+      "N_w_te1",
+      "N_w_te2",
+      "predicted_or_comsol_verified_first_mode_frequency"
+    ],
+    "operator_outputs": [
+      "p_total_real_Pa",
+      "p_total_imag_Pa",
+      "abs_p_total_Pa_at_exact_observation_point"
+    ],
+    "new_model_policy": "reuse_operator_weights_then_few_shot_calibration_and_independent_comsol_holdout",
+    "zero_shot_release": "forbidden_without_independent_validation",
+    "routine_inference": "predict_first_mode_frequency_and_pressure_field_without_fresh_comsol_sweep_inside_validated_domain",
+    "sampling_policy": "sparse_pilot_then_error_driven_sampling_not_exhaustive_grid",
+    "validation_grid_role": "candidate_pool_not_required_comsol_run_list"
+  },
+  "execution_policy": {
+    "existing_model_path": "fast_path",
+    "model_write": "copy_only",
+    "comsol_execution": "serial_only",
+    "production_model_read_only": true,
+    "human_gates": [
+      "task_contract_release",
+      "final_candidate_release"
+    ],
+    "automatic_stop_on": [
+      "out_of_domain",
+      "mode_identity_inconclusive",
+      "geometry_rebuild_failure",
+      "named_selection_invalid",
+      "validation_threshold_failure"
+    ]
+  },
+  "evidence": [
+    "docs/DATA_INVENTORY.md#9.1",
+    "work/runs/first-peak-20260929/multichannel_labels.csv",
+    "work/dist/single-pressure-solver-v1/registry.json",
+    "docs/SINGLE_PRESSURE_SOLVER_20261016.md"
+  ],
+  "not_claimed": [
+    "N_w_te2=9 is not covered by the fine scalar dataset",
+    "the current fixed-20-MHz field solver is not a per-design first-mode solver",
+    "parameter interpolation is not the target PMUT-F1 solver",
+    "an operator does not remove the need for few-shot calibration and independent COMSOL holdout on a new model",
+    "solver certification or approval"
+  ]
+}

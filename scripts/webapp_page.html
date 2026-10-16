@@ -129,6 +129,20 @@ svg{background:#0b0f14;border:1px solid #22282f;border-radius:8px;width:100%;hei
    <b>拒答</b>；状态保持 draft，<b>放行权在人</b>。</div>
   <div class="card notice" id="modeNotice"></div>
 
+  <!-- ================= PMUT 一阶闭环 ================= -->
+  <div class="panel" id="p-f1"><h2>PMUT 一阶频率闭环（现有模型快速路径）</h2>
+   <div class="card notice"><b>冻结口径：</b>每组参数先定位并核验自身第一阶模态，再计算全局坐标
+    <code>(0,0,-10 µm)</code>（器件下方）的 <code>|acpr.p_t|</code>。这里先显示已有数据与缺口；
+    固定 20 MHz 的旧场数据<b>不会</b>被冒充为逐设计一阶频率场解。目标路线是
+    <b>模态路由 + 几何条件神经算子</b>；参数插值只作为旧基线，不作为目标求解器。</div>
+   <div class="row">
+    <label>x_scale <input type="number" id="f1X" step="0.01" min="0.2" max="1" value="0.60" style="width:82px"></label>
+    <label>N_w_te1 <input type="number" id="f1N1" step="1" min="1" value="4" style="width:70px"></label>
+    <label>N_w_te2 <select id="f1N2"><option>5</option><option>6</option><option>7</option><option selected>8</option><option>9</option></select></label>
+    <button class="b" id="bF1Check">检查这个点</button>
+    <button class="ghost" id="bF1Refresh">刷新覆盖</button></div>
+   <div id="f1Status"></div><div id="f1Check"></div></div>
+
   <!-- ================= 对话 ================= -->
   <div class="panel" id="p-chat">
    <h2>对话</h2>
@@ -460,7 +474,7 @@ function appendDiagLine(){
   d.innerHTML='诊断：<pre>'+esc(diagText())+'</pre>'; $('#log').appendChild(d);
 }
 /* ---------------- 侧栏 ---------------- */
-const NAV=[['field','复声压场求解器'],['chat','对话'],['card','响应代理模型卡'],['gloss','数据字典'],['predict','响应预测'],['peaks','一阶峰'],
+const NAV=[['f1','PMUT 一阶闭环'],['field','固定 20 MHz 场求解器'],['chat','对话'],['card','响应代理模型卡'],['gloss','数据字典'],['predict','响应预测'],['peaks','一阶峰'],
  ['mc','旧多通道代理'],['agents','子智能体'],['cov','覆盖与拒答'],['cmp','两点对比'],['doe','DOE 预筛'],
  ['sen','一致性哨兵'],['task','平台任务'],['data','数据浏览']];
 let TASKS={};
@@ -471,6 +485,47 @@ function buildNav(){
 function show(k){
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id==='p-'+k));
   $('#nav').querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
+}
+/* ---------------- PMUT 一阶闭环合同与覆盖 ---------------- */
+function renderF1Status(r){
+  if(r.error) return '<div class="card notice"><b>合同不可用</b><br>'+esc(r.error)+'</div>';
+  const g=r.validation_grid||{}, pk=r.first_peak||{}, obs=r.observation||{};
+  let h='<div class="card"><div class="row">'+pill(r.model_state||'draft','warn')
+   +pill('生产模型只读','ok')+pill('副本写入','ok')+pill('COMSOL 串行','ok')+'</div>'
+   +'<div class="kv" style="margin-top:8px"><div>冻结观测点</div><div><code>'
+   +esc(JSON.stringify(obs.xyz_m||[]))+'</code> m（'+esc(obs.side||'')+'）</div>'
+   +'<div>设计域</div><div>x ∈ [0.20,1.00]；N2 ∈ {5,6,7,8,9}；1 ≤ N1 &lt; N2</div>'
+   +'<div>目标模型</div><div><b>几何条件神经算子（尚未训练）</b><br><span class="src">'
+   +'先预测一阶频率，再预测复声压场；少量校准与独立留出验证。</span></div>'
+   +'<div>设计候选网格</div><div><b>'+esc(g.n_designs_total)+'</b> 点，'+esc(g.n_discrete_branches)+' 个离散分支；不要求全量 COMSOL 扫描</div>'
+   +'<div>历史登记标量扫频</div><div><b>'+esc(g.n_scalar_spectrum_registered)+'</b> / '+esc(g.n_designs_total)
+   +'；缺 '+esc(g.n_scalar_spectrum_missing)+'</div>'
+   +'<div>5–50 MHz 内找到首峰</div><div>'+esc(pk.n_found)+'；未找到 '+esc(pk.n_not_found_in_registered_window)
+   +'（需检查更低频段和模态身份）</div></div><div class="src">登记统计来自历史数据清单；不表示当前运行目录已逐文件校验或该点已有算子预测。</div></div>';
+  h+='<div class="card"><h2>按 N2 的历史登记覆盖</h2><table><tr><th>N2</th><th>N1</th><th>候选点</th><th>登记标量谱</th><th>未登记</th><th>状态</th></tr>'
+   +(g.by_n2||[]).map(v=>'<tr><td>'+esc(v.N_w_te2)+'</td><td>'+esc((v.N_w_te1_values||[]).join(','))+'</td><td>'
+    +esc(v.n_total)+'</td><td>'+esc(v.n_scalar_registered)+'</td><td>'+esc(v.n_missing)+'</td><td>'
+    +pill(v.n_missing?'待稀疏采样':'历史已登记',v.n_missing?'warn':'ok')+'</td></tr>').join('')+'</table></div>';
+  h+='<div class="card notice"><b>算子预测与最优点搜索尚未就绪。</b>下一步是导出少量一阶复场及几何、材料、边界条件，'
+   +'训练后按误差补点；N2=9 优先稀疏验证。新模型仍须独立验证，不能保证直接迁移。</div>';
+  return h;
+}
+async function pmutF1Status(){
+  const r=await api('/api/pmut/f1/status');
+  $('#f1Status').innerHTML=renderF1Status(r);
+}
+async function pmutF1Check(){
+  const q=new URLSearchParams({x:$('#f1X').value,n1:$('#f1N1').value,n2:$('#f1N2').value});
+  const r=await api('/api/pmut/f1/check?'+q.toString());
+  if(r.error){$('#f1Check').innerHTML='<div class="card notice"><b>参数被拒绝：</b>'+esc(r.error)+'</div>';return;}
+  const p=r.parameters||{};
+  $('#f1Check').innerHTML='<div class="card"><div class="row">'+pill('在设计范围内','ok')
+   +pill(r.scalar_spectrum_registered?'该采样点已登记':'该点未登记实测',r.scalar_spectrum_registered?'ok':'warn')
+   +pill('一阶算子尚未训练','warn')+'</div><div class="kv" style="margin-top:8px">'
+   +'<div>参数</div><div>x='+esc(p.x_scale)+'，N1='+esc(p.N_w_te1)+'，N2='+esc(p.N_w_te2)+'</div>'
+   +'<div>旧 20 MHz 原始场分支</div><div>'+esc(r.fixed_20MHz_raw_field_branch_registered?'已登记（不代表该点文件已核实），不能替代一阶场':'未登记')+'</div>'
+   +'<div>下一步</div><div>'+(r.scalar_spectrum_registered?'核验一阶模态，采集算子训练或留出所需复场':'按采样计划判断是否补算该点；不插值生成实测数据')+'</div>'
+   +'<div>人工放行</div><div>'+pill(String(r.release_allowed),r.release_allowed?'ok':'warn')+'</div></div></div>';
 }
 /* ---------------- 对话 ---------------- */
 let HIST=[];
@@ -1790,6 +1845,8 @@ async function buildAgentPayload(){
 }
 /* ---------------- 启动 ---------------- */
 function bindAll(){
+  $('#bF1Check').onclick=wrap(pmutF1Check,'#f1Check','#bF1Check');
+  $('#bF1Refresh').onclick=wrap(pmutF1Status,'#f1Status','#bF1Refresh');
   $('#bOff').onclick=async()=>{
     const r=await api('/api/mode',{mode:'offline'});
     if(r&&r.error) showError(null,new Error(r.error));
@@ -1865,7 +1922,7 @@ function bindAll(){
       if(b.dataset.ex) $('#bPred').click();};});
 }
 async function boot(){
-  buildNav(); show('field');
+  buildNav(); show('f1');
   bindAll();                       // ★ 先绑定：后面任何 await 失败都不会让按钮失灵
   greet();
   const conn=await connect();      // ★ 先探测 API 基址（页面可能被非 8877 来源打开）
@@ -1877,6 +1934,7 @@ async function boot(){
     return;
   }
   try{ await incFlush(); incQueueShow(); }catch(_){}   // 连上了就把离线期间攒的补登记掉
+  try{ await pmutF1Status(); }catch(e){ showError('#f1Status',e); }
   startIncPoll();               // 服务端侧失败（任务/接口/拒答）靠它捞回来弹窗
   try{
     const j=await api('/api/jobs'); TASKS=(j&&j.tasks)||{};

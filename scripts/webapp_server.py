@@ -744,6 +744,37 @@ FIELD_REGISTRY = REPO / "work/dist/single-pressure-solver-v1/registry.json"
 _FIELD_SOLVER: dict[str, Any] = {"obj": None, "err": None}
 
 
+def _pmut_f1_module():
+    """加载冻结的 PMUT 一阶任务合同；这里只读，不启动 COMSOL。"""
+    try:
+        sys.path.insert(0, str(REPO / "src"))
+        from memsharness import pmut_f1
+        return pmut_f1, None
+    except Exception as exc:
+        return None, "%s: %s" % (type(exc).__name__, exc)
+
+
+def _pmut_f1_status() -> dict:
+    mod, err = _pmut_f1_module()
+    if mod is None:
+        return {"error": "PMUT 一阶闭环合同不可用：%s" % err}
+    try:
+        return mod.coverage_summary()
+    except Exception as exc:
+        return {"error": "%s: %s" % (type(exc).__name__, exc)}
+
+
+def _pmut_f1_check(q: dict) -> dict:
+    """检查三参数点现有证据层级；绝不把缺失场值伪装成预测结果。"""
+    mod, err = _pmut_f1_module()
+    if mod is None:
+        return {"error": "PMUT 一阶闭环合同不可用：%s" % err}
+    try:
+        return mod.validate_design_point(q.get("x"), q.get("n1"), q.get("n2"))
+    except Exception as exc:
+        return {"error": "%s: %s" % (type(exc).__name__, exc)}
+
+
 def _field_solver():
     """懒加载有界 ``p_total_Pa`` 求解器；哈希失败时 fail-closed。"""
     if _FIELD_SOLVER["obj"] is not None or _FIELD_SOLVER["err"] is not None:
@@ -2534,6 +2565,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(_peaks_heatmap({k: v[0] for k, v in qs.items()}))
         if path == "/api/tasks/active":
             return self._send(jobs_snapshot())
+        if path == "/api/pmut/f1/status":
+            return self._send(_pmut_f1_status())
+        if path == "/api/pmut/f1/check":
+            qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            result = _pmut_f1_check({k: v[0] for k, v in qs.items()})
+            return self._send(result, 400 if "error" in result else 200)
         if path == "/api/field/model":
             return self._send(_field_card())
         if path == "/api/field/predict":
