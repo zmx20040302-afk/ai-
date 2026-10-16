@@ -18303,3 +18303,62 @@ setsid/nohup 脱离 SSH；超时/退出清理仅针对本任务创建且 PID/启
 21:06 本机 HTTP 验证：页面 200，两个工作台健康；状态为 `recovered_qc_passed`、21 例，QC 哈希匹配；
 `operator_training_status=not_trained`、`operator_prediction_available=false`、`release_allowed=false`。
 本机验证不冒充外网或其他设备访问测试。Git 同步不包含运行数据、凭据或生产模型。
+
+## 250. 五分支稀疏复场计划、研究算子管线与首分支提交（2026-10-16）
+
+按用户新授权“复用已有扫描结果，补齐物理信息，并将稀疏复场样本扩展到其他 N2 分支，再训练和验证算子”执行。
+此前 `pmut-21` 已完成并停用，本轮不重启旧任务、不覆盖旧证据、不启动全量或新增 COMSOL 求解。
+
+真实预检确认五份源文件均存在、可读、无锁、状态 Done；可用内存 360937144320 B，
+输出磁盘空闲 5338833551360 B 为瞬时快照，不是加载成功保证。具体路径和大小在 preflight。
+冻结 164 个完整设计，N2=5/6/7/8/9 分别 20/25/30/49/40；旧 21 个公开开发样本不进入 test。
+N2=9 的 40 例继续隔离。排除其后的 design_holdout=66/36/22，branch_holdout=45/64/15。
+branch 指 `(N1,N2)` 离散组合，不等于整体 N2 未见，更不等于新器件族。
+所有 outer/inner 初始为空，实际导出需保存解映射与参数/频率/精确点再次核对。
+
+| 产物（均为 work/runs 下本地证据，不入 Git） | SHA256 |
+|---|---|
+| `pmut-f1-sparse-20261016-v1/plan.json` | `749efd9c394f59a90da304911dfbd0c80f09fe98dbda1ad7514e5ce67da7b2c3` |
+| 同目录 `splits.json`（覆盖完整 2430 设计） | `f50405003d800159341ab40153af2f255a921fbd2bdcf36296eb19d4d1f56fc9` |
+| 同目录 `source_pending.json` | `7633cd03b3ff75835d49394c64960cdb0875db3fa3306d1b0d24529eb48cfd71` |
+| `pmut-operator-intake-20261016-v1/preflight.json` | `10694873a877127d47cbc58f34f5470c45dccebedb3a3dd0d72c5285f13722c8` |
+| 同目录 `manifests/manifest_index.json`（含五个原字节清单哈希） | `7d164f3014980455e9cf6cbf3c8eb350caa05b638be000288689b59c6b2e29bb` |
+| 同目录 `submission-n2-5.json` | `a10eb5cc8e0a7605e684375738cec9a1eb9ba1a755ec7bc089810dd65c68d5ee` |
+| 同目录 `junit-native-all.xml` | `e311965efc04e9f523bb2dcb15b19d4a2df54d53160c9012c2b6630f0c3207d4` |
+
+远端新根 `/home/lab/zhangmx/pmut_operator_intake_20261016_v1`；首个 run `n5.ii0H1v`，
+输出 `out_n2_5`、请求 20 例、提交 launcher PID 595379（只作历史记录，不用它盲目终止进程）。
+实测状态 `exporting`，MATLAB 进度 `hash_start source_bytes=111338728861 cases=20`，完成 0。
+其他四分支在本记录时未启动。上传前后哈希一致：启动器
+`d28cb6e1740756cd0d545208b4dfe7cddcafd286fbeb17bdd67fc64531094c15`；导出器
+`eee492a89e6936967e88b515f4f9156c1b728630f08e8ad7e5a8458cfc739a48`；N2=5 清单
+`1c73eda83d0d8f382dc8ac74070a39b4352eb19601297ab51e7a021ca16efc51`。
+
+新管线实现同次 Eval 域/压力、原始解映射与模型定义快照、严格 MAT→NPZ 验收、
+变长几何条件复压力研究算子、按完整设计/离散组合留出。未审计的物理语义不会因域号存在而变为已验证。
+校验发现并修复：额外元数据 MAT 造成的文件计数误判；组长退出或僵尸存在时的清理遗漏；
+同一 NPZ 改名混入多个集合；只填物理 flags/hash 就能越过生产训练门禁。
+现仅支持 `research_only`，所有产物保持 `training_ready=false`、`release_allowed=false`。
+
+主代理真实复测 **117 passed / 16.27 s**（六个新增测试文件），包含本机 MATLAB 替身，
+不是 COMSOL 新求解。先前未启用原生测试时为 116 passed/1 skipped；另一次沙箱 pytest 临时目录
+建目录失败为 44 passed/13 setup errors，放宽测试目录权限后复测通过，未改断言掩盖失败。
+Torch 2.14.1+cpu、NumPy 2.5.4、SciPy 1.18.1、pytest 9.1.1 安装在独立 venv；网页 venv 未改。
+真实新样本验收、PMUT 算子训练、独立场误差、第一模态身份、免求解推理几何及最优点均未完成。
+
+在真实新场结果回收之前，另冻结 `pmut-operator-intake-20261016-v1/research-protocol.json`
+（SHA256 `7ea7b9879588b4a9f320816a82359f97e29acae3ba13a8ebc23288fb071b7833`）：
+跨分支实验至少需要 N2=5..8 的 124 例通过验收，两种既定划分各训练 seed=0、width=64、latent=32，
+100 epoch、每轮开始检查的 1200 秒软预算，条件点/训练查询点预算均 2048，CPU 单线程。
+validation 选 checkpoint 后评分 test，不依据 test 重新调参；单分支提前运行只能叫管线冒烟，
+不能作为完整覆盖证据。该协议不是已经执行的训练记录。
+
+随后补齐只读回收器 `scripts/pmut_f1_recover_operator.py`（SHA256
+`53ba8df3bdcb808c8f342cb92a62e9add499387abc64f0803b0678ae22565296`）：
+仅在现有任务 complete/exit0 时按固定路径白名单回收；原 manifest 字节与所有产物先后两次校验，
+失败留痕且不能原目录重试，不取 MPH/server.log/密钥。其 60 个模拟用例加入后，主代理回归
+**177 passed / 15.71 s**；`junit-recovery-all.xml` SHA256
+`ddd541de1cf9a21b5d8d433b3438fced3f0a45db14d7793a5116533cc8ff45d8`。
+21:47 左右远端已输出 hash_done/load_done/context_done/resolve_start：N2=5 实算源哈希与历史
+`6a930354002260a187b36b121ea96c2f561f41fa86aa47ffd988768edd79f1fd` 相同。
+模型定义快照 available=1 但 outer_binding_verified=false；该阶段仍无新样本验收与训练结果。

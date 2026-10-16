@@ -1,0 +1,6 @@
+# Install into work/.venv-pmut-operator, never the running MEMS web environment.
+# PyTorch CPU wheel is fetched separately from https://download.pytorch.org/whl/cpu.
+# Tested separately: torch==2.14.1+cpu (CPython 3.12, Windows x64).
+numpy==2.5.4
+scipy==1.18.1
+pytest==9.1.1
