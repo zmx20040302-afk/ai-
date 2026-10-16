@@ -72,6 +72,7 @@ svg{background:#0b0f14;border:1px solid #22282f;border-radius:8px;width:100%;hei
   <span class="pill" id="pMode">模式：…</span>
   <button class="ghost" id="bOff" title="不发出任何网络请求，全部本地计算">离线模式</button>
   <button class="ghost" id="bOn" title="用服务端凭据调用 DeepSeek（密钥绝不下发前端）">连接 DeepSeek</button>
+  <button class="ghost" id="bGpt" title="用服务端凭据调用 OpenAI GPT（密钥绝不下发前端）">连接 GPT</button>
   <span class="pill" id="pStat">…</span>
   <span class="pill" id="pMid">…</span>
   <button class="ghost" id="bIncOpen" title="失败历史与人工上报（失败时会自动弹上报按钮）">错误与上报</button>
@@ -84,10 +85,9 @@ svg{background:#0b0f14;border:1px solid #22282f;border-radius:8px;width:100%;hei
    <button class="ghost" id="bIncClose" style="margin-left:auto">关闭</button></div>
   <div class="card notice"><b>失败时会**自动弹出上报按钮**，由你决定报不报；这里放的是历史与人工上报。</b>
    <div class="src" style="margin-top:6px">
-    <b>包只落本机</b>（<code>work/runs/incidents/</code>），控制台不直接调用任何外部 API。<br>
-    <b>上报给 DSH</b> = 在本机启动一次 <code>dsh --profile headless</code>：它做<b>只读分析</b>
-    （给根因与修复建议，<b>不改仓库里任何文件</b>，也不改变任何裁定/模型状态）；
-    它会联网调模型 ⇒ <b>离线模式下这个按钮被禁用</b>，请先切到 DeepSeek 模式。<br>
+    <b>原始包只落本机</b>（<code>work/runs/incidents/</code>）。只有你点击 GPT 或 DeepSeek 分析后，
+    已脱敏的包才会发给所选模型；模型只做<b>只读分析</b>（给根因与修复建议，<b>不改仓库里任何文件</b>，
+    也不改变任何裁定/模型状态）。<b>离线模式下这个按钮被禁用</b>。<br>
     包内只有：<b>现象</b> + <b>原始错误全文（含堆栈）</b> + <b>当时的输入与调用（端点/参数/复现命令）</b>；
     密钥一律脱敏。包内<b>不含任何分析结论</b>，接收方的判断也不得改变裁定或模型状态。
    </div></div>
@@ -521,36 +521,39 @@ async function send(){
 /* ---------------- 模式 ---------------- */
 /* 模式按钮：**永不双双禁用**（用户看到的「两个都点不动」正是双双被 disable 的结果）。
    当前模式用边框高亮表示；无凭据时按钮仍可点，点击后由服务端给出明确拒绝原因。 */
-function setModeButtons(on,keyPresent){
-  const off=$('#bOff'), onb=$('#bOn');
-  off.disabled=false; onb.disabled=false;
-  off.style.boxShadow=on?'':'inset 0 0 0 1px #3fb950';
-  onb.style.boxShadow=on?'inset 0 0 0 1px #3fb950':'';
-  off.textContent=on?'离线模式（切换）':'离线模式（当前）';
-  onb.textContent='连接 DeepSeek'+((!on&&!keyPresent)?'（无凭据）':(on?'（当前）':''));
+function setModeButtons(mode,providers){
+  const off=$('#bOff'), ds=$('#bOn'), gp=$('#bGpt');
+  const cur=mode||'offline', ps=providers||{};
+  [off,ds,gp].forEach(b=>b.disabled=false);
+  off.style.boxShadow=cur==='offline'?'inset 0 0 0 1px #3fb950':'';
+  ds.style.boxShadow=cur==='deepseek'?'inset 0 0 0 1px #3fb950':'';
+  gp.style.boxShadow=cur==='openai'?'inset 0 0 0 1px #3fb950':'';
+  off.textContent=cur==='offline'?'离线模式（当前）':'离线模式（切换）';
+  ds.textContent='连接 DeepSeek'+(cur==='deepseek'?'（当前）':(!ps.deepseek?.key_present?'（无凭据）':''));
+  gp.textContent='连接 GPT'+(cur==='openai'?'（当前）':(!ps.openai?.key_present?'（无凭据）':''));
 }
 async function refreshMode(){
   const m=await api('/api/mode');
   if(m.error||!m.mode){
     $('#pMode').textContent='模式：取不到（API 不可用）';
     $('#pMode').className='pill bad';
-    setModeButtons(false,false);
+    setModeButtons('offline',{});
     $('#modeNotice').innerHTML='<b>取不到模式状态</b>：'+esc(m.error||'响应里没有 mode 字段')
       +'<br>这通常意味着页面连的不是本平台的 API —— 见上方横幅里的诊断信息。';
     return false;
   }
-  const on=m.mode==='deepseek';
-  $('#pMode').textContent='模式：'+(on?'DeepSeek 已连接':'离线（本地计算）');
-  $('#pMode').className='pill '+(on?'ok':'warn');
-  setModeButtons(on,!!m.key_present);
-  $('#modeNotice').innerHTML = on
-    ? '已连接 DeepSeek：对话由 LLM 驱动（可调平台工具）。密钥只存在服务端，<b>绝不下发前端</b>；'
+  const online=m.mode==='deepseek'||m.mode==='openai';
+  const label=m.mode==='openai'?'GPT':(m.mode==='deepseek'?'DeepSeek':'离线（本地计算）');
+  $('#pMode').textContent='模式：'+label+(online?' 已连接':'');
+  $('#pMode').className='pill '+(online?'ok':'warn');
+  setModeButtons(m.mode,m.providers||{});
+  $('#modeNotice').innerHTML = online
+    ? '已连接 '+label+'：对话由 LLM 驱动（可调平台工具）。密钥只存在服务端，<b>绝不下发前端</b>；'
       +'LLM <b>不参与裁决</b>——verdict / release_allowed 一律以代码输出为准。来源 <code>'+esc(m.key_source)+'</code>'
     : '<b>离线模式</b>：不发任何网络请求，全部本地计算。对话框<b>降级为本地关键词路由</b>，'
       +'回答里会标注「离线本地路由（非 LLM 生成）」。'
-      +(m.key_present?('检测到服务端有凭据（<code>'+esc(m.key_source)+'</code>），点「连接 DeepSeek」即可切换。')
-                     :'服务端未检测到 API key（可用环境变量 <code>DEEPSEEK_API_KEY</code> 或 <code>~/.dsh/.credentials.yaml</code>）。');
-  $('#chatHint').textContent = on?'':'离线：仅本地关键词路由';
+      +'可按需选择「连接 DeepSeek」或「连接 GPT」；密钥状态会直接显示在按钮上。';
+  $('#chatHint').textContent = online?'':'离线：仅本地关键词路由';
   return true;
 }
 /* ---------------- 图表（内联 SVG，无外部依赖） ---------------- */
@@ -1543,7 +1546,8 @@ async function loadInc(){
        +((it.redacted_hits)?('<div class="src">已脱敏 '+it.redacted_hits+' 处</div>'):'')
        +'</td>'
        +'<td><button class="b" data-pkg="'+esc(it.incident_id||'')+'">生成分析包</button> '
-       +'<button class="b" data-dsh="'+esc(it.incident_id||'')+'">上报给 DSH 分析</button></td></tr>';
+       +'<button class="b" data-gpt="'+esc(it.incident_id||'')+'">GPT 分析</button> '
+       +'<button class="b" data-dsh="'+esc(it.incident_id||'')+'">DeepSeek 分析</button></td></tr>';
     }
     h+='</table></div>';
   }
@@ -1552,23 +1556,37 @@ async function loadInc(){
     b.onclick=wrap(()=>incPackage(b.dataset.pkg),'#incPkg',null);});
   $('#incList').querySelectorAll('[data-dsh]').forEach(b=>{
     b.onclick=wrap(()=>incDsh(b.dataset.dsh),'#incPkg',null);});
+  $('#incList').querySelectorAll('[data-gpt]').forEach(b=>{
+    b.onclick=wrap(()=>incGpt(b.dataset.gpt),'#incPkg',null);});
 }
-/** 上报给 DSH：**只读分析**、**只有人点了才发生**、**离线模式被服务端拒绝**。 */
+/** 模型分析：只有人点了才联网；服务端再次校验模式、确认和凭据。 */
 async function incDsh(id){
+  return incLlm(id,'deepseek');
+}
+async function incGpt(id){
+  return incLlm(id,'openai');
+}
+async function incLlm(id,provider){
+  const label=provider==='openai'?'GPT':'DeepSeek';
   const yes=(typeof confirm!=='function')?true
-    :confirm('上报给 DSH 会在本机启动一次 headless DSH 做只读分析（会消耗 token，可能几分钟）。继续？');
+    :confirm('把已脱敏的失败分析包交给 '+label+' 做只读分析？这会联网并消耗 API 额度，但不会自动改代码或裁决。');
   if(!yes) return;
-  $('#incPkg').innerHTML='<div class="card">正在上报（启动 headless DSH）…</div>';
-  const r=await api('/api/incidents/report_to_dsh',{incident_id:id,confirm:true});
+  $('#incPkg').innerHTML='<div class="card">正在调用 '+label+' 分析…</div>';
+  const sw=await api('/api/mode',{mode:provider});
+  if(sw.error){ $('#incPkg').innerHTML='<div class="card notice"><b>无法切换到 '+label+'</b><div>'+mdInline(sw.error)+'</div></div>'; return; }
+  await refreshMode();
+  const r=await api('/api/incidents/analyze',{incident_id:id,provider:provider,confirm:true});
   if(r.error){
-    $('#incPkg').innerHTML='<div class="card notice"><b>没能上报</b>'
+    $('#incPkg').innerHTML='<div class="card notice"><b>'+label+' 没能完成分析</b>'
      +'<div>'+mdInline(r.error)+'</div>'
      +(r.hint?('<div class="src">'+esc(r.hint)+'</div>'):'')
-     +'<div class="src">离线模式请先切到右上角的 DeepSeek 模式。</div></div>';
+     +'<div class="src">可保留本地分析包，稍后重试；不会伪造成功结果。</div></div>';
     return;
   }
-  renderDsh({...r,status:'running'});
-  incPollDsh(id);
+  $('#incPkg').innerHTML='<div class="card"><h2>'+label+' 分析完成</h2>'
+    +'<div class="src">模型 <code>'+esc(r.model||'')+'</code> ｜ 只读 ｜ 未自动改代码或裁决</div>'
+    +'<pre style="max-height:520px;overflow:auto">'+esc(r.analysis||'')+'</pre>'
+    +'<div class="src">分析已追加保存：<code>'+esc(r.analysis_path||'')+'</code></div></div>';
 }
 async function incPollDsh(id){
   for(let i=0;i<120;i++){
@@ -1678,7 +1696,8 @@ function popFailure(rec){
       +'<div style="margin-top:4px">'+mdInline(String((rec&&rec.symptom)||'').slice(0,300))+'</div>'
       +(id?('<div class="src"><code>'+esc(id)+'</code></div>'):'')
       +'<div class="row">'
-      +(id?('<button class="b" data-act="dsh">上报给 DSH 分析</button>'
+      +(id?('<button class="b" data-act="gpt">GPT 分析</button>'
+           +'<button class="b" data-act="dsh">DeepSeek 分析</button>'
            +'<button class="ghost" data-act="pkg">只生成分析包</button>')
           :'<button class="b" data-act="retry">重新登记</button>')
       +'<button class="ghost" data-act="close">忽略</button></div>'
@@ -1689,7 +1708,7 @@ function popFailure(rec){
         if(act==='close'){ d.remove(); return; }
         if(act==='retry'){ incUploadLocal(rec); d.remove(); return; }
         openIncDlg();
-        if(act==='dsh') incDsh(id); else incPackage(id);
+        if(act==='dsh') incDsh(id); else if(act==='gpt') incGpt(id); else incPackage(id);
       };
     });
     box.appendChild(d);
@@ -1778,6 +1797,11 @@ function bindAll(){
   };
   $('#bOn').onclick=async()=>{
     const r=await api('/api/mode',{mode:'deepseek'});
+    if(r&&r.error){ showError(null,new Error(r.error)); }
+    await refreshMode();
+  };
+  $('#bGpt').onclick=async()=>{
+    const r=await api('/api/mode',{mode:'openai'});
     if(r&&r.error){ showError(null,new Error(r.error)); }
     await refreshMode();
   };

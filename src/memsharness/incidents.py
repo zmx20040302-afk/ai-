@@ -23,6 +23,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import pathlib
 import re
@@ -55,6 +56,7 @@ CAPS: dict[str, int] = {
 #: 参数里单个字符串值的上限 / 键数上限
 PARAM_STR_CAP = 600
 PARAM_KEYS_CAP = 60
+DEDUP_WINDOW_S = 60
 
 NO_ANALYSIS = (
     "本包**只含现象与原始错误全文**，不含任何分析结论或判定。"
@@ -241,6 +243,32 @@ def record(kind: str, symptom: str, *, source: str = "console", endpoint: str = 
     if tr:
         trunc["args"] = 1
 
+    fingerprint_body = {
+        "kind": kind, "source": out["source"], "endpoint": out["endpoint"],
+        "method": (method or "").upper(), "task": task, "params": p_out, "args": a_out,
+        "symptom": out["symptom"], "error_text": out["error_text"],
+    }
+    fingerprint = hashlib.sha256(json.dumps(
+        fingerprint_body, ensure_ascii=False, sort_keys=True,
+        separators=(",", ":"), default=str).encode("utf-8")).hexdigest()
+    # 人工上报每次都保留；机器自动采集的同一失败在短时间内只登记一次。
+    # 这不会改写既有台账，只是阻止“同一按钮连点 N 次 → N 张相同红卡”。
+    if kind != "manual":
+        now_s = time.time()
+        for old in load(limit=100)["items"]:
+            if old.get("fingerprint") != fingerprint:
+                continue
+            try:
+                age_s = now_s - time.mktime(time.strptime(str(old.get("ts")),
+                                                       "%Y-%m-%dT%H:%M:%S"))
+            except (TypeError, ValueError, OverflowError):
+                continue
+            if 0 <= age_s <= DEDUP_WINDOW_S:
+                duplicate = dict(old)
+                duplicate.update({"deduplicated": True, "repeat_suppressed": True,
+                                  "dedup_window_s": DEDUP_WINDOW_S})
+                return duplicate
+
     rec: dict[str, object] = {
         "incident_id": incident_id or new_id(kind),
         "ts": _now(), "kind": kind, "kind_zh": KINDS[kind],
@@ -249,6 +277,7 @@ def record(kind: str, symptom: str, *, source: str = "console", endpoint: str = 
         "repro": repro_clean or synth_repro(task=task, args=a_out, endpoint=out["endpoint"],
                                             method=method or "POST", params=p_out),
         "redacted_hits": n_red, "truncated": trunc,
+        "fingerprint": fingerprint,
         "no_analysis": NO_ANALYSIS,
     }
     rec.update(out)

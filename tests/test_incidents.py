@@ -68,6 +68,19 @@ def test_ledger_is_append_only(inc):
     assert lines[0] == first, "追加不得改动已有行"
 
 
+def test_identical_automatic_failures_are_deduplicated_but_manual_reports_are_not(inc):
+    """连续点击同一失败任务只保留一条机器事件；人的两次上报仍是两条。"""
+    a = inc.record("task_failed", "同一失败", task="demo", args={"x": 1},
+                   error_text="boom")
+    b = inc.record("task_failed", "同一失败", task="demo", args={"x": 1},
+                   error_text="boom")
+    assert b["incident_id"] == a["incident_id"]
+    assert b["deduplicated"] is True and len(_lines(inc)) == 1
+    inc.record("manual", "同一人工说明")
+    inc.record("manual", "同一人工说明")
+    assert len(_lines(inc)) == 3, "人工上报不得被静默合并"
+
+
 def test_package_files_refuse_overwrite(inc):
     r = inc.record("manual", "写包用")
     a = inc.write_package(r["incident_id"])

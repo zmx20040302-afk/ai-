@@ -377,8 +377,11 @@ def task_selfcheck(args: dict) -> dict:
 # 对话（主界面）：LLM + 工具调用；无凭据/不可达时退化为**本地指令路由**
 # ---------------------------------------------------------------------------
 CRED_FILE = Path.home() / ".dsh" / ".credentials.yaml"
+ENV_FILE = REPO / ".env.local"
 LLM_CANDIDATES = [("https://api.deepseek.com", "deepseek-chat"),
                   ("https://api.deepseek.com", "deepseek-v4-flash")]
+OPENAI_BASE = "https://api.openai.com"
+OPENAI_MODEL = "gpt-5.6-terra"
 SYSTEM_PROMPT = (
     "你是 MEMS Harness 平台的**控制台助手**，运行在用户本机。"
     "你能调用平台里已登记的任务（工具）来真正执行分析，而不是只描述。"
@@ -410,6 +413,42 @@ def load_api_key() -> tuple[str | None, str]:
     return None, "none"
 
 
+def _env_file_value(name: str) -> str | None:
+    """只读本仓 ``.env.local`` 的一个值；不修改进程环境，也不把值写入响应/日志。"""
+    if not ENV_FILE.is_file():
+        return None
+    try:
+        text = ENV_FILE.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    m = re.search(r"^\s*(?:export\s+)?%s\s*=\s*(.*?)\s*$" % re.escape(name), text, re.M)
+    if not m:
+        return None
+    value = m.group(1).strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
+        value = value[1:-1]
+    return value or None
+
+
+def load_openai_api_key() -> tuple[str | None, str]:
+    """取 OpenAI key；只留在服务端。环境变量优先，随后读取被 git 忽略的 ``.env.local``。"""
+    value = os.environ.get("OPENAI_API_KEY")
+    if value and value.strip():
+        return value.strip(), "env:OPENAI_API_KEY"
+    value = _env_file_value("OPENAI_API_KEY")
+    if value:
+        return value, "file:.env.local#OPENAI_API_KEY"
+    return None, "none"
+
+
+def _provider_key(provider: str) -> tuple[str | None, str]:
+    if provider == "deepseek":
+        return load_api_key()
+    if provider == "openai":
+        return load_openai_api_key()
+    return None, "none"
+
+
 def _tool_specs() -> list[dict]:
     out = []
     for k, v in TASKS.items():
@@ -429,15 +468,21 @@ def _tool_specs() -> list[dict]:
     return out
 
 
-def _llm_call(messages: list[dict], tools: list[dict] | None, *, timeout: int = 90) -> dict:
-    """调用 OpenAI 兼容的 chat/completions；失败抛异常（调用方决定是否退化）。"""
+def _llm_call(messages: list[dict], tools: list[dict] | None, *, timeout: int = 90,
+              provider: str = "deepseek") -> dict:
+    """调用选定供应商的 Chat Completions；失败抛异常（调用方决定是否退化）。"""
     import urllib.request
-    key, _src = load_api_key()
+    key, _src = _provider_key(provider)
     if not key:
         raise RuntimeError("no_api_key")
     last = None
-    for base, model in LLM_CANDIDATES:
-        body = {"model": model, "messages": messages, "temperature": 0.2, "stream": False}
+    candidates = (LLM_CANDIDATES if provider == "deepseek" else
+                  [(OPENAI_BASE, os.environ.get("OPENAI_MODEL") or
+                    _env_file_value("OPENAI_MODEL") or OPENAI_MODEL)])
+    for base, model in candidates:
+        body = {"model": model, "messages": messages, "stream": False}
+        if provider == "deepseek":
+            body["temperature"] = 0.2
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
@@ -449,7 +494,7 @@ def _llm_call(messages: list[dict], tools: list[dict] | None, *, timeout: int = 
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 data = json.loads(r.read().decode("utf-8"))
-            data["_used"] = {"base": base, "model": model}
+            data["_used"] = {"provider": provider, "base": base, "model": model}
             return data
         except urllib.error.HTTPError as e:
             last = "HTTP %s: %s" % (e.code, e.read().decode("utf-8", "replace")[:200])
@@ -1085,10 +1130,9 @@ def _inc_list(q: dict) -> dict:
     r["package_root"] = str(mod.package_root())
     r["ledger"] = str(mod.ledger_path().relative_to(REPO)).replace("\\", "/") \
         if str(mod.ledger_path()).startswith(str(REPO)) else str(mod.ledger_path())
-    r["no_send"] = ("包本身**只落本机**（`work/runs/incidents/`），控制台不直接调用任何外部 API。"
-                    "要不要交给 DSH 分析由**你按按钮**决定：那会在本机启动一次 "
-                    "`dsh --profile headless` 做**只读分析**（它可能联网调模型）——"
-                    "离线模式下这个动作被禁用。")
+    r["no_send"] = ("原始包**只落本机**（`work/runs/incidents/`）。只有你按按钮选择 GPT 或 DeepSeek "
+                    "分析按钮后，已脱敏的包才会发给所选模型做**只读分析**；"
+                    "离线模式下联网动作被代码门禁禁止。")
     r["what_is_collected"] = {k: v for k, v in mod.KINDS.items()}
     return r
 
@@ -1140,6 +1184,74 @@ def _inc_package(q: dict) -> dict:
     if q.get("write"):
         return mod.write_package(iid, out_root=q.get("out_dir"))
     return mod.package(iid)
+
+
+INCIDENT_ANALYSIS_PROMPT = (
+    "你是 MEMS/COMSOL 平台的只读故障分析助手。输入是一份已经脱敏的失败分析包。"
+    "请用中文输出：1) 最可能根因；2) 可核验的证据；3) 最小修复建议；4) 回归测试。"
+    "没有证据时明确写未知，不编造文件、数值或已执行动作。你不能修改文件，不能改变 "
+    "verdict/release_allowed/publish_allowed、模型状态或放行结论，也不能宣称问题已修复。"
+)
+
+
+def _incident_analyze(q: dict) -> dict:
+    """把**已脱敏**分析包交给用户明确选择的模型；只读分析，结果 append-only 落盘。"""
+    provider = str(q.get("provider") or "").strip().lower()
+    if provider not in ("deepseek", "openai"):
+        return {"error": "provider 必须是 deepseek 或 openai"}
+    iid = str(q.get("incident_id") or "").strip()
+    if not iid:
+        return {"error": "缺少 incident_id"}
+    if STATE.get("mode") != provider:
+        return {"error": "当前是 %s 模式；请先由你本人切换到 %s，再上报。" %
+                         (STATE.get("mode"), "DeepSeek" if provider == "deepseek" else "GPT"),
+                "blocked_by": "mode_not_selected"}
+    if not q.get("confirm"):
+        return {"error": "模型分析会联网并消耗额度，需要 confirm=true",
+                "needs_confirmation": True}
+    key, src = _provider_key(provider)
+    if not key:
+        return {"error": "服务端没有 %s API key" % provider, "key_source": src}
+    inc, err = _inc()
+    if inc is None:
+        return {"error": "失败通道不可用：%s" % err}
+    pk = inc.package(iid)
+    if "error" in pk:
+        return pk
+    messages = [
+        {"role": "system", "content": INCIDENT_ANALYSIS_PROMPT},
+        {"role": "user", "content": pk["md"]},
+    ]
+    try:
+        response = (_llm_call(messages, None, timeout=120) if provider == "deepseek" else
+                    _llm_call(messages, None, timeout=120, provider="openai"))
+        message = (response.get("choices") or [{}])[0].get("message") or {}
+        analysis = str(message.get("content") or "").strip()
+        if not analysis:
+            return {"error": "模型返回了空分析", "provider": provider}
+        used = response.get("_used") or {}
+        out_dir = inc.package_root() / iid
+        out_dir.mkdir(parents=True, exist_ok=True)
+        stamp = time.strftime("%Y%m%dT%H%M%S")
+        stem = "llm-analysis-%s-%s-%s" % (provider, stamp, secrets.token_hex(2))
+        md_path = out_dir / (stem + ".md")
+        json_path = out_dir / (stem + ".json")
+        boundary = ("本分析只提供根因与修复建议；未执行修复，且不得改变裁定、模型状态或放行。")
+        md = "# %s 故障分析\n\n%s\n\n> %s\n" % (
+            "GPT" if provider == "openai" else "DeepSeek", analysis, boundary)
+        payload = {"incident_id": iid, "provider": provider, "model": used.get("model"),
+                   "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                   "package_sha256": pk.get("md_sha256"), "analysis": analysis,
+                   "readonly": True, "boundary": boundary}
+        # 文件名带时间和随机尾缀，已有分析永不覆盖。
+        md_path.write_text(md, encoding="utf-8", newline="\n")
+        json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=1) + "\n",
+                             encoding="utf-8", newline="\n")
+        return {**payload, "status": "done", "analysis_path": str(md_path),
+                "json_path": str(json_path), "key_source": src}
+    except Exception as exc:
+        return {"error": "模型分析失败：%s: %s" % (type(exc).__name__, str(exc)[:500]),
+                "provider": provider}
 
 
 # ---------------------------------------------------------------------------
@@ -1409,14 +1521,16 @@ def do_chat(payload: dict) -> dict:
         return {"error": "消息为空"}
     pre_trace, pre_pending, hint = _preroute(user)
     handled = {t.get("task") for t in pre_trace} | {p.get("task") for p in pre_pending}
-    key, src = load_api_key()
-    # **显式模式**：默认离线（绝不默认联网）。只有用户切到 DeepSeek 且服务端确有凭据才走 LLM。
-    if STATE["mode"] == "deepseek" and key:
+    provider = STATE["mode"] if STATE["mode"] in ("deepseek", "openai") else ""
+    key, src = _provider_key(provider) if provider else (None, "none")
+    # **显式模式**：默认离线（绝不默认联网）。只有用户选定供应商且服务端确有凭据才走 LLM。
+    if provider and key:
         mode = "llm"
-    elif STATE["mode"] == "deepseek" and not key:
-        return {"error": "已请求 DeepSeek 模式，但服务端此刻取不到 API key（来源：%s）⇒ "
-                         "请配置环境变量 DEEPSEEK_API_KEY 或 ~/.dsh/.credentials.yaml，"
-                         "或切回离线模式。" % src}
+    elif provider and not key:
+        return {"error": "已请求 %s 模式，但服务端此刻取不到 API key（来源：%s）⇒ "
+                         "请配置对应的服务端密钥，"
+                         "或切回离线模式。" %
+                         (("DeepSeek" if provider == "deepseek" else "GPT"), src)}
     else:
         mode = "local"
     used = None
@@ -1427,7 +1541,8 @@ def do_chat(payload: dict) -> dict:
         trace, pending = list(pre_trace), list(pre_pending)
         try:
             for _step in range(4):
-                resp = _llm_call(messages, _tool_specs())
+                resp = (_llm_call(messages, _tool_specs()) if provider == "deepseek" else
+                        _llm_call(messages, _tool_specs(), provider=provider))
                 used = resp.get("_used")
                 msg = (resp.get("choices") or [{}])[0].get("message") or {}
                 calls = msg.get("tool_calls") or []
@@ -1507,7 +1622,7 @@ def _local_route_run(user: str, note: str) -> dict | None:
         args["task"] = user
     args.setdefault("confirm", True)
     res = _run_task_sync(task, args)
-    tail = "" if STATE["mode"] == "deepseek" else "\n\n" + _extra_info(user)
+    tail = "" if STATE["mode"] in ("deepseek", "openai") else "\n\n" + _extra_info(user)
     if res.get("needs_confirmation"):
         return {"mode": "local", "reply": "「%s」会写产物，已挂上确认卡，点『允许执行』才会跑。"
                 % TASKS[task]["title"] + tail, "pending": [res], "tool_trace": []}
@@ -1614,11 +1729,23 @@ def submit(task: str, args: dict) -> dict:
     spec = TASKS[task]
     if spec.get("writes") and not args.get("confirm"):
         return {"error": "该任务会写产物，需带 confirm=true", "task": task, "writes": True}
+    public_args = {k: v for k, v in args.items() if k != "confirm"}
+    # 同一任务、同一参数正在执行时复用既有 job。此前每点一次都会再排一个任务，
+    # 每个失败任务又各写一条事件，于是界面看起来像“点一下就报错一下”。
+    with JOBS_LOCK:
+        for old_id, old in reversed(list(JOBS.items())):
+            if (old.get("status") == "running" and old.get("task") == task and
+                    old.get("args") == public_args):
+                return {"job_id": old_id, "task": task, "status": "running",
+                        "deduplicated": True, "reused_job": True,
+                        "timeout_s": task_timeout(task),
+                        "poll": "/api/job/%s" % old_id,
+                        "cancel": "/api/job/%s/cancel" % old_id}
     jid = "%s-%d" % (task, int(time.time() * 1000) % 1000000)
     with JOBS_LOCK:
         JOBS[jid] = {"id": jid, "task": task, "title": spec["title"], "status": "running",
                      "submitted_local": time.strftime("%Y-%m-%dT%H:%M:%S"),
-                     "args": {k: v for k, v in args.items() if k != "confirm"}}
+                     "args": public_args, "timeout_s": task_timeout(task)}
 
     def _run() -> None:
         t0 = time.time()
@@ -1905,32 +2032,49 @@ def _load_page() -> str:
 PAGE = _load_page()
 
 # ---------------------------------------------------------------------------
-# 工作模式：**默认离线**（绝不默认联网）；切换 DeepSeek 需服务端确有凭据
+# 工作模式：**默认离线**（绝不默认联网）；切换在线供应商需服务端确有凭据
 # ---------------------------------------------------------------------------
 STATE: dict[str, Any] = {"mode": "offline"}
-VALID_MODES = ("offline", "deepseek")
+VALID_MODES = ("offline", "deepseek", "openai")
 #: 访问令牌（仅非回环绑定时启用；默认空 = 不鉴权）
 TOKEN: dict[str, Any] = {"value": None}
 
 
 def mode_payload() -> dict:
-    key, src = load_api_key()
-    return {"mode": STATE["mode"], "key_present": bool(key), "key_source": src,
+    ds_key, ds_src = load_api_key()
+    oa_key, oa_src = load_openai_api_key()
+    active = STATE["mode"]
+    active_key, active_src = ((ds_key, ds_src) if active == "deepseek" else
+                              (oa_key, oa_src) if active == "openai" else
+                              (ds_key, ds_src) if ds_key else
+                              (oa_key, oa_src) if oa_key else (None, "none"))
+    providers = {
+        "deepseek": {"key_present": bool(ds_key), "key_source": ds_src},
+        "openai": {"key_present": bool(oa_key), "key_source": oa_src,
+                   "model": os.environ.get("OPENAI_MODEL") or
+                            _env_file_value("OPENAI_MODEL") or OPENAI_MODEL},
+    }
+    return {"mode": active, "key_present": bool(active_key), "key_source": active_src,
+            "providers": providers,
             "valid_modes": list(VALID_MODES),
-            "network_allowed": STATE["mode"] == "deepseek",
+            "network_allowed": active in ("deepseek", "openai"),
             "note": ("离线：不发任何网络请求；对话降级为本地关键词路由"
-                     if STATE["mode"] == "offline" else
-                     "DeepSeek：对话由 LLM 驱动；密钥只在服务端，LLM 不参与裁决")}
+                     if active == "offline" else
+                     ("DeepSeek" if active == "deepseek" else "GPT") +
+                     "：对话由 LLM 驱动；密钥只在服务端，LLM 不参与裁决")}
 
 
 def set_mode(m: str) -> dict:
     if m not in VALID_MODES:
         return {"error": "未知模式 %r（可选 %s）" % (m, list(VALID_MODES))}
-    if m == "deepseek":
-        key, src = load_api_key()
+    if m in ("deepseek", "openai"):
+        key, src = _provider_key(m)
         if not key:
-            return {"error": "服务端未检测到 API key（环境变量 DEEPSEEK_API_KEY 或 "
-                             "~/.dsh/.credentials.yaml）⇒ 拒绝切到 DeepSeek 模式"}
+            hint = ("环境变量 DEEPSEEK_API_KEY 或 ~/.dsh/.credentials.yaml" if m == "deepseek"
+                    else "环境变量 OPENAI_API_KEY 或仓库 .env.local")
+            return {"error": "服务端未检测到 %s API key（%s）⇒ 拒绝切换" %
+                             (("DeepSeek" if m == "deepseek" else "OpenAI"), hint),
+                    "key_source": src}
     STATE["mode"] = m
     return mode_payload()
 
@@ -2428,18 +2572,18 @@ class Handler(BaseHTTPRequestHandler):
             return self._send({"error": "该端点为 POST"})
         if path == "/api/task/state":
             # 轻量健康探针：**不跑** state 任务（避免每次开页都扫库）
-            key, src = load_api_key()
+            mp = mode_payload()
             return self._send({"ok": True, "n_tasks": len(TASKS),
                                "n_writes": sum(1 for v in TASKS.values() if v.get("writes")),
-                               "chat_mode": "llm" if key else "local",
-                               "key_source": src})
+                               "chat_mode": "llm" if mp["network_allowed"] and mp["key_present"] else "local",
+                               "state_mode": mp["mode"], "key_source": mp["key_source"]})
         if path == "/api/chat/mode":
             # 兼容别名（新页面用 `/api/mode`）：**必须反映真实 STATE**，
             # 不能只看"有没有 key"——那会在离线模式下谎称 llm。
             p = mode_payload()
-            return self._send({"mode": "llm" if p["mode"] == "deepseek" else "local",
+            return self._send({"mode": "llm" if p["mode"] in ("deepseek", "openai") else "local",
                                "state_mode": p["mode"], "key_present": p["key_present"],
-                               "key_source": p["key_source"]})
+                               "key_source": p["key_source"], "providers": p["providers"]})
         if path.startswith("/api/task/"):
             return self._send(submit(path[len("/api/task/"):], {"confirm": True}))
         if path.startswith("/api/job/") and path.endswith("/cancel"):
@@ -2488,7 +2632,7 @@ class Handler(BaseHTTPRequestHandler):
                        "/api/surrogate/sentinel", "/api/surrogate/coverage",
                        "/api/agents/payload",
                        "/api/incidents/record", "/api/incidents/package",
-                       "/api/incidents/report_to_dsh"}
+                       "/api/incidents/report_to_dsh", "/api/incidents/analyze"}
         # ⚠️ **先把请求体读完再判路由**：若直接回 404 就关连接，套接字里还有未读的请求体，
         # 客户端会收到 RST（实测 `WinError 10053 你的主机中的软件中止了一个已建立的连接`），
         # 表现为"偶发失败的测试/偶发的前端报错"。先排空（上限 MAX_BODY）再回应。
@@ -2515,6 +2659,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(r, 400 if "error" in r else 200)
         if path == "/api/incidents/report_to_dsh":
             r = _dsh_start(payload)
+            return self._send(r, 400 if "error" in r else 200)
+        if path == "/api/incidents/analyze":
+            r = _incident_analyze(payload)
             return self._send(r, 400 if "error" in r else 200)
         if path == "/api/chat":
             res = do_chat(payload)

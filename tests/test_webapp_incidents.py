@@ -232,6 +232,29 @@ def test_manual_record_and_package_endpoints(srv):
     assert "离线" in lst["no_send"]
 
 
+def test_gpt_incident_analysis_requires_explicit_mode_and_is_append_only(srv, monkeypatch):
+    """GPT 只在人确认并切换模式后收到脱敏包；分析落新文件，不改事件与裁决。"""
+    iid = srv._inc_record({"kind": "manual", "symptom": "按钮失败",
+                           "error_text": "Authorization: Bearer SECRET-CANARY-123456"})["incident_id"]
+    blocked = srv._incident_analyze({"incident_id": iid, "provider": "openai", "confirm": True})
+    assert blocked.get("blocked_by") == "mode_not_selected"
+    monkeypatch.setitem(srv.STATE, "mode", "openai")
+    monkeypatch.setattr(srv, "_provider_key", lambda p: ("sk-test", "unit-test"))
+    seen = {}
+    def fake(messages, tools, *, timeout=90, provider="deepseek"):
+        seen["blob"] = json.dumps(messages, ensure_ascii=False)
+        return {"choices": [{"message": {"content": "根因未知；先核验端点。"}}],
+                "_used": {"provider": provider, "model": "gpt-test"}}
+    monkeypatch.setattr(srv, "_llm_call", fake)
+    r1 = srv._incident_analyze({"incident_id": iid, "provider": "openai", "confirm": True})
+    r2 = srv._incident_analyze({"incident_id": iid, "provider": "openai", "confirm": True})
+    assert r1["status"] == "done" and r1["readonly"] is True
+    assert Path(r1["analysis_path"]).is_file() and Path(r2["analysis_path"]).is_file()
+    assert r1["analysis_path"] != r2["analysis_path"], "分析产物只追加、不覆盖"
+    assert "SECRET-CANARY" not in seen["blob"] and "<REDACTED>" in seen["blob"]
+    assert "不得改变裁定" in r1["boundary"]
+
+
 def test_inc_list_survives_bad_limit(srv):
     srv._inc_record({"kind": "manual", "symptom": "x"})
     lst = srv._inc_list({"limit": "not-a-number"})

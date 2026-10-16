@@ -108,6 +108,21 @@ def test_whitelist_and_confirm(server):
     assert code == 400 and r.get("writes") is True and len(m.JOBS) == n0
 
 
+def test_repeated_submit_reuses_the_running_job(server, monkeypatch):
+    """同一按钮连点不会排出多个任务，也不会随后制造多条相同失败事件。"""
+    m, _ = server
+    release = threading.Event()
+    def slow(task, args, *, job_id):
+        release.wait(5)
+        return {"result": {"ok": True}, "duration_s": 0.01, "stdout": ""}
+    monkeypatch.setattr(m, "_exec_task_child", slow)
+    first = m.submit("freeze_gate", {"confirm": True})
+    second = m.submit("freeze_gate", {"confirm": True})
+    assert second["job_id"] == first["job_id"]
+    assert second["deduplicated"] is True and second["reused_job"] is True
+    release.set()
+
+
 def test_readonly_task_end_to_end(server):
     m, base = server
     code, r = post(base + "/api/run", {"task": "freeze_gate", "args": {"confirm": True}})
