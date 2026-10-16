@@ -82,7 +82,7 @@ def main() -> int:
                 print("        %s  （%s）" % (f, why))
             return 2
         if not staged:
-            print("\n工作区没有改动 ⇒ 无需提交（不造假提交）")
+            print("\n工作区没有改动 ⇒ 无需提交（不造假提交）；仍会推送已有未同步提交")
         else:
             print("\n待提交 %d 件：" % len(staged))
             for f in staged[:12]:
@@ -104,11 +104,13 @@ def main() -> int:
             if c.returncode != 0:
                 print("[FAIL] 提交失败：%s" % (c.stderr or "").strip()[:400])
                 return 1
-            p = git("push", "origin", branch)
-            print((p.stdout or "").strip() or (p.stderr or "").strip())
-            if p.returncode != 0:
-                print("[FAIL] 推送失败（退出码 %d）" % p.returncode)
-                return 1
+        # 即使本轮没有新文件，也可能存在上一次因网络/SSH 失败而留下的未推送提交。
+        # 因此非 check-only 模式始终尝试 push；空推送由 git 自身安全地报告 up-to-date。
+        p = git("push", "origin", branch)
+        print((p.stdout or "").strip() or (p.stderr or "").strip())
+        if p.returncode != 0:
+            print("[FAIL] 推送失败（退出码 %d）" % p.returncode)
+            return 1
 
     # ---- 强制校验：远端一致 + 工作区干净 ----
     git("fetch", "origin")
