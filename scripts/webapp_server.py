@@ -497,7 +497,15 @@ def _llm_call(messages: list[dict], tools: list[dict] | None, *, timeout: int = 
             data["_used"] = {"provider": provider, "base": base, "model": model}
             return data
         except urllib.error.HTTPError as e:
-            last = "HTTP %s: %s" % (e.code, e.read().decode("utf-8", "replace")[:200])
+            detail = e.read().decode("utf-8", "replace")
+            if provider == "openai" and e.code == 429 and "billing_not_active" in detail:
+                last = ("OpenAI API 项目未启用计费（billing_not_active）。"
+                        "ChatGPT 订阅与 API 计费彼此独立；请到 OpenAI Platform 的 Billing 页面启用后重试。")
+            elif provider == "openai" and e.code == 429 and "insufficient_quota" in detail:
+                last = ("OpenAI API 项目额度不足（insufficient_quota）。"
+                        "请检查余额与项目用量上限；这不是普通的请求频率限制。")
+            else:
+                last = "HTTP %s: %s" % (e.code, detail[:200])
             continue
         except Exception as exc:
             last = "%s: %s" % (type(exc).__name__, str(exc)[:200])
