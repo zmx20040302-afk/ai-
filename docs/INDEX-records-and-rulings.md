@@ -18241,3 +18241,65 @@ setsid/nohup 脱离 SSH；超时/退出清理仅针对本任务创建且 PID/启
 网页的提交记录明示非实时进度，仍为 `not_trained`。当前对话后台跟进 `pmut-21` 已激活，
 只跟进此单一任务：完成则回收并校验，失败则保留证据、报告而不自动重跑；验收或失败后停用。
 后续需保持客户端可运行并连通该服务器，自动检查不能保证在本机离线时执行。
+
+## 249. PMUT 21 个保存解真实回收与初步 QC 通过（2026-10-16）
+
+§248 的唯一远端任务已结束：`status.txt=complete`、`exit_code.txt=0`，报告为
+`status=complete`、`requested=completed=21`、`source_unchanged=true`。
+回收仅包含 21 个 MAT 与报告，共 49068920 B；未下载源 256 GB MPH，未新求解或修改生产模型。
+实际输出目录是任务根下 `out21/`。首次下载误用 `r.NwDO5i/out21/` 导致找不到文件，
+保留空目录 `recovered-20261016T205238`；按已存提交记录修正回收路径后成功，未重启大型任务。
+
+以下路径相对于 `work/runs/pmut-f1-remote-20261016-v1/`，保留原提交记录而不覆盖：
+
+| 证据 | SHA256 |
+|---|---|
+| `recovered-20261016T205318/export_report.json` | `fe96e7c7e0842f86229ff16d0fd50af1304996b419fd7db4b8e77149c8e62434` |
+| `qc-20261016T205318.json` | `0afb9f0bf3f397f7f6226747f0370b6c72d05784a87f555da26e4da747b6f50f` |
+| `audit-recovered-20261016.json` | `819af0726aaf3cc215915eccbba23ef01717cbcb049cd963e1d2aefbc91d60f2` |
+| `audit-recovered-20261016.py` | `3c0438a882276341e425cb43375a988770ba4a094d2d6cbd93a932cdd66114ec` |
+| `acceptance-20261016T210639.json`（含本机部署与自动跟进停用快照） | `9f8db37e04abd9c57ac01b6e093d5c51f6ef9b145f5a6ad4f2d407e72ed5aff9` |
+
+清单仍为 `bd80575f80da1f57e14c55506c36e5b485252b36857c5ca3d09bac65a6d67fcd`。
+远端加载前对原文件计算的 SHA256 为
+`8d1c060833a70e114bae810bc13d846fc36bd8b198f16e04dbb338ea03479eb5`。
+导出前后源文件大小 256291859744 B、mtime 1790563834000 ms 一致；本地验证的是前后状态及
+产物间哈希一致，**不是下载后重新哈希原模型或前后两次全字节哈希相等**。
+
+现有 `scripts/pmut_f1_validate_export.py` 对真实回收目录运行，退出 0、`passed=true`。
+文件集合、21 件 SHA256、每例 x/N1/N2/f 与 outer/inner 解身份、坐标/复压力掩码、
+精确点独立求值均通过。目标 `(0,0,-10 µm)` 与表参考最大复值差
+`1.6463612699567982e-10 Pa`，最大相对差 `6.379153454416357e-16`。
+这是保存解输出的一致性，不是 AI 场预测误差、工程误差界或物理正确性验证。
+
+独立 SciPy 审计全部 21 MAT 发现：
+
+- 总坐标记录 2312386、有限复压力记录 526714；各例有限比例 16.10%–49.23%。
+  有限点均有非零虚部、掩码吻合、没有 Inf。记录数不等于有限元单元/自由度数量。
+- 21 例域标签均缺失，原始错误为 `PMUTF1:DomainCoordinatesMismatch`，没有猜补或坐标插值域号。
+- 以 `1e-15 m` 为零容差，非有限记录均在 z≥0、有限记录均在 z≤0；
+  这只是空间分布，不代替物理域身份核验。每例有 397–1708 个同坐标有限/NaN 混合界面位置。
+  不可先按坐标去重取首行或将 NaN 填零，必须保留有效 mask 与待补的域/界面侧语义。
+- 所有场点集都不含精确观测坐标，最近有限点距离为 0.731–1.996 µm；
+  独立精确点求值不能被最近节点替代。
+- x=.30,N1=7 有 124387 个唯一有限坐标，N1=6 为 16810；有限包围盒相同，
+  最近邻距离中位数分别 2.301728/4.613896 µm。是实际采样密度差异，不能据此猜测网格设置。
+  后续变长点集需按设计均衡权重，不能让密点样本凭点数支配损失。
+
+本批只覆盖 N2=8、x={.30,.60,.90}、N1=1..7，属于开发试点而非独立盲测。
+第一物理模态身份、激励幅相、几何/材料/边界输入、网格收敛及独立算子场误差仍未验证。
+保持 `training_ready=false`、`release_allowed=false`、`mode_identity=unverified`、production model read-only。
+未训练算子、未找到最优点、未证明跨模型迁移。已停用一次性跟进 `pmut-21`，不再重复回收。
+
+合同 v0.3.1 和网页区分历史提交/验收/训练状态，验收条件不完整或未知状态不显示成功。
+定向回归 **117 passed**，包含真实回收哈希核查、Node 页面渲染/脚本编译和本机 MATLAB
+接口替身测试；不把替身测试当作新增 COMSOL 求解。首次测试因未设 `PYTHONPATH` 而导入
+尚未部署的 `Desktop/memsharness/src` 合同，18 failed/99 passed；确认模块实际路径后显式指定
+当前仓库 `src` 再运行得上述 117 passed。未修改测试断言来掩盖运行副本差异。
+
+21:04 部署仅更新实际 MEMS 的 `scripts/webapp_page.html` 与 PMUT 合同；先校验旧文件与
+已提交基线一致，再备份到 `C:/Users/zmx/Desktop/memsharness/work/deploy-backups/pmut-f1-recovered-20261016T210404/`。
+确认无活动作业后仅刷新本任务 MEMS 网页进程，门户恢复为 PID 20172；EDA 与远端任务未操作。
+21:06 本机 HTTP 验证：页面 200，两个工作台健康；状态为 `recovered_qc_passed`、21 例，QC 哈希匹配；
+`operator_training_status=not_trained`、`operator_prediction_available=false`、`release_allowed=false`。
+本机验证不冒充外网或其他设备访问测试。Git 同步不包含运行数据、凭据或生产模型。

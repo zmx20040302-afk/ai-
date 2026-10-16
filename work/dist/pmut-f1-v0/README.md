@@ -54,3 +54,20 @@ After recovery, run `scripts/pmut_f1_validate_export.py --manifest <pilot.json>
 hashes, metadata and independently evaluated point pressure. QC output must be outside
 the recovered directory and must not already exist. Passing QC does not establish
 first-mode identity, field prediction accuracy, or neural-operator readiness.
+
+## Recovered pilot acceptance (2026-10-16)
+
+The one-off remote job has now completed and its 21 MAT files plus report were
+recovered into a new evidence directory. The real-data integrity and exact-point
+consistency QC passed (21/21); see INDEX section 249 and the PMUT-F1 plan section 12
+for paths and SHA256 values. The contract entry is now an audited acceptance
+snapshot, not live remote polling. The earlier preparation/submission records are
+retained as history. No new COMSOL solve, source-model write or operator training
+was performed; the follow-up automation has been paused.
+
+All 21 optional domain-label exports reported `PMUTF1:DomainCoordinatesMismatch`.
+Finite complex-pressure masks are present, but missing domain labels and physical
+inputs must not be invented. First-mode identity, excitation verification and
+independent field prediction tests remain pending. This is only the N2=8,
+x={0.30,0.60,0.90}, N1=1..7 development pilot, not full-domain coverage or a blind
+test. `training_ready=false` and `release_allowed=false` remain unchanged.

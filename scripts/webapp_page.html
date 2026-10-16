@@ -490,9 +490,21 @@ function show(k){
 function renderF1Status(r){
   if(r.error) return '<div class="card notice"><b>合同不可用</b><br>'+esc(r.error)+'</div>';
   const g=r.validation_grid||{}, pk=r.first_peak||{}, obs=r.observation||{}, audit=r.data_preparation_audit||{}, submission=r.stored_field_export_submission||{};
-  const exportStatus=submission.status==='submitted_result_pending'
-    ? '已提交远端只读导出，结果尚待回收验收（提交记录，非实时进度）'
-    : '清单已生成，尚未登记导出结果';
+  // 回收验收与训练/放行是不同门禁；未知或证据不完整的状态不能按成功显示。
+  const exportAccepted=submission.status==='recovered_qc_passed'
+    &&submission.status_basis==='audited_recovered_artifacts_not_live_remote_polling'
+    &&submission.recovered===true&&submission.recovered_export_qc_passed===true
+    &&submission.qc_scope==='recovered_export_integrity_and_exact_point_consistency'
+    &&Number.isInteger(submission.n_cases)&&submission.n_cases>0
+    &&submission.n_recovered_cases===submission.n_cases
+    &&submission.n_exact_point_consistency_passed===submission.n_cases
+    &&[submission.qc_report_sha256,submission.export_report_sha256,submission.manifest_sha256,submission.source_model_sha256]
+      .every(v=>typeof v==='string'&&/^[a-f0-9]{64}$/i.test(v));
+  let exportStatus='导出状态未知或验收证据不完整，不能确认通过';
+  if(exportAccepted) exportStatus=submission.n_recovered_cases+'/'+submission.n_cases
+    +' 组复场已回收，文件完整性与精确观测点复声压一致性验收通过（审计快照，非远端实时进度）';
+  else if(submission.status==='submitted_result_pending') exportStatus='已提交远端只读导出，结果尚待回收验收（提交记录，非实时进度）';
+  else if(!submission.status) exportStatus='清单已生成，尚未登记导出结果';
   let h='<div class="card"><div class="row">'+pill(r.model_state||'draft','warn')
    +pill('生产模型只读','ok')+pill('副本写入','ok')+pill('COMSOL 串行','ok')+'</div>'
    +'<div class="kv" style="margin-top:8px"><div>冻结观测点</div><div><code>'
@@ -504,13 +516,17 @@ function renderF1Status(r){
    +'<div>原始标量谱盘点</div><div><b>'+esc(audit.n_raw_designs)+'</b> 组；'+esc(audit.n_raw_frequency_rows)+' 个真实频点</div>'
    +'<div>历史 C 批 / 附加来源</div><div>'+esc(g.n_scalar_spectrum_registered)+' 组 C 批；N2=9 的 648 组原始谱也存在，但模型来源一致性待核验</div>'
    +'<div>5–50 MHz 内首个声压峰</div><div>'+esc(audit.n_first_observable_peaks)+'；未找到 '+esc(audit.n_no_peak_in_window)
-   +'。这不是已确认的第一阶模态。</div><div>复场导出试点</div><div>'+esc(audit.n_development_pilot_cases)+' 个开发点，'+esc(exportStatus)+'</div></div><div class="src">统计为已解析、已哈希原始文件的审计快照；不表示当前部署带齐原始文件或已有可用算子。</div></div>';
+   +'。这不是已确认的第一阶模态。</div><div>复场导出试点</div><div>'+esc(audit.n_development_pilot_cases)+' 个开发点，'+esc(exportStatus)
+   +(exportAccepted?'<br><span class="src">QC SHA256：<code>'+esc(submission.qc_report_sha256)+'</code><br>仅证明导出完整性与保存解在下方 10 μm 精确点的复声压一致；不等于一阶模态已确认、场预测准确或算子已训练。'
+     +(submission.n_domain_labels_available===0?'域编号仍缺失，需补齐物理输入。':'')+'</span>':'')
+   +'</div></div><div class="src">统计为已解析、已哈希原始文件的审计快照；不表示当前部署带齐原始文件或已有可用算子。</div></div>';
   h+='<div class="card"><h2>按 N2 的历史登记覆盖</h2><table><tr><th>N2</th><th>N1</th><th>候选点</th><th>登记标量谱</th><th>未登记</th><th>状态</th></tr>'
    +(g.by_n2||[]).map(v=>'<tr><td>'+esc(v.N_w_te2)+'</td><td>'+esc((v.N_w_te1_values||[]).join(','))+'</td><td>'
     +esc(v.n_total)+'</td><td>'+esc(v.n_scalar_registered)+'</td><td>'+esc(v.n_missing)+'</td><td>'
     +pill(v.n_missing?'原始谱存在，待来源核验':'C 批已对账',v.n_missing?'warn':'ok')+'</td></tr>').join('')+'</table></div>';
-  h+='<div class="card notice"><b>算子预测与最优点搜索尚未就绪。</b>下一步是导出少量一阶复场及几何、材料、边界条件，'
-   +'训练后按误差补点；N2=9 先核验已有数据，不能静默合并或直接重扫。新模型仍须独立验证，不能保证直接迁移。</div>';
+  h+='<div class="card notice"><b>算子预测与最优点搜索尚未就绪。</b>'
+   +(exportAccepted?'本次试点的导出验收已完成，下一步仍须核验一阶模态，并补齐几何拓扑、材料、边界与驱动条件；':'下一步须完成少量候选复场的回收验收、核验一阶模态，并补齐几何、材料、边界与驱动条件；')
+   +'之后训练并进行独立场级误差验证，按误差补点。训练未就绪，工程放行仍为 false。N2=9 先核验已有数据，不能静默合并或直接重扫。新模型仍须独立验证，不能保证直接迁移。</div>';
   return h;
 }
 async function pmutF1Status(){

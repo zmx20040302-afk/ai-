@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import json
+from pathlib import Path
+
 import pytest
 
 from memsharness.pmut_f1 import (
@@ -110,17 +114,82 @@ def test_continuous_unmeasured_point_is_not_registered_as_sampled():
     assert result["action"].startswith("consider_sparse_sampling")
 
 
-def test_remote_submission_is_not_completed_operator_evidence():
+def test_recovered_export_qc_does_not_release_or_train_operator():
     summary = coverage_summary()
     submission = summary["stored_field_export_submission"]
     assert submission["n_cases"] == 21
-    assert submission["status"] == "submitted_result_pending"
-    assert submission["status_basis"] == "submission_record_not_live_remote_polling"
+    assert submission["status"] == "recovered_qc_passed"
+    assert submission["status_basis"] == "audited_recovered_artifacts_not_live_remote_polling"
     assert submission["new_solve_requested"] is False
     assert submission["production_model_write_requested"] is False
-    assert submission["recovered_export_qc_passed"] is False
+    assert submission["recovered_export_qc_passed"] is True
+    assert submission["recovered"] is True
+    assert submission["n_recovered_cases"] == submission["n_exact_point_consistency_passed"] == 21
+    assert submission["n_domain_labels_available"] == 0
+    assert submission["domain_label_status"] == "unavailable_coordinate_mismatch"
+    assert submission["recovered_file_count"] == 22
+    assert submission["recovered_size_bytes"] == 49068920
+    assert submission["qc_scope"] == "recovered_export_integrity_and_exact_point_consistency"
+    assert submission["source_model_rehashed_locally"] is False
+    assert submission["mode_identity"] == "unverified"
     assert submission["training_ready"] is False
+    assert submission["release_allowed"] is False
+    assert submission["submission_snapshot"] == {
+        "status": "submitted_result_pending",
+        "status_basis": "submission_record_not_live_remote_polling",
+        "recovered_export_qc_passed": False,
+    }
+    # 先前盘点记录 append-only：不能将当时未导出的事实改写为成功。
+    assert summary["data_preparation_audit"]["full_field_export_executed"] is False
+    assert summary["data_preparation_audit"]["n_mode_identity_verified"] == 0
+    assert summary["operator_training_status"] == "not_trained"
     assert summary["ready_for_full_loop"] is False
+    checked = validate_design_point(0.6, 4, 8)
+    assert checked["first_mode_operator_dataset_ready"] is False
+    assert checked["operator_prediction_available"] is False
+    assert checked["release_allowed"] is False
+
+
+@pytest.mark.parametrize("export_status", ["submitted_result_pending", "recovered_qc_passed", "unknown_status"])
+def test_export_status_alone_never_opens_operator_gate(export_status):
+    contract = load_contract()
+    contract["stored_field_export_submission"] = {"status": export_status}
+    assert coverage_summary(contract)["ready_for_full_loop"] is False
+    checked = validate_design_point(0.6, 4, 8, contract)
+    assert checked["first_mode_operator_dataset_ready"] is False
+    assert checked["operator_prediction_available"] is False
+    assert checked["release_allowed"] is False
+
+
+def test_local_recovered_evidence_matches_registered_hashes_when_present():
+    """运行区不进 Git；有原件时验其哈希，缺失时明确跳过，不假称已验收。"""
+    repo = Path(__file__).resolve().parents[1]
+    submission = load_contract()["stored_field_export_submission"]
+    qc_path = repo / submission["qc_report"]
+    if not qc_path.is_file():
+        pytest.skip("本部署未携带回收证据；合同仅为已审计快照登记")
+    assert hashlib.sha256(qc_path.read_bytes()).hexdigest() == submission["qc_report_sha256"]
+    qc = json.loads(qc_path.read_text(encoding="utf-8"))
+    assert qc["passed"] is True and qc["n_cases"] == submission["n_recovered_cases"]
+    assert qc["scope"] == submission["qc_scope"]
+    assert qc["training_ready"] is False and qc["release_allowed"] is False
+    for artifact, hash_key in (("manifest_path", "manifest_sha256"), ("export_report", "export_report_sha256")):
+        assert hashlib.sha256((repo / submission[artifact]).read_bytes()).hexdigest() == submission[hash_key]
+        assert qc[hash_key] == submission[hash_key]
+    assert qc["source_model_sha256"] == submission["source_model_sha256"]
+    recovered = repo / submission["recovered_directory"]
+    report = json.loads((repo / submission["export_report"]).read_text(encoding="utf-8"))
+    assert report["status"] == "complete" and report["source_unchanged"] is True
+    assert report["requested"] == report["completed"] == submission["n_cases"]
+    assert report["source_model_sha256"] == submission["source_model_sha256"]
+    assert sum(case["dom_available"] is True for case in report["cases"]) == submission["n_domain_labels_available"]
+    assert len(list(recovered.glob("*.mat"))) == submission["n_recovered_cases"]
+    assert len(list(recovered.iterdir())) == submission["recovered_file_count"]
+    assert sum(p.stat().st_size for p in recovered.iterdir()) == submission["recovered_size_bytes"]
+    for case in qc["cases"]:
+        assert hashlib.sha256((recovered / case["file"]).read_bytes()).hexdigest() == case["sha256"]
+        assert case["exact_point_abs_error_Pa"] <= case["exact_point_tolerance_Pa"]
+        assert case["mode_identity"] == "unverified" and case["training_ready"] is False
 
 
 @pytest.mark.parametrize("field,value", [
