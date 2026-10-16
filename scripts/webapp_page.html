@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MEMS 平台 · 响应级代理与任务控制台</title>
+<title>MEMS 平台 · 复声压场求解器与任务控制台</title>
 <style>
 :root{--bg:#0d1117;--card:#161b22;--fg:#e6edf3;--dim:#8b949e;--ok:#3fb950;--bad:#f85149;--warn:#d29922;--acc:#1f6feb}
 *{box-sizing:border-box}
@@ -67,7 +67,7 @@ svg{background:#0b0f14;border:1px solid #22282f;border-radius:8px;width:100%;hei
 </style></head><body>
 <div id="errBanner"></div>
 <header>
- <h1>MEMS 平台 · 响应级代理与任务控制台 <small>本地 · 不触发 COMSOL · 代理非求解器</small></h1>
+ <h1>MEMS 平台 · 复声压场求解器与任务控制台 <small>本地 · 场求解器与响应代理严格分层</small></h1>
  <div class="row">
   <span class="pill" id="pMode">模式：…</span>
   <button class="ghost" id="bOff" title="不发出任何网络请求，全部本地计算">离线模式</button>
@@ -123,10 +123,10 @@ svg{background:#0b0f14;border:1px solid #22282f;border-radius:8px;width:100%;hei
 <main>
  <nav id="nav"></nav>
  <section>
-  <div class="card notice">本页集成的是 <b>响应级代理（不是 AI 求解器）</b>：导出物里没有场数据 ⇒
-   <b>无场级误差界</b>；也没有 L1 网格收敛 ⇒ <b>不给工程绝对值</b>。每次预测都强制带
-   <code>model_id</code>、认证区间与<b>拒答判定</b>；状态只能是 <code>draft_surrogate</code>，
-   <b>放行权在人</b>。拒答域内不返回任何数字，直接回退 COMSOL。</div>
+  <div class="card notice">本页现在包含两类能力，二者不能混同：<b>复声压场 AI 求解器</b>会返回
+   <code>p_total_Pa</code>、场级误差带、S 级与适用域判定；旧的<b>响应级代理（不是 AI 求解器）</b>
+   仍然<b>无场级误差界</b>、<b>不给工程绝对值</b>。两者都强制携带 <code>model_id</code> 并在越界时
+   <b>拒答</b>；状态保持 draft，<b>放行权在人</b>。</div>
   <div class="card notice" id="modeNotice"></div>
 
   <!-- ================= 对话 ================= -->
@@ -236,8 +236,27 @@ svg{background:#0b0f14;border:1px solid #22282f;border-radius:8px;width:100%;hei
     只显示其中之一）——要看清某一层就填 N2。</div>
    <div id="peaks"></div></div>
 
+  <!-- ================= 单一复声压场 AI 求解器 ================= -->
+  <div class="panel" id="p-field"><h2>复声压场 AI 求解器（p_total_Pa）</h2>
+   <div class="card notice"><b>这是有界的单场 AI 求解器，不是旧响应代理。</b>
+    它只在固定离散分支内沿 <code>x_scale</code> 预测完整复声压场；当前分支为
+    N1={4,7}、N2=8、20 MHz，证据范围 x∈[0.33,0.93]。跨 N1/N2/频率或越界时不返回场值，
+    而是生成 5 个串行 COMSOL 补点（3 train + 2 holdout）。S1/S2 passed，S5 inconclusive；
+    模型仍是 draft，人工放行前不得描述为与 COMSOL 等价。</div>
+   <div class="row">
+    <label>x_scale <input type="number" id="fX" step="0.01" min="0.2" max="1" value="0.60" style="width:82px"></label>
+    <label>N_w_te1 <select id="fN1"><option value="4">4</option><option value="7">7</option><option value="5">5（补点演示）</option></select></label>
+    <label>N_w_te2 <input type="number" id="fN2" step="1" value="8" style="width:64px"></label>
+    <label>频率 (Hz) <input type="number" id="fFreq" step="1000000" value="20000000" style="width:126px"></label>
+    <button class="b" id="bField">求解复声压场</button>
+    <button class="ghost" id="bFieldExport">导出完整场 JSON</button>
+    <button class="ghost" id="bFieldCard">看求解器卡</button></div>
+   <div class="src">页面默认返回摘要与 48 点预览；“导出完整场”返回全部 1369 个有效公共点的
+    xyz、实部和虚部。AI 解始终标记 <code>source_type=ai_solver</code>。</div>
+   <div id="field"></div></div>
+
   <!-- ================= 多通道一阶峰代理 ================= -->
-  <div class="panel" id="p-mc"><h2>多通道一阶峰代理（带宽 / 振幅 / 灵敏度）</h2>
+  <div class="panel" id="p-mc"><h2>旧多通道标量代理（带宽 / 振幅 / 灵敏度）</h2>
    <div class="card notice"><b>这不是 AI 求解器</b>：它只预测<b>一阶峰处的标量</b>
     （−3 dB 带宽、位移幅值、单位电压声压灵敏度等），<b>没有场级误差界、没有 L1 网格收敛</b> ⇒
     只能用于<b>趋势与选点</b>，不能当工程绝对值。参数落到适用域外时会<b>拒答且不返回任何数字</b>。</div>
@@ -441,8 +460,8 @@ function appendDiagLine(){
   d.innerHTML='诊断：<pre>'+esc(diagText())+'</pre>'; $('#log').appendChild(d);
 }
 /* ---------------- 侧栏 ---------------- */
-const NAV=[['chat','对话'],['card','模型卡'],['gloss','数据字典'],['predict','预测'],['peaks','一阶峰'],
- ['mc','多通道代理'],['agents','子智能体'],['cov','覆盖与拒答'],['cmp','两点对比'],['doe','DOE 预筛'],
+const NAV=[['field','复声压场求解器'],['chat','对话'],['card','响应代理模型卡'],['gloss','数据字典'],['predict','响应预测'],['peaks','一阶峰'],
+ ['mc','旧多通道代理'],['agents','子智能体'],['cov','覆盖与拒答'],['cmp','两点对比'],['doe','DOE 预筛'],
  ['sen','一致性哨兵'],['task','平台任务'],['data','数据浏览']];
 let TASKS={};
 function buildNav(){
@@ -1109,6 +1128,83 @@ async function loadPeaks(){
   }
   $('#peaks').innerHTML=h;
 }
+/* ---------------- 单一复声压场 AI 求解器 ---------------- */
+function fieldQuery(full){
+  return 'x='+encodeURIComponent($('#fX').value)+'&n1='+encodeURIComponent($('#fN1').value)
+   +'&n2='+encodeURIComponent($('#fN2').value)+'&freq='+encodeURIComponent($('#fFreq').value)
+   +(full?'&full=1':'');
+}
+function fieldPlot(p){
+  const ys=(p&&p.magnitude_Pa)||[]; if(!ys.length) return '';
+  const W=760,H=170,pad=22, lo=Math.min(...ys), hi=Math.max(...ys), span=Math.max(hi-lo,1e-30);
+  const pts=ys.map((v,i)=>[(pad+i*(W-2*pad)/Math.max(1,ys.length-1)),
+    H-pad-(v-lo)*(H-2*pad)/span]);
+  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="复声压幅值稀疏预览">'
+   +'<polyline fill="none" stroke="#58a6ff" stroke-width="2" points="'
+   +pts.map(v=>v[0].toFixed(1)+','+v[1].toFixed(1)).join(' ')+'"/>'
+   +'<text x="8" y="14" fill="#8b949e" font-size="10">|p_total| 稀疏预览（Pa）</text>'
+   +'<text x="8" y="'+(H-5)+'" fill="#8b949e" font-size="10">min '+esc(fmtEng(lo,'Pa'))
+   +'　max '+esc(fmtEng(hi,'Pa'))+'</text></svg>';
+}
+function renderFieldResult(r){
+  if(r.error) return '<div class="card notice"><b>求解器不可用</b><br>'+esc(r.error)+'</div>';
+  if(r.refused){
+    const p=r.support_plan||{}, runs=p.runs||[];
+    let h='<div class="card notice"><b>已拒答：没有生成任何场值</b><br>'+esc(r.reason||'超出适用域')+'</div>';
+    h+='<div class="card"><h2>少量 COMSOL 补点计划</h2><div class="src">执行方式：'
+      +esc(p.execution||'需要人工确认')+'；这只是 pilot，重新通过门禁后才能注册新分支。</div>';
+    if(runs.length){h+='<table><tr><th>#</th><th>x</th><th>N1/N2</th><th>频率</th><th>角色</th></tr>'
+      +runs.map((v,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(v.x_scale)+'</td><td>'+esc(v.N_w_te1)+' / '+esc(v.N_w_te2)
+       +'</td><td>'+esc(fmtEng(v.freq_Hz,'Hz'))+'</td><td>'+pill(v.role,v.role==='holdout'?'warn':'ok')+'</td></tr>').join('')+'</table>';}
+    return h+'<div class="src">'+esc(p.promotion_gate||p.reason||'')+'</div></div>';
+  }
+  const s=r.field_summary||{}, levels=r.s_levels||{};
+  let h='<div class="card"><div class="row">'+pill('AI 场解','ok')+pill(r.model_state||'draft','warn')
+   +'<span class="src">source_type=<code>'+esc(r.source_type)+'</code>　model_id=<code>'
+   +esc(String(r.model_id||'').slice(0,34))+'…</code></span></div>'
+   +'<div class="kv" style="margin-top:8px"><div>场</div><div><code>'+esc(r.field_name)+'</code>（复数，Pa）</div>'
+   +'<div>分支</div><div>N1='+esc(r.branch&&r.branch.N_w_te1)+'，N2='+esc(r.branch&&r.branch.N_w_te2)
+   +'，f='+esc(fmtEng(r.branch&&r.branch.freq_Hz,'Hz'))+'</div>'
+   +'<div>有效公共点</div><div>'+esc(r.n_valid_points)+' / '+esc(r.n_points)+'</div>'
+   +'<div>|p| min / median / max</div><div>'+esc(fmtEng(s.magnitude_min_Pa,'Pa'))+' / '
+   +esc(fmtEng(s.magnitude_median_Pa,'Pa'))+' / <b>'+esc(fmtEng(s.magnitude_max_Pa,'Pa'))+'</b></div>'
+   +'<div>场级相对 L2 误差带</div><div><b>'+(100*Number(r.field_rel_l2_error_bound)).toFixed(3)+'%</b>　'
+   +esc(r.error_bound_kind||'')+'</div>'
+   +'<div>S 级</div><div>'+Object.entries(levels).map(([k,v])=>pill(k+' '+v,v==='passed'?'ok':'warn')).join(' ')+'</div></div>'
+   +'<div class="src" style="margin-top:7px">'+esc(r.warning||'')+'</div></div>';
+  h+=fieldPlot(r.preview);
+  return h;
+}
+async function fieldSolve(){
+  const r=await api('/api/field/predict?'+fieldQuery(false));
+  $('#field').innerHTML=renderFieldResult(r);
+}
+async function fieldCard(){
+  const c=await api('/api/field/model');
+  if(c.error){$('#field').innerHTML=renderFieldResult(c);return;}
+  let h='<div class="card"><div class="row">'+pill('AI 求解器','ok')+pill(c.model_state,'warn')
+   +'<span class="src">registry sha <code>'+esc(String(c.registry_sha256).slice(0,16))+'…</code></span></div>'
+   +'<div class="src">'+esc(c.note||'')+'</div></div>';
+  h+='<div class="card"><table><tr><th>分支</th><th>x 证据范围</th><th>训练/留出</th><th>全域 max L2</th><th>关键区 max L2</th><th>误差带</th><th>S5</th></tr>';
+  for(const b of c.branches||[]){const v=b.validation||{},t=b.training||{},q=b.branch||{};
+    h+='<tr><td>N1='+q.N_w_te1+' / N2='+q.N_w_te2+' / '+esc(fmtEng(q.freq_Hz,'Hz'))+'</td><td>'
+     +esc((b.applicability.x_scale||[]).join(' – '))+'</td><td>'+t.n_train+' / '+t.n_holdout+'</td><td>'
+     +(100*v.global_rel_l2_max).toFixed(3)+'%</td><td>'+(100*v.key_region_rel_l2_max).toFixed(3)
+     +'%</td><td><b>'+(100*v.field_rel_l2_error_bound).toFixed(3)+'%</b></td><td>'
+     +pill((v.s_levels||{}).S5||'unknown','warn')+'</td></tr>';}
+  h+='</table><div class="src">红线：'+esc((c.red_lines||[]).join('；'))+'</div></div>';
+  $('#field').innerHTML=h;
+}
+async function fieldExport(){
+  const r=await api('/api/field/predict?'+fieldQuery(true));
+  $('#field').innerHTML=renderFieldResult(r);
+  if(r.error||r.refused||!r.field_data) return;
+  const blob=new Blob([JSON.stringify(r,null,2)],{type:'application/json;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='p_total_Pa_x'+$('#fX').value+'_N1_'+$('#fN1').value+'_f'+$('#fFreq').value+'.json';
+  a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
 /* ---------------- 多通道一阶峰代理 ---------------- */
 const MC_UNIT={bandwidth_Hz:'Hz',abs_w_m:'m',abs_p_per_V_Pa:'Pa/V',f_peak_Hz:'Hz',
   abs_p_Pa:'Pa',abs_vz_struct_m3s:'m³/s',peak_SPL_dB:'dB',Q_factor:'—'};
@@ -1698,6 +1794,9 @@ function bindAll(){
     a.href='data:text/csv;charset=utf-8,'+encodeURIComponent('\ufeff'+LAST_CSV);
     a.download='doe_screen.csv';a.click();};
   $('#bPeaks').onclick=wrap(loadPeaks,'#peaks','#bPeaks');
+  $('#bField').onclick=wrap(fieldSolve,'#field','#bField');
+  $('#bFieldExport').onclick=wrap(fieldExport,'#field','#bFieldExport');
+  $('#bFieldCard').onclick=wrap(fieldCard,'#field','#bFieldCard');
   $('#bMc').onclick=wrap(mcPredict,'#mc','#bMc');
   $('#bGloss').onclick=wrap(loadGloss,'#gloss','#bGloss');
   $('#bInc').onclick=wrap(loadInc,'#incList','#bInc');
@@ -1742,7 +1841,7 @@ function bindAll(){
       if(b.dataset.ex) $('#bPred').click();};});
 }
 async function boot(){
-  buildNav(); show('chat');
+  buildNav(); show('field');
   bindAll();                       // ★ 先绑定：后面任何 await 失败都不会让按钮失灵
   greet();
   const conn=await connect();      // ★ 先探测 API 基址（页面可能被非 8877 来源打开）

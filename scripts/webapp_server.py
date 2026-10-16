@@ -684,13 +684,114 @@ def _mc():
 _MC_MOD = None
 
 
+# ---------------------------------------------------------------------------
+# 单一复声压场 AI 求解器：发布包随仓库分发，不依赖 gitignored 的 work/runs。
+# ---------------------------------------------------------------------------
+FIELD_REGISTRY = REPO / "work/dist/single-pressure-solver-v1/registry.json"
+_FIELD_SOLVER: dict[str, Any] = {"obj": None, "err": None}
+
+
+def _field_solver():
+    """懒加载有界 ``p_total_Pa`` 求解器；哈希失败时 fail-closed。"""
+    if _FIELD_SOLVER["obj"] is not None or _FIELD_SOLVER["err"] is not None:
+        return _FIELD_SOLVER["obj"], _FIELD_SOLVER["err"]
+    try:
+        sys.path.insert(0, str(REPO / "src"))
+        from memsharness.single_pressure_solver import SinglePressureSolver
+        _FIELD_SOLVER["obj"] = SinglePressureSolver.load(FIELD_REGISTRY)
+    except Exception as exc:
+        _FIELD_SOLVER["err"] = "%s: %s" % (type(exc).__name__, exc)
+    return _FIELD_SOLVER["obj"], _FIELD_SOLVER["err"]
+
+
+def _field_card() -> dict:
+    solver, err = _field_solver()
+    if solver is None:
+        return {"error": "复声压场求解器不可用：%s" % err}
+    branches = []
+    for branch in solver.branches:
+        meta = branch.manifest
+        branches.append({
+            "model_id": meta["model_id"], "branch": meta["branch"],
+            "applicability": meta["applicability"], "training": meta["training"],
+            "validation": meta["validation"], "arrays_sha256": meta["arrays_sha256"],
+        })
+    return {
+        "kind": "bounded_single_complex_pressure_field_solver",
+        "field": "p_total_Pa", "units": "Pa", "complex": True,
+        "source_type": "ai_solver", "model_state": "draft",
+        "human_approved": False, "registry_sha256": sha256_file(FIELD_REGISTRY),
+        "branches": branches, "red_lines": solver.registry.get("red_lines", []),
+        "note": ("只在固定离散分支内沿 x_scale 插值；命中时返回场级误差带。"
+                 "S1/S2 passed，S5 inconclusive，人工放行前保持 draft。"),
+    }
+
+
+def _field_predict(q: dict) -> dict:
+    """预测单一复声压场；默认只回摘要，``full=1`` 才回全部有效点。"""
+    solver, err = _field_solver()
+    if solver is None:
+        return {"error": "复声压场求解器不可用：%s" % err}
+    try:
+        x = float(q.get("x"))
+        n1 = float(q.get("n1"))
+        n2 = float(q.get("n2", 8))
+        freq = float(q.get("freq", 20_000_000))
+    except (TypeError, ValueError) as exc:
+        return {"error": "参数必须是数字：%s" % exc}
+    try:
+        from memsharness.single_pressure_solver import PressurePrediction
+        result = solver.solve(x_scale=x, n1=n1, n2=n2, freq_hz=freq)
+        if not isinstance(result, PressurePrediction):
+            _capture_refusal("复声压场预测 /api/field/predict", result.get("reason") or "拒答",
+                             params={"x": x, "n1": n1, "n2": n2, "freq": freq},
+                             endpoint="/api/field/predict")
+            return result
+        valid = result.field[result.mask]
+        points = result.points_xyz_m[result.mask]
+        mag = abs(valid)
+        payload = dict(result.report)
+        payload["query"].update({"N_w_te1": n1, "N_w_te2": n2, "freq_Hz": freq})
+        payload["field_summary"] = {
+            "magnitude_min_Pa": float(mag.min()),
+            "magnitude_median_Pa": float(__import__("numpy").median(mag)),
+            "magnitude_max_Pa": float(mag.max()),
+        }
+        # 页面只画稀疏预览；完整值仍可用 full=1 导出，避免每次点击都传大 JSON。
+        stride = max(1, len(valid) // 48)
+        idx = list(range(0, len(valid), stride))[:48]
+        payload["preview"] = {
+            "point_index": idx,
+            "magnitude_Pa": [float(mag[i]) for i in idx],
+        }
+        full = str(q.get("full") or "").lower() in ("1", "true", "yes")
+        if full:
+            payload["field_data"] = {
+                "points_xyz_m": points.tolist(),
+                "p_real_Pa": valid.real.tolist(),
+                "p_imag_Pa": valid.imag.tolist(),
+                "n_points": int(len(valid)),
+            }
+        return payload
+    except Exception as exc:
+        return {"error": "%s: %s" % (type(exc).__name__, exc)}
+
+
 def _mc_card() -> dict:
     mod, err = _mc()
     if mod is None:
         return {"error": "多通道代理不可用：%s" % err}
     try:
         return mod.model_card()
+    except FileNotFoundError:
+        return {"error": ("旧多通道标量代理产物未安装；该区域不再作为默认入口。"
+                          "请使用左侧“复声压场求解器”（发布产物随仓库分发）。"),
+                "legacy_unavailable": True, "redirect": "field"}
     except Exception as exc:
+        if "multichannel_model.json" in str(exc):
+            return {"error": ("旧多通道标量代理产物未安装；该区域不再作为默认入口。"
+                              "请使用左侧“复声压场求解器”（发布产物随仓库分发）。"),
+                    "legacy_unavailable": True, "redirect": "field"}
         return {"error": "%s: %s" % (type(exc).__name__, exc)}
 
 
@@ -714,7 +815,13 @@ def _mc_predict(q: dict) -> dict:
                          endpoint="/api/mc/predict")
         return {"refused": True, "reason": str(exc), "model_id": None,
                 "action": "请改参数到适用域内，或改用 COMSOL / 一阶峰标签表核对"}
+    except FileNotFoundError:
+        return {"error": ("旧多通道标量代理产物未安装；请改用左侧“复声压场求解器”。"),
+                "legacy_unavailable": True, "redirect": "field"}
     except Exception as exc:
+        if "multichannel_model.json" in str(exc):
+            return {"error": ("旧多通道标量代理产物未安装；请改用左侧“复声压场求解器”。"),
+                    "legacy_unavailable": True, "redirect": "field"}
         return {"error": "%s: %s" % (type(exc).__name__, exc)}
 
 
@@ -2275,6 +2382,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(_peaks_heatmap({k: v[0] for k, v in qs.items()}))
         if path == "/api/tasks/active":
             return self._send(jobs_snapshot())
+        if path == "/api/field/model":
+            return self._send(_field_card())
+        if path == "/api/field/predict":
+            qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            return self._send(_field_predict({k: v[0] for k, v in qs.items()}))
         if path == "/api/mc/model":
             return self._send(_mc_card())
         if path == "/api/mc/predict":
