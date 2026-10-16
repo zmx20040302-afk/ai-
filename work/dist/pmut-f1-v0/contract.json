@@ -1,6 +1,6 @@
 {
   "schema": "memsharness.pmut_f1_contract/v0",
-  "contract_version": "0.2.1",
+  "contract_version": "0.3.0",
   "task_id": "pmut-f1-v0",
   "model_state": "draft",
   "objective": {
@@ -50,6 +50,45 @@
     "observation_xyz_m": [0.0, 0.0, -0.00001],
     "n_first_peak_found": 1612,
     "n_first_peak_not_found_in_window": 170
+  },
+  "additional_raw_scalar_data": {
+    "N_w_te2": [9],
+    "n_designs": 648,
+    "n_first_observable_peaks": 600,
+    "lineage_alignment_pending": true,
+    "merge_with_legacy_C_allowed": false,
+    "source_table_sha256": "2c17e6f2d4f42980248a830ca47687d66b44f736f7b4c9472d88073de65223fb",
+    "note": "Raw table exists and was parsed; model hash, mesh/tolerance and cross-source equivalence remain unverified."
+  },
+  "data_preparation_audit": {
+    "run_id": "pmut-f1-data-20261016-v2",
+    "report": "work/runs/pmut-f1-data-20261016-v2/summary.json",
+    "report_sha256": "35052ef77b1dc5d41848a91d01e95164378f33ccaaca39f734b96e33f1e83e75",
+    "coverage_basis": "audited_snapshot_not_current_deployment_file_availability",
+    "n_raw_designs": 2430,
+    "n_raw_frequency_rows": 221130,
+    "n_first_observable_peaks": 2212,
+    "n_no_peak_in_window": 218,
+    "n_legacy_label_matches": 1782,
+    "n_label_mismatches": 0,
+    "n_N2_8_export_candidates": 520,
+    "n_development_pilot_cases": 21,
+    "n_mode_identity_verified": 0,
+    "full_field_export_executed": false
+  },
+  "stored_field_export_submission": {
+    "run_id": "pmut-f1-remote-20261016-v1",
+    "submitted_on": "2026-10-16",
+    "status": "submitted_result_pending",
+    "status_basis": "submission_record_not_live_remote_polling",
+    "n_cases": 21,
+    "manifest_sha256": "bd80575f80da1f57e14c55506c36e5b485252b36857c5ca3d09bac65a6d67fcd",
+    "source_size_bytes_preflight": 256291859744,
+    "n_processes": 4,
+    "new_solve_requested": false,
+    "production_model_write_requested": false,
+    "recovered_export_qc_passed": false,
+    "training_ready": false
   },
   "known_field_data": {
     "field": "p_total_Pa",
@@ -127,7 +166,7 @@
     "docs/SINGLE_PRESSURE_SOLVER_20261016.md"
   ],
   "not_claimed": [
-    "N_w_te2=9 is not covered by the fine scalar dataset",
+    "N_w_te2=9 raw spectra exist but are not merged into the legacy C dataset; lineage alignment remains pending",
     "the current fixed-20-MHz field solver is not a per-design first-mode solver",
     "parameter interpolation is not the target PMUT-F1 solver",
     "an operator does not remove the need for few-shot calibration and independent COMSOL holdout on a new model",

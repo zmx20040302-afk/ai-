@@ -108,6 +108,12 @@ def validate_contract(contract: Mapping[str, Any]) -> None:
     missing_peak = int(known["n_first_peak_not_found_in_window"])
     if found + missing_peak != len(known_grid):
         raise PmutF1ContractError("首峰找到/未找到计数不能覆盖全部已知设计")
+    extra = contract.get("additional_raw_scalar_data") or {}
+    extra_n2 = tuple(extra.get("N_w_te2", []))
+    if set(extra_n2) & set(known_n2):
+        raise PmutF1ContractError("独立来源不能与 C 批隐式重叠")
+    if len(enumerate_design_grid(contract, n2_values=extra_n2)) != extra.get("n_designs", 0):
+        raise PmutF1ContractError("附加原始数据数量不匹配")
     if contract["execution_policy"].get("production_model_read_only") is not True:
         raise PmutF1ContractError("生产模型必须保持只读")
     if contract["execution_policy"].get("model_write") != "copy_only":
@@ -169,16 +175,19 @@ def coverage_summary(contract: Mapping[str, Any] | None = None) -> dict[str, Any
             "n_found": int(known["n_first_peak_found"]),
             "n_not_found_in_registered_window": int(known["n_first_peak_not_found_in_window"]),
             "frequency_grid_Hz": known["frequency_grid_Hz"],
-            "not_found_action": "extend_low_frequency_scan_before_field_training",
+            "not_found_action": "review_frequency_window_and_mode_identity_before_field_training",
         },
         "field_coverage": current["known_field_data"],
+        "additional_raw_scalar_data": current.get("additional_raw_scalar_data", {}),
+        "data_preparation_audit": current.get("data_preparation_audit", {}),
+        "stored_field_export_submission": current.get("stored_field_export_submission", {}),
         "mode_identity_gate": current["mode_identity_gate"],
         "modeling_policy": current["modeling_policy"],
         "execution_policy": current["execution_policy"],
         "not_claimed": current["not_claimed"],
         "ready_for_full_loop": False,
         "blocking_gaps": [
-            "N_w_te2=9: select sparse calibration/holdout designs; do not automatically sweep all 648 candidates",
+            "N_w_te2=9 raw spectra exist: verify model lineage and numerical settings before merging sources",
             "first-mode recovery for designs without a peak in 5-50 MHz",
             "first-mode complex fields for operator training and independent holdout",
             "geometry/material/boundary-condition encoding shared across models",
@@ -218,6 +227,8 @@ def validate_design_point(
     sampled_x = any(math.isclose(x, value, rel_tol=0.0, abs_tol=1e-12)
                     for value in _x_grid(current))
     scalar_registered = n2_int in known_n2 and sampled_x
+    extra = current.get("additional_raw_scalar_data") or {}
+    extra_registered = n2_int in extra.get("N_w_te2", []) and sampled_x
     field = current["known_field_data"]
     raw_field_branch = n2_int in field["N_w_te2"] and n1_int in field["N_w_te1"]
     return {
@@ -227,6 +238,9 @@ def validate_design_point(
         "observation_xyz_m": current["objective"]["observation"]["xyz_m"],
         "in_domain_means": "design_search_domain_not_validated_operator_applicability",
         "scalar_spectrum_registered": scalar_registered,
+        "additional_raw_spectrum_registered": extra_registered,
+        "raw_spectrum_registered": scalar_registered or extra_registered,
+        "lineage_alignment_pending": extra_registered and extra.get("lineage_alignment_pending", True),
         "on_registered_x_grid": sampled_x,
         "coverage_basis": "registered_inventory_not_live_data_verification",
         "operator_training_status": "not_trained",
@@ -239,7 +253,8 @@ def validate_design_point(
         "action": (
             "locate_and_verify_first_mode_then_queue_operator_training_or_holdout_field"
             if scalar_registered else
-            "consider_sparse_sampling_or_saved_solution_reuse_before_serial_comsol"
+            ("verify_additional_raw_source_lineage_before_training_merge" if extra_registered else
+             "consider_sparse_sampling_or_saved_solution_reuse_before_serial_comsol")
         ),
         "release_allowed": False,
     }

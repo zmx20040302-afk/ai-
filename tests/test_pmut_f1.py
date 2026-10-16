@@ -28,15 +28,20 @@ def test_frozen_observation_and_full_grid_counts():
     assert policy["primary_model_family"] == "geometry_conditioned_neural_operator"
     assert policy["interpolation_as_solver"] == "forbidden"
     assert policy["zero_shot_release"] == "forbidden_without_independent_validation"
+    assert status["data_preparation_audit"]["n_raw_designs"] == 2430
+    assert status["additional_raw_scalar_data"]["merge_with_legacy_C_allowed"] is False
 
 
-def test_n2_9_is_in_domain_but_not_claimed_as_covered():
+def test_n2_9_raw_data_exists_but_is_not_merged_or_released():
     result = validate_design_point(0.6, 4, 9)
     assert result["in_domain"] is True
     assert result["scalar_spectrum_registered"] is False
+    assert result["additional_raw_spectrum_registered"] is True
+    assert result["raw_spectrum_registered"] is True
+    assert result["lineage_alignment_pending"] is True
     assert result["first_mode_operator_dataset_ready"] is False
     assert result["release_allowed"] is False
-    assert result["action"].startswith("consider_sparse_sampling")
+    assert result["action"].startswith("verify_additional_raw_source")
 
 
 def test_existing_scalar_branch_is_not_mislabeled_as_first_mode_field():
@@ -51,6 +56,13 @@ def test_later_raw_intake_does_not_expand_released_draft_solver():
     assert result["fixed_20MHz_raw_field_branch_registered"] is True
     assert result["fixed_20MHz_released_draft_branch_registered"] is False
     assert result["first_mode_operator_dataset_ready"] is False
+    assert result["operator_prediction_available"] is False
+
+
+def test_n2_9_unmeasured_continuous_point_does_not_inherit_raw_sample():
+    result = validate_design_point(0.605, 4, 9)
+    assert result["raw_spectrum_registered"] is False
+    assert result["additional_raw_spectrum_registered"] is False
     assert result["operator_prediction_available"] is False
 
 
@@ -96,6 +108,19 @@ def test_continuous_unmeasured_point_is_not_registered_as_sampled():
     assert result["on_registered_x_grid"] is False
     assert result["operator_prediction_available"] is False
     assert result["action"].startswith("consider_sparse_sampling")
+
+
+def test_remote_submission_is_not_completed_operator_evidence():
+    summary = coverage_summary()
+    submission = summary["stored_field_export_submission"]
+    assert submission["n_cases"] == 21
+    assert submission["status"] == "submitted_result_pending"
+    assert submission["status_basis"] == "submission_record_not_live_remote_polling"
+    assert submission["new_solve_requested"] is False
+    assert submission["production_model_write_requested"] is False
+    assert submission["recovered_export_qc_passed"] is False
+    assert submission["training_ready"] is False
+    assert summary["ready_for_full_loop"] is False
 
 
 @pytest.mark.parametrize("field,value", [
