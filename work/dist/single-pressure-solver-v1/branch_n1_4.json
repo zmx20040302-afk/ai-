@@ -1,0 +1,59 @@
+{
+  "schema": "memsharness.single_pressure_branch/v1",
+  "model_id": "pressure-amp-shape-n1-4-n2-8-f-2e+07-v1",
+  "model_state": "draft",
+  "human_approved": false,
+  "field": {
+    "name": "p_total_Pa",
+    "units": "Pa",
+    "dtype": "complex128"
+  },
+  "method": "log10 norm PCHIP + unit-norm complex shape POD + coefficient PCHIP",
+  "branch": {
+    "N_w_te1": 4,
+    "N_w_te2": 8,
+    "freq_Hz": 20000000.0
+  },
+  "applicability": {
+    "x_scale": [
+      0.33,
+      0.93
+    ],
+    "policy": "范围由冻结 x 留出点覆盖决定；禁止外推"
+  },
+  "training": {
+    "n_train": 76,
+    "n_holdout": 5,
+    "n_modes": 4,
+    "energy_ratio": 0.9998929582739772,
+    "x_train_span": [
+      0.2,
+      1.0
+    ]
+  },
+  "validation": {
+    "global_rel_l2_max": 0.010909651072037296,
+    "key_region_rel_l2_max": 0.006999888690093369,
+    "field_rel_l2_error_bound": 0.015162415488450123,
+    "error_bound_kind": "90%-target conformal relative-L2 band (empirical)",
+    "holdout_coverage": 1.0,
+    "n_holdout": 5,
+    "s_levels": {
+      "S0": "inconclusive",
+      "S1": "passed",
+      "S2": "passed",
+      "S3": "inconclusive",
+      "S4": "inconclusive",
+      "S5": "inconclusive"
+    },
+    "warning": "S1/S2 passed；S5 因冻结留出集只有 5 点而 inconclusive，不能宣称全面认证"
+  },
+  "provenance": {
+    "cache_sha256": "4c21a31016a562cf1005a9738b41a964833724b7fb088577a7550c608cafcc8c",
+    "points_sha256": "9067cbdc3e43ced9c270de79e6add0672afaefb7d6dc08cddd9b57bcc487f0e7",
+    "validation_report_sha256": "fac096fda3c2d11d6f9eaac4551a0e5c9c59ea48339fd301fd4213fb72cd5822",
+    "raw_field": "p_total_Pa"
+  },
+  "arrays_file": "branch_n1_4_arrays.npz",
+  "arrays_sha256": "dd7dba1f09df1940cc860074892e0d5e03935f1c5545e56b49546f4e1ce77b6e"
+}

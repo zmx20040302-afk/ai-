@@ -1,0 +1,52 @@
+{
+  "kind": "single_pressure_solver_holdout_replay",
+  "field": "p_total_Pa",
+  "source_type": "ai_solver",
+  "holdout_x_scale": [
+    0.33,
+    0.48,
+    0.63,
+    0.78,
+    0.93
+  ],
+  "branches": {
+    "n1_4": {
+      "relative_l2_per_holdout": [
+        0.0100175918786421,
+        0.010909651072037297,
+        0.009681596857781721,
+        0.009460105631170458,
+        0.009977535479204653
+      ],
+      "relative_l2_max": 0.010909651072037297,
+      "declared_relative_l2_bound": 0.015162415488450123,
+      "within_declared_bound": true
+    },
+    "n1_7": {
+      "relative_l2_per_holdout": [
+        0.010026690583623711,
+        0.0113266185490549,
+        0.010836574869600272,
+        0.009051835703375479,
+        0.01119080413546336
+      ],
+      "relative_l2_max": 0.0113266185490549,
+      "declared_relative_l2_bound": 0.01969389426948115,
+      "within_declared_bound": true
+    }
+  },
+  "negative_test": {
+    "query": {
+      "x_scale": 0.6,
+      "N_w_te1": 5,
+      "N_w_te2": 8,
+      "freq_Hz": 20000000
+    },
+    "refused": true,
+    "field_returned": false,
+    "fallback_runs": 5,
+    "execution": "serial_only"
+  },
+  "gate_note": "S1/S2 passed；S5 remains inconclusive because the frozen holdout set has five points",
+  "test_result": "tests/test_single_pressure_solver.py: 3 passed"
+}

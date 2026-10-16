@@ -1,0 +1,33 @@
+{
+  "schema": "memsharness.single_pressure_registry/v1",
+  "field": "p_total_Pa",
+  "source_type": "ai_solver",
+  "model_state": "draft",
+  "human_approved": false,
+  "branches": [
+    {
+      "model_id": "pressure-amp-shape-n1-4-n2-8-f-2e+07-v1",
+      "branch": {
+        "N_w_te1": 4,
+        "N_w_te2": 8,
+        "freq_Hz": 20000000.0
+      },
+      "manifest_file": "branch_n1_4.json"
+    },
+    {
+      "model_id": "pressure-amp-shape-n1-7-n2-8-f-2e+07-v1",
+      "branch": {
+        "N_w_te1": 7,
+        "N_w_te2": 8,
+        "freq_Hz": 20000000.0
+      },
+      "manifest_file": "branch_n1_7.json"
+    }
+  ],
+  "red_lines": [
+    "不跨 N1/N2/频率插值",
+    "超出 x 留出证据范围即拒答",
+    "AI 解不冒充 COMSOL 解",
+    "人工放行前保持 draft"
+  ]
+}
