@@ -114,6 +114,27 @@ function Show-Status {
     return $rows
 }
 
+function Test-UnifiedPortal {
+    <#
+    8899 也被 COMSOL × AI 统一入口使用。统一入口会负责拉起 8880/8877、
+    生成局域网令牌并自动恢复子服务；若这里再执行 restart，会先杀掉统一入口，
+    随后把 8877 改回仅回环监听，导致其他电脑 ERR_CONNECTION_REFUSED。
+    因此在任何会创建/替换服务的动作前 fail-closed。
+    #>
+    try {
+        $r = Invoke-RestMethod -Uri 'http://127.0.0.1:8899/api/status' -TimeoutSec 3
+        return ($null -ne $r.portal_started_at -and $null -ne $r.services)
+    } catch {
+        return $false
+    }
+}
+
+if (($Action -eq 'start' -or $Action -eq 'restart') -and (Test-UnifiedPortal)) {
+    Write-Output '[guard] 检测到 COMSOL × AI 统一入口正在 8899 运行；不覆盖 8877/8899。'
+    Write-Output '[guard] 请使用 C:\Users\zmx\Desktop\comsol1\unified_portal\service_control.py 管理统一工作台。'
+    exit 0
+}
+
 switch ($Action) {
     'status' { Show-Status | Format-Table -AutoSize | Out-String -Width 200 }
     'start' {

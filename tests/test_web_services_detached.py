@@ -163,6 +163,18 @@ def test_serve_script_detaches_via_wmi():
         assert needle in ps, needle
 
 
+def test_serve_script_never_overwrites_unified_portal():
+    """8899 是统一入口时，独立启动器不得杀掉它再把 8877 改回 loopback。"""
+    ps = PS1_SERVE.read_text(encoding="utf-8-sig")
+    code = strip_ps_comments(ps)
+    assert "Test-UnifiedPortal" in code
+    assert "http://127.0.0.1:8899/api/status" in code
+    assert "portal_started_at" in code and ".services" in code
+    guard = code.index("if (($Action -eq 'start' -or $Action -eq 'restart')")
+    switch = code.index("switch ($Action)")
+    assert guard < switch, "统一入口保护必须在 stop/restart 分支执行前生效"
+
+
 def test_installer_uses_the_permission_feasible_path():
     """两条注册途径的权限差异是**实测**的，安装脚本必须按可行的那条走。"""
     ps = PS1_INSTALL.read_text(encoding="utf-8-sig")
