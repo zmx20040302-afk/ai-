@@ -18547,3 +18547,43 @@ PMUTF1进度为 `hash_start source_bytes=152344054681 cases=25`。
 heartbeat `pmut` 已更新为接管上述现有run并实际读回ACTIVE/每10分钟/本对话，禁止重复启动N2=6。
 N2=6完整回收验收后才到N2=7；资源不足等待，失败/超时停止且不自动重跑，N2=9不启动。
 已验收仍为20/124；本次提交不增加验收计数。真实训练未开始，training_ready=false、release_allowed=false。
+
+## 255. N2=6 真实25例验收通过，N2=7等待资源（2026-10-17）
+
+本轮heartbeat复用现有 `n6.u6sx4I`：远端complete、exit0、requested=completed=25，
+source_unchanged=true，实算源SHA `39cab857b8fbcd023d87dceb60b436ba5563583cad683105631be739f60442ee`
+与冻结值匹配。没有重新提交、求解或修改源模型。旧N2=5的intake_audit哈希仍与§253一致。
+
+回收至 `work/runs/pmut-operator-intake-20261017-v2/recovered-n2-6-n6.u6sx4I`，
+25个场MAT、2个元数据MAT、3个JSON，共30个白名单传输文件；全部大小/SHA匹配，前后报告链稳定。
+适配器输出 `prepared-n2-6-branch-holdout-v1`，25个唯一完整设计，train/validation/test=15/5/5，
+intake_passed、export_integrity_verified、exact_point_consistency_verified均true，
+physical_mapping_verified、training_ready、release_allowed均false。
+
+独立只读复核逐MAT重算SHA并核对参数/频率/Inner/Outer/精确点；真实数据集绑定为dset3→sol2。
+最大精确点复声压差 `9.317772109982395e-11 Pa`（`x029_N14_N26`），全批最大相对差
+`7.403372104627648e-16`；这是保存解导出一致性，不是AI预测误差。
+共2,150,414个场采样点、438,116个有限复压力值，每例有限14,555–20,162；mask一致、无Inf、
+坐标有限、域编号均为正整数。训练N1=1/2/5、验证N1=4、测试N1=3，完整分支不跨组。
+未发现阻断继续采集的数据问题；历史物理绑定、域语义、第一模态和场预测精度仍待验证。
+
+累计本地批次验收45/124，尚缺N2=7/8的79例，未开始训练。本轮没有声称完整聚合readiness通过。
+15:08:55客户端北京时间N2=7预检可用内存100868329472 B，低于120 GiB的128849018880 B门槛；
+盘空闲5337965273088 B，源可读非链接/无锁/Done，本账号COMSOL/MATLAB为空。
+随后只读确认远端无n7.*、out_n2_7、launch-n2-7.log，本地无submission-n2-7.json。
+因此未启动N2=7，不降低门槛、不终止他人进程；资源不足是等待状态，不是导出失败。
+
+| 本地证据（v2运行根下） | SHA256 |
+|---|---|
+| `recovered-n2-6-n6.u6sx4I/recovery_receipt.json` | `456a19f26c6c84eb27894f0449d464a2450bcaeba13a6681e8f3c09ceb322d77` |
+| 同目录 `export_report.json` | `74d2252e5af65da87c3bbbaee490a6e19fc558a8aabebbe337ec5976801bb4be` |
+| 同目录 `resolved_index.json` | `6ae0a229a8ab7020f24bc81fcdeb05eee5ef15d7fd22849171dce08bfd155bea` |
+| 同目录 `model_definition_context.mat` | `e49d3a2422ec54e9aaecab02a3cb51f153cdf6bcd60bcf1d98d4219057f6b93a` |
+| `prepared-n2-6-branch-holdout-v1/intake_audit.json` | `7291425da4623f7b674067a46f62c81c009cb3f1012391c49b24e5fbca5739d0` |
+| 同目录 `dataset.json` | `a7e87de89fa962ac43aab289ceca0a468609d99c1ce7261b1d8ae5ba6ba0ae8f` |
+| `preflight-before-n2-7.json` | `358abb41c9fadde903aa530a01cf3cc57b00a71d6a7fe859c92848d889818712` |
+
+heartbeat `pmut` 保持ACTIVE/每10分钟，已更新N2=6验收证据和N2=7等待状态。
+后续复用N2=5/6结果，不重复回收；预检写带时间戳的新路径，启动前重查提交历史、实时资源及冻结SHA。
+启动器仅记录输入SHA且不扫描历史n7.*，外层不能省略这两项；预检CLI退出0也不代表资源达标。
+真正导出/QC/完整readiness/训练失败才停用本跟进，N2=9保持隔离，生产模型只读。
