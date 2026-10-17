@@ -18587,3 +18587,30 @@ heartbeat `pmut` 保持ACTIVE/每10分钟，已更新N2=6验收证据和N2=7等�
 后续复用N2=5/6结果，不重复回收；预检写带时间戳的新路径，启动前重查提交历史、实时资源及冻结SHA。
 启动器仅记录输入SHA且不扫描历史n7.*，外层不能省略这两项；预检CLI退出0也不代表资源达标。
 真正导出/QC/完整readiness/训练失败才停用本跟进，N2=9保持隔离，生产模型只读。
+
+## 256. 资源恢复后首次串行提交N2=7（2026-10-17）
+
+15:16:57客户端北京时间新预检可用内存148007157760 B，输出盘空闲5337882710016 B；
+源可读、非链接、无锁、Done，本账号COMSOL/MATLAB为空。此前§255资源不足的记录保留。
+再次核验N2=6本地receipt/audit/report SHA与25例QC标志一致，独立只读代理复核无阻断项；
+远端N2=6仍complete/exit0，report原字节SHA匹配、25/25/source_unchanged/源SHA验证均通过。
+
+提交前现场确认远端无n7.*、out_n2_7、launch-n2-7.log及本地submission-n2-7.json；
+启动器、导出器、N2=7清单的实际远端SHA均匹配冻结值，清单30唯一例且全部N2=7。
+源文件200082914825 B、无两种源锁、状态Done；即时可用内存134822981632 B，
+高于120 GiB门槛128849018880 B，盘空闲5337882685440 B。只提交一次，不新求解、不改源模型。
+
+真实run=`n7.awOAuO`、output=`out_n2_7`，历史launcher PID=975303仅作提交身份线索。
+15:18:49客户端检查：status=exporting、report=running/requested30/completed0，exit_code尚无，
+PMUTF1=`hash_start source_bytes=200082914825 cases=30`。此时源SHA与source_unchanged未终检，
+运行中的初始false不能解释成模型已改变；远端时钟原样留证，不作为客户端时间。
+
+| 本地证据（v2运行根下） | SHA256 |
+|---|---|
+| `preflight-before-n2-7-20261017T151657.json` | `292ee0aa5092170eb31cb2d87ba9dffc462f2d0a524e3173dabbf5611e27544f` |
+| `submission-n2-7.json` | `e6d82068756d8e90f46d853a5d68ae87432ab191dbb368f8a9d3c536cf4da094` |
+| `manifests/manifest_n2_7.json` | `21bcf8e81089fb9d9a175729992251b3007fb7ddf39fb3d1678a164f06ba1a81` |
+
+heartbeat `pmut` 已更新接管现有n7.awOAuO，维持ACTIVE/每10分钟，禁止重复启动N2=7。
+该分支完整回收及真实批次QC通过后才可检查并首次启动N2=8；N2=9保持隔离。
+当前已验收仍45/124，提交不计入验收；未训练，training_ready=false、release_allowed=false。
