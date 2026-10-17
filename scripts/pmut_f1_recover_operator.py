@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 
 
 SSH_HOST = "ubuntu-10-180-7-46"
-REMOTE_ROOT = "/home/lab/zhangmx/pmut_operator_intake_20261016_v1"
+REMOTE_ROOT = "/home/lab/zhangmx/pmut_operator_intake_20261017_v2"
 MAX_METADATA_BYTES = 2 * 1024 * 1024
 METADATA_NAMES = ("export_report.json", "resolved_index.json", "manifest.json")
 RECEIPT_NAME = "recovery_receipt.json"
@@ -31,7 +31,7 @@ SSH_OPTIONS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "-o", "StrictHo
 # O_NOFOLLOW + resolve + 前后 fstat 防止符号链接/替换；完整性最终仍由本地 SHA 核验。
 REMOTE_PROBE = r'''
 import base64, hashlib, json, os, pathlib, re, stat, sys
-ROOT = pathlib.Path("/home/lab/zhangmx/pmut_operator_intake_20261016_v1")
+ROOT = pathlib.Path("/home/lab/zhangmx/pmut_operator_intake_20261017_v2")
 MAX = 2 * 1024 * 1024
 def directory(p):
     if p.is_symlink() or p.resolve(strict=True) != p or not p.is_dir():

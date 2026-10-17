@@ -17,12 +17,29 @@ def test_lf_fixed_paths_and_immutable_source_guards():
     assert b"\r\n" not in data and data.startswith(b"#!/usr/bin/env bash\n")
     text = data.decode()
     assert "set -Eeuo pipefail" in text and "umask 077" in text
+    assert "readonly ROOT=/home/lab/zhangmx/pmut_operator_intake_20261017_v2\n" in text
+    assert "pmut_operator_intake_20261016_v1" not in text
     assert '"$(realpath -- "$ROOT")" == "$ROOT"' in text
     assert '"$(stat -c %u -- "$ROOT")" == "$OWNER_UID"' in text
     assert '"$SOURCE.lock" "${SOURCE%.mph}.lock"' in text
     assert '[[ ! -e "$OUTPUT" && ! -L "$OUTPUT" ]]' in text
     assert 'cmp -- "$RUN/source_before.txt" "$RUN/source_after.txt"' in text
     assert not re.search(r"\b(?:rm|pkill|killall|mphsave)\b", text)
+
+
+def test_retry_keeps_resource_floor_and_fresh_serial_output():
+    text = SCRIPT.read_text(encoding="utf-8")
+    assert "readonly MIN_MEMORY_KIB=125829120\n" in text  # 120 GiB，不因当前资源不足降门槛。
+    assert "readonly STOP_MEMORY_KIB=33554432\n" in text
+    assert "readonly MIN_DISK_BYTES=21474836480\n" in text
+    assert "readonly MAX_MODEL_BYTES=322122547200\n" in text
+    assert "readonly NP=4\n" in text
+    assert 'readonly OUTPUT="$ROOT/out_n2_${N2}"' in text
+    assert 'readonly RUN="$(mktemp -d "$ROOT/n${N2}.XXXXXX")"' in text
+    assert 'exec 9>>"$ROOT/serial.lock"' in text
+    assert text.index("flock -n 9") < text.index('readonly RUN="$(mktemp')
+    assert text.index("\ncheck_resources\n") < text.index('set_status starting_private_server')
+    assert '[[ "$available" -ge "$MIN_MEMORY_KIB" && "$free" -ge "$MIN_DISK_BYTES" ]]' in text
 
 
 def test_serial_and_task_owned_cleanup_guards():

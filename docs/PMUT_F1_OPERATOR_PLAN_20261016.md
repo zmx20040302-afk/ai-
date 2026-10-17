@@ -315,3 +315,21 @@ production model 只读，training_ready=false，release_allowed=false。
 
 修复后定向测试 178 passed（含本机 MATLAB 离线替身和真实 map 回归）；
 20 个候选点索引唯一，但不等于真实场导出或物理验收。没有在旧目录重跑或覆盖失败证据。
+
+## 15. v2 用户授权重试（2026-10-17）
+
+用户确认继续，改用全新远端根 `pmut_operator_intake_20261017_v2`；原 v1 不覆盖。
+启动器和回收器固定路径同时切换，选样/划分/源哈希清单与此前冻结版本逐字节一致。
+首次内存不足 120 GiB 时未启动，复查资源恢复并于提交前再次达标后才提交 N2=5 的 20 例。
+真实 run 为 `n5.XiG4wu`；13:50:57 客户端北京时间观测 exporting/hash_start、completed=0。
+未重新求解、未修改原模型；如再次失败不自动重跑。提交证据与 186 项离线回归见 INDEX §252。
+
+单分支回收先做批次完整性、解身份和精确点一致性验收，不能凭该批成功开始声称跨分支训练。
+完整研究训练必须额外确认非隔离 case ID 集合恰好等于冻结计划 N2=5..8 的 124 例，
+两种既定 split 各自核对；N2=9 不自动纳入。生产训练和发布资格继续为 false。
+
+已新增 `scripts/pmut_f1_check_research_readiness.py` 执行此聚合门禁：输入 --plan、
+--research-protocol、--dataset 和全新 --output；research_dataset_complete 为 true 且退出 0
+才说明当前指定 policy 的研究数据齐备。它不重读原始 MAT，不能替代前置回收和适配器验收。
+每种 policy 各做一次；缺数或错误退出 2，单 N2=5 应缺 104 个非隔离设计。所有生产/物理资格仍 false。
+最终联合离线回归 206 passed，详见 INDEX §252。

@@ -18414,3 +18414,58 @@ c_water=1481m/s 擅自补值。电极电位、端子和电路存在，但启用/
 测试文件 SHA256 `b9c510749e2d2a33667e825f08afaf5daafc7dbc08d0548a7a8c3558daeb3659`。
 另一代理独立核对全部 29484 行元数据尾、20 组索引及 fail-closed 分支，未发现阻断问题。
 这些是离线修复验收；未将修复脚本覆盖到旧失败任务目录，未启动第二次大型加载。
+
+## 252. 用户确认后的 v2 只读重试与资源门槛（2026-10-17）
+
+用户在 §251 的独立新目录重试确认问题后明确“继续任务”，因此本轮授权重试 N2=5，
+通过验收后再按冻结计划串行扩展；并未授权新 COMSOL 求解或降低资源/科学验收门槛。
+新固定远端根为 `/home/lab/zhangmx/pmut_operator_intake_20261017_v2`；启动器和回收器已一起切换，
+回收器明确拒绝旧 v1 路径。旧任务与全部证据保留，已结束的 pmut-21 没有恢复。
+
+13:45（客户端北京时间）首次只读预检，可用内存 93547859968 B，低于 120 GiB
+（128849018880 B）启动门槛，故没有提交作业。五份源文件可读、无锁，账号无 COMSOL/MATLAB 作业。
+13:49 复查可用内存恢复为 188961030144 B；实际提交前再次核验为 158685036544 B，仍达标。
+未杀其他进程、未降低门槛。输入七个文件上传到排他创建的新根，逐件 SHA256 与冻结本地副本相同。
+
+真实提交 run=`n5.XiG4wu`，output=`out_n2_5`，请求 20 例；launcher PID 908999 仅作提交时历史记录。
+13:50:57 观测为 exporting/hash_start，completed=0，尚未确认实际数据集绑定或导出结果。
+运行中报告的 source_unchanged=false 是尚未终检的初始值，不能据此称源文件被修改。
+远端返回的提交时间与客户端时钟不一致，原样保留但不用于用户时间线或跨机器时长推断。
+这是用户授权的新尝试，不是失败后的自动重跑；后续若再失败仍停止并保留证据。
+
+以下证据位于 `work/runs/pmut-operator-intake-20261017-v2/`：
+
+| 文件或已冻结代码 | SHA256 |
+|---|---|
+| `preflight.json`（首次资源不足） | `923473f2145e512a3a4e5d7a4f7914747327ba1a933178e492bdd6d290edff43` |
+| `preflight-recheck.json`（资源恢复） | `7b92b32202865a7ed2b037b0eb9105f2b5e9561f148230f1db73d3c268f7a6f9` |
+| `manifests/manifest_index.json`（与 v1 冻结清单完全一致） | `7d164f3014980455e9cf6cbf3c8eb350caa05b638be000288689b59c6b2e29bb` |
+| `submission-n2-5.json` | `73818801ef7486b1ef1c872085981db2e84cea1eab19f69d38bf273d4a66c619` |
+| `junit-main-native.xml` | `d0c3069410efa13cd76ab14d9d7db74f7dc047061fc405d407b015118be9358d` |
+| `scripts/pmut_f1_operator_remote.sh`（仓库路径） | `57bbd1a9fbe78d1399972490348eb3d74e8e7cab63af8603225f9a896af0738e` |
+| `scripts/pmut_f1_recover_operator.py`（仓库路径） | `e9bcb7538d771e1b514af2a658f0753565c2019f0b36e0cbfc8b9787139285d0` |
+
+导出器沿用已审查的 `7f0c930e545bf0b5887f3a8e0cc54aa2a22e84ae7a485dd88512bbc53684aeca`，未因重试放宽判定。
+主代理新环境完整定向回归 **186 passed / 36.55 s**；此前未启用 MATLAB 环境变量的回归
+为 184 passed/2 skipped，后者不是两个失败。另有独立代理原生 MATLAB 离线 4 passed/31.13 s。
+以上仍为管线回归，不是 PMUT 算子训练或真实场精度验收。
+
+单个 N2=5 的 20 例可以形成 train/validation/test 子集，但其准备报告成功不等于非隔离 124 例齐备。
+完整训练前必须逐 case ID 等于冻结计划 N2=5..8 的 124 例集合，并按既定完整设计划分核对。
+N2=9 保持来源隔离；当前未开始真实训练，training_ready=false、release_allowed=false。
+
+上述聚合门禁现已落实为 `scripts/pmut_f1_check_research_readiness.py`，只读验证冻结 plan/protocol
+双 SHA、124 例精确集合、一个指定 policy 的冻结划分、旧 21 不进 test、N2=9 隔离，
+并调用现有 loader 检查真实 NPZ 哈希/数组/mask，再对齐冻结参数、频率与精确点复压力。
+不重新核验原始 MAT 或源模型，必须先执行严格回收与适配器验收；不凭 intake_passed 判全量成功。
+权威字段为 research_dataset_complete；只有全部通过才为 true，不足/错误写新报告并返回 2。
+单 N2=5 即使批次通过，也应为 received_eligible_designs=20、missing_eligible_designs=104、
+cross_branch_research_training_blocked=true。即使 124 齐备，training_ready/release_allowed/
+physics_inputs_complete 仍为 false，仅可进入既定 research-only 实验，不是生产资格。
+损坏 ZIP/NPZ 的 CRC 错误也保留为失败报告，不将异常当作通过。
+
+最终代码 SHA256：脚本 `3db28eb0ee4a5ebc58ce17433d5917ce2b5446402d6636370cfec4bb343ca9cd`；
+测试 `4b1547e7f871702e0d6abbca7771d127f426f20ff0c2fb1f1e62f3fc9eafb896`。
+加入新门禁后主代理最终联合回归 **206 passed / 44.09 s**，包含本机 MATLAB 离线替身；
+`junit-main-frozen-final.xml` SHA256 `6754a69e5712ffe6486a7f5204cbe441f00dbdd74e8decfea53c7997bae6cb45`。
+另有独立代理只读审查无阻断问题。未因此开始真实训练或新增求解。

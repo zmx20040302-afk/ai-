@@ -3,7 +3,7 @@
 # Each output directory is exclusive: a failed run is never silently retried.
 set -Eeuo pipefail
 umask 077
-readonly ROOT=/home/lab/zhangmx/pmut_operator_intake_20261016_v1
+readonly ROOT=/home/lab/zhangmx/pmut_operator_intake_20261017_v2
 readonly USER_WORK=/home/lab/zhangmx
 readonly COMSOL=/usr/local/bin/comsol64
 readonly MATLAB=/usr/local/bin/matlab

@@ -24,6 +24,17 @@ SPEC.loader.exec_module(recovery)
 RUN = "n5.Ab12Cd"
 
 
+def test_recovery_is_fixed_to_authorized_v2_root_in_both_policies():
+    assert recovery.REMOTE_ROOT == "/home/lab/zhangmx/pmut_operator_intake_20261017_v2"
+    assert 'ROOT = pathlib.Path("' + recovery.REMOTE_ROOT + '")' in recovery.REMOTE_PROBE
+    assert "pmut_operator_intake_20261016_v1" not in recovery.REMOTE_PROBE
+
+
+@pytest.mark.parametrize("n2", range(5, 10))
+def test_authorized_branch_identity_range_remains_5_through_9(n2):
+    recovery.validate_identity(n2, "n%d.Ab12Cd" % n2)
+
+
 def encode(value):
     return (json.dumps(value, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
 
@@ -199,6 +210,16 @@ def test_probe_hash_encoding_and_sets_are_checked(edit):
     probe, _ = bundle()
     edit(probe)
     with pytest.raises(recovery.RecoveryError):
+        recovery.build_whitelist(probe, 5, RUN)
+
+
+def test_v1_evidence_cannot_be_downloaded_under_v2_authorization():
+    probe, _ = bundle()
+    old_root = "/home/lab/zhangmx/pmut_operator_intake_20261016_v1"
+    for collection in (probe["metadata"], probe["artifacts"]):
+        for entry in collection.values():
+            entry["remote_path"] = entry["remote_path"].replace(recovery.REMOTE_ROOT, old_root)
+    with pytest.raises(recovery.RecoveryError, match="Unexpected metadata path"):
         recovery.build_whitelist(probe, 5, RUN)
 
 
