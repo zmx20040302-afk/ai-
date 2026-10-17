@@ -18469,3 +18469,81 @@ physics_inputs_complete 仍为 false，仅可进入既定 research-only 实验�
 加入新门禁后主代理最终联合回归 **206 passed / 44.09 s**，包含本机 MATLAB 离线替身；
 `junit-main-frozen-final.xml` SHA256 `6754a69e5712ffe6486a7f5204cbe441f00dbdd74e8decfea53c7997bae6cb45`。
 另有独立代理只读审查无阻断问题。未因此开始真实训练或新增求解。
+
+## 253. N2=5 真实20例回收验收与用户授权后台串行接续（2026-10-17）
+
+用户明确同意每10分钟后台等待资源并继续：当前分支验收后串行扩展 N2=6–8，再按冻结协议
+训练验证；只通知重要变化，失败停止、不自动重跑、不启动新 COMSOL 求解。
+已创建同对话 heartbeat `pmut`（名称“PMUT 跨分支导出与算子验证”），ACTIVE、每10分钟，
+并实际读回本地配置确认；旧 `pmut-21` 仍为 PAUSED。本跟进不扩展到隔离的 N2=9。
+
+14:35 左右实际检查新 run `n5.XiG4wu` 已 complete、exit_code=0、requested=completed=20，
+source_unchanged=true，实算源哈希匹配历史 `6a930354002260a187b36b121ea96c2f561f41fa86aa47ffd988768edd79f1fd`。
+随后回收到 `work/runs/pmut-operator-intake-20261017-v2/recovered-n2-5-n5.XiG4wu`：
+20 个复场 MAT、两个元数据 MAT 和三个 JSON 白名单文件，共25个传输产物；不下载原始MPH。
+原字节清单和全部回收文件哈希核验通过；没有重启该分支或覆盖旧失败证据。
+
+用适配器生成同一 v2 根下 `prepared-n2-5-branch-holdout-v1`，20 个完整设计，
+train/validation/test=10/5/5。真实 intake_passed、export_integrity_verified、
+exact_point_consistency_verified 均为 true；physical_mapping_verified、training_ready、release_allowed 均为 false。
+这确认批次完整性、保存解身份与精确点复声压一致，不能据此称场预测准确或物理已认证。
+
+对该部分数据额外运行 readiness 诊断，实际 frozen_inputs_valid、dataset_file_validation_passed、
+frozen_case_binding_passed 均 true，validation_errors 为空；received_eligible_designs=20、
+missing_eligible_designs=104，research_dataset_complete=false、cross_branch_research_training_blocked=true。
+这是预期的“尚缺其他分支”，不是导出/QC失败；后台提示明确不得因此停止正常接续，也不得提前训练。
+适配器 n_missing_selected=144 另含40例隔离 N2=9，不能混成104例 eligible 缺数。
+
+| 本地证据（均在 v2 运行根下） | SHA256 |
+|---|---|
+| `recovered-n2-5-n5.XiG4wu/recovery_receipt.json` | `cf530faa8d921f437a82e20876defdbf7ab70df58be3c14caefc1c6fed451385` |
+| 同目录 `export_report.json` | `fb0bc4959413b614996814ed2842c891ca5f3f0db0c533d333a5bf12dea6903b` |
+| `prepared-n2-5-branch-holdout-v1/intake_audit.json` | `22c1117400ce56cd5f06850d1c0efd06b2b955a1a46b70d65553b722b8954d4a` |
+| 同目录 `dataset.json` | `35e797dbb2311dea609347522e81829de9d36fdd06e61368723340fca58f7a30` |
+| `readiness-n2-5-branch-holdout-v1.json` | `da3c24caa49187fa6af42bbdc4bf0e8aa81f76c77b688a3b21e0a58581190b61` |
+
+后台接续从 N2=6 的“是否已提交、资源、源锁、串行”检查开始，复用以上已验收结果，不重复回收。
+每个后续分支验收后才能启动下一个；两种policy分别聚合验收，124例齐备后才各执行一次冻结研究训练。
+完成两种实验或确认任务失败后停用本跟进，防止重复提交、下载、训练和通知。
+本次只是设置跟进并完成首分支回收，没有开始真实训练，也没有自动部署模型。
+
+独立只读复核实际回收文件：dataset binding 已实读为 `dset3 / Solution → sol2`，
+不是旧离线替身。20例 MAT 的 SHA、参数、频率、Inner/Outer 均一致；dom 与声压逐列对齐，
+域编号均为正整数。共1,522,166个场记录，其中325,082个有限复压力值，无Inf；
+每例有限点14,675–18,641，缺失/无效值保留mask，不作为零压力样本。
+精确点最大复差 `1.1999816708318134e-10 Pa`，case=`x096_N14_N25`，
+相对差 `8.596076814527845e-16`。这是已保存解的导出一致性，不是算子预测误差。
+
+定义上下文读得37条全局参数、5种材料、4个物理接口、2个耦合和2个全局函数。
+当前载入态 acpr/solid/es active，cir inactive；不能外推为所有历史outer的启用状态。
+水材料已包含8个材料函数节点，不能再称完全未导出；但rho/eta分段矩阵及cs的完整温度—声速
+配对表尚不能由扁平字符串确认齐全，仍需结构化读取核实。20例 coefficient_fields 均为空，
+域语义、逐历史解物理绑定、原始FE拓扑与第一模态仍未认证；不据此提升物理资格。
+上述原始证据仍在同一回收目录：`resolved_index.json` SHA256
+`f74ed6856a0a6105c7417bc5eac7a982260318bbf9bb2906094e8f9be4a673d5`，
+`model_definition_context.mat` SHA256
+`4df121cc87d05d531cae281f1affd096994dea26765e91cf9358e76b98bd1da1`。
+
+## 254. N2=6 串行只读导出提交（2026-10-17）
+
+在§253的真实N2=5批次QC通过后，按用户授权继续N2=6，不重跑N2=5。
+14:40:31客户端北京时间预检可用内存135901175808 B、输出盘空闲5338312847360 B，
+源可读且无锁，本账号没有其他COMSOL/MATLAB实例；源SHA留给导出器实算，并未由预检伪造。
+实际提交前再次读得129437577216 B，高于120 GiB门槛128849018880 B。
+核对启动器、导出器和N2=6清单SHA，确认该分支无旧run、输出或启动日志后仅提交一次。
+
+真实run=`n6.u6sx4I`，output=`out_n2_6`，请求25例，launcher PID=944463仅作历史身份线索。
+14:43客户端只读观测 status=exporting、report=running、completed=0、exit_code尚无；
+PMUTF1进度为 `hash_start source_bytes=152344054681 cases=25`。
+此时源SHA与source_unchanged尚未最终验证，不能将运行中初始false误述为改动源文件。
+远端提交时间原样留在receipt，不用作客户端时间或跨机耗时；没有新求解或修改生产模型。
+
+| 本地证据（v2运行根下） | SHA256 |
+|---|---|
+| `preflight-before-n2-6.json` | `77aa785c2b250d74776207c3ef85b903a3c59dcb0469873c5deeac235b6a7dd8` |
+| `submission-n2-6.json` | `9773c3204e9fb1e0fbfe63f758441d4af1b33e5388195b459db5b5b286b2543c` |
+| `manifests/manifest_n2_6.json` | `f9c606083ec19fb13fbc82b909dd64abfb695b1a7e353aab8b771ac641e0fc6d` |
+
+heartbeat `pmut` 已更新为接管上述现有run并实际读回ACTIVE/每10分钟/本对话，禁止重复启动N2=6。
+N2=6完整回收验收后才到N2=7；资源不足等待，失败/超时停止且不自动重跑，N2=9不启动。
+已验收仍为20/124；本次提交不增加验收计数。真实训练未开始，training_ready=false、release_allowed=false。
